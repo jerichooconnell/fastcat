@@ -1,0 +1,30 @@
+{
+  "@context": "https://raw.githubusercontent.com/mbjones/codemeta/master/codemeta.jsonld",
+  "@type": "Code",
+  "author": [
+    {
+      "@id": "http://orcid.org/0000-0002-7481-5961",
+      "@type": "Person",
+      "email": "guillehg@usal.es",
+      "name": "Guillermo Hernández",
+      "affiliation": "Universidad de Salamanca"
+    },
+    {
+      "@id": "http://orcid.org/0000-0002-3732-3415",
+      "@type": "Person",
+      "email": "fdz@usal.es",
+      "name": "Francisco Fernández",
+      "affiliation": "Universidad de Salamanca"
+    },
+  ],
+  "identifier": "",
+  "codeRepository": "https://github.com/Dih5/xpecgen",
+  "datePublished": "2016-11-02",
+  "dateModified": "2016-11-02",
+  "dateCreated": "2016-09-13",
+  "description": "A python package with a GUI to calculate X-ray sPECtra GENerated in tungsten anodes.",
+  "keywords": "x-ray spectra, tungsten anode, computer modeling",
+  "license": "GPL v3.0",
+  "title": "xpecgen",
+  "version": "v1.0.2"
+}
