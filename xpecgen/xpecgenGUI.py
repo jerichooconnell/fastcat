@@ -80,8 +80,6 @@ class CreateToolTip(object):
         self.waittime = 500  # miliseconds
         self.wraplength = 180  # pixels
         self.widget = widget
-        #self.widget.option_add( "*font", "lucida" )
-        # self.widget.option_add( "*font", "lucida" )
         self.text = text
         self.color = color
         self.widget.bind("<Enter>", self.enter)
@@ -1106,7 +1104,6 @@ class XpecgenGUI(Notebook):
         else:
             # FIXME: Update if independent window is opened
             print('not going')
-            # self.spectra[self.active_spec].show_plot(block=False)
         self.update_param()
 
     def update_plot_proj(self):
@@ -1120,7 +1117,6 @@ class XpecgenGUI(Notebook):
             if len(self.proj.shape) > 2:
                 self.tracker3 = xg.IndexTracker(
                     self.subfig5, self.proj.T)
-                # self.subfigGeo.imshow(self.phantom)
                 self.fig4.canvas.mpl_connect(
                     'scroll_event', self.tracker3.onscroll)
                 self.tracker4 = xg.IndexTracker(
@@ -1131,14 +1127,11 @@ class XpecgenGUI(Notebook):
                 self.canvas4.draw()
                 self.canvasToolbar4.update()
             else:
-                # print(self.proj,'is this')
                 self.subfig5.imshow(self.proj.T)
                 self.subfig6.imshow(np.transpose(self.proj))
                 self.fig4.tight_layout()
                 self.canvas4.draw()
                 self.canvasToolbar4.update()                
-            # print(self.kernel.kernel[0,:])
-            # self.figKern.tight_layout()
 
     def update_plot_recon(self):
         """
@@ -1147,10 +1140,8 @@ class XpecgenGUI(Notebook):
 
         """
         if self.matplotlib_embedded:
-            # self.subfigGeo.clear()
-            print('FDK go')
+            print('Starting FDK reconstruction ...')
             self.tracker5 = xg.IndexTracker(self.subfig7, self.img.T)
-            # self.subfigGeo.imshow(self.phantom)
             self.fig5.canvas.mpl_connect(
                 'scroll_event', self.tracker5.onscroll)
             self.tracker6 = xg.IndexTracker(self.subfig8, self.img)
@@ -1158,8 +1149,6 @@ class XpecgenGUI(Notebook):
                 'scroll_event', self.tracker6.onscroll)
             self.canvas5.draw()
             self.canvasToolbar5.update()
-            # print(self.kernel.kernel[0,:])
-            # self.figKern.tight_layout()
 
     def update_plot_geo(self):
         """
@@ -1168,7 +1157,6 @@ class XpecgenGUI(Notebook):
 
         """
         if self.matplotlib_embedded:
-            # self.subfigGeo.clear()
             self.tracker = xg.IndexTracker(self.subfig3, self.phantom.phantom.T)
             self.fig3.canvas.mpl_connect('scroll_event', self.tracker.onscroll)
             self.tracker2 = xg.IndexTracker(
@@ -1177,13 +1165,11 @@ class XpecgenGUI(Notebook):
                 'scroll_event', self.tracker2.onscroll)
             self.canvas3.draw()
             self.canvasToolbar3.update()
-            # print(self.kernel.kernel[0,:])
-            # self.figKern.tight_layout()
+
         else:
             # FIXME: Update if independent window is opened
-            print('not going')
-            # self.spectra[self.active_spec].show_plot(block=False)
-        # self.update_param()
+            print('Failed to update plot.')
+
 
     def update_param(self):
         """
@@ -1356,7 +1342,6 @@ class XpecgenGUI(Notebook):
 
                 s.x = np.array(energies)*1000  # to keV
                 s.y = np.array(fluence)
-                # s.discrete = array([[58.65, 2.0688302651488506, 1], [67.244, 0.46090722709142645, 1], [69.067, 0.15722355066994853, 1]])
 
                 if max(s.x) > 500:
                     self.kV.set(False)
@@ -1518,7 +1503,8 @@ class XpecgenGUI(Notebook):
                 # print(self.angles)
                 energy_deposition_file = os.path.join(
                     xg.data_path, "Detectors", self.det.get(), 'EnergyDeposition.npy')
-                self.phan_map = ['air','water','adipose','lung','brain','muscle','pmma','bone']
+                self.phan_map = ['air','water','Spongiosa_Bone_ICRP','G4_BONE_COMPACT_ICRU',
+             'G4_BONE_CORTICAL_ICRP','C4_Vertebra_ICRP','D6_Vertebra_ICRP','G4_B-100_BONE']
                 # self.phan_map = ['air','water','adipose','adipose','adipose','adipose','adipose','adipose']
                
 
@@ -1533,9 +1519,6 @@ class XpecgenGUI(Notebook):
                             phantom_mapping = self.phan_map,
                             scaling = self.noise,
                             dose =  self.current.get())# I think it should be inverse
-                # self.proj = tigre.Ax(np.squeeze(np.float32(
-                #     self.phantom)), self.geomet, self.angles)
-                # self.doseperproj.set(doseperproj)
                 print(np.array(self.proj).shape)
                 self.queue_calculation.put(True)
 
@@ -1567,9 +1550,7 @@ class XpecgenGUI(Notebook):
 
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
-                # tigre.geometry(mode='cone', nVoxel=np.array([128,128,128]),default=True)
                 self.phantom = xg.Catphan_515(os.path.join(xg.data_path,f'phantoms/{self.geo.get()}.npy'))
-
                 self.queue_calculation.put(True)
 
             except Exception as e:
@@ -1632,9 +1613,7 @@ class XpecgenGUI(Notebook):
             else:
                 pass
         else:
-            # self.update_plot_recon()
-            # self.select(5)
-            self.after(1000, self.wait_for_recon)
+            self.after(250, self.wait_for_recon)
 
     def wait_for_proj(self):
         """

@@ -44,33 +44,35 @@ data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 def return_projs(phantom,kernel,energies,fluence,angles,geo,
                 deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
                 phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],scaling = None,dose = None):
+    '''
+    The main function for returning the projections
+    '''
 
     # Don't want to look for zeros
     useful_phantom = phantom != 0
 
+    # These are what I used in the Monte Carlo
     original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
 
-    deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
-    # deposition_summed = np.append(deposition_summed[0],50000.5)
+    mu_en_water = np.array([0.1557, 0.06947,0.04223,0.03190,0.03800,0.02597,0.02554, 0.02546,0.03192,0.03299,0.03244,0.03150,0.03103,0.02608,0.02066,0.01806])
 
+    # Loading the file from the monte carlo
+    deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
+
+    # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
     deposition_summed = deposition_summed[0]/(original_energies_keV*355)
 
-    # deposition_summed = np.append(deposition_summed[0],50000.5)
-
+    # The index of the different materials
     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
     mapping_functions = []
 
-    # Get the mapping functions for the different tissues
+    # Get the mapping functions for the different tissues to reconstruct the phantom by energy
     for ii in range(1,len(phantom_mapping)):
         
         mapping_functions.append(get_mu(phantom_mapping[ii]))
         masks[ii-1] = phantom == ii
 
-    # angles = np.linspace(0, 0, 1, dtype=np.float32)
-
-    energy = 100
-
-    phantom2 = phantom.copy().astype(np.float32)
+    phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
 
     proj = []
     doses = []
@@ -81,17 +83,16 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
 
         proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
-        # Calculate a dose contribution divide by 10 since tigre has projections that are a little odd
+        # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
         doses.append((energy)*(1-np.exp(-(proj[-1][0])/10)))
 
-    sum_proj = np.sum(np.sum(proj,2),2)[:,0]
-
     # Binning to get the fluence per energy
-    large_energies = np.linspace(0,6000,6001)/1000
+    large_energies = np.linspace(0,6000,3001)/1000
     fluence_large = np.interp(large_energies,np.array(energies), fluence)
 
     fluence_small = np.zeros(len(original_energies_keV))
 
+    # Still binning
     for ii, val in enumerate(large_energies):
         
         index = np.argmin(np.abs(original_energies_keV-val*1000))
@@ -99,35 +100,36 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
         
     # Normalize
     fluence_small /= np.sum(fluence_small)
+    # Save the scale for later
     deposition_scale = np.sum(deposition_summed) # Thought about using trapz but don't think I need to
 
-    deposition_summed /= deposition_scale
     weights_small = fluence_small*deposition_summed
 
-    # weights_small /= np.sum(weights_small)
+    fluence_original = np.interp(original_energies_keV,energies,fluence)
+    fluence_original /= np.sum(fluence_original)
+
+    # Scale by the amount of photons hitting the detector
+    deposition_scale = np.trapz(fluence_original*deposition_summed,original_energies_keV)
 
     # Sum over the image dimesions to get the energy intensity and multiply by fluence
-    dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@fluence_small
+    dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@(fluence_small*mu_en_water)
 
     # Mass of the phantom there is a times 4 since the detector is 1/4 the size 1000 for mg
     dose_in_mgrays = dose_divided_by_initial_intensity*1.6021766e-13/2.0106*4*1000 # J/MeV 1/kG mGy/Gy
 
     if dose != 0:
+        # Figure out the factor for the SNR
         scaling = (dose)/dose_in_mgrays
         print('Scaled by ', scaling)
 
-    print(deposition_scale, 'Sum of the deposition')
-
+    # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
 
     # load the arrays
     primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
     noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
-    # proj_water = np.load('/home/xcite/xpecgen/tests/projections_water.npy')
-    # Resize the primary monte carlo
     primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
-    primary_512_64 = np.tile(primary_512,[1,1,2,1])
-    primary = primary_512_64
+    primary = np.tile(primary_512,[1,1,2,1])
 
     # sum the noise kernel with the weights
     noise_summed = noise.T @ weights_small
@@ -161,11 +163,10 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     raw_proj_noise = np.exp(-mean_analytical/scale_noise.x[0])*scale_noise.x[1]
     scatter = raw_proj_noise - raw_proj
 
-    # proj_w_scatter = -np.log(raw_proj/scale_noise.x[1])*scale.x[0]
-
     # Reshape the projections
     weighted_projs = np.array(proj).transpose([3,2,1,0])
-    # Downsize the kernel
+
+    # Downsize the kernel if it is CWO, bit of a quirk
     if kernel.kernel.shape[0] == 50:
         small_kernel = (kernel.kernel[::2,::2] 
                         + kernel.kernel[1::2,::2] 
@@ -195,139 +196,6 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
         filtered[:,:,ii] = fftconvolve(raw_weighted[:,:,ii],kernel_norm, mode = 'same')
 
     return (-np.log(filtered/scale_noise.x[1])*scale_noise.x[0]).transpose([2,0,1]), dose_in_mgrays
-
-# def custom_attenuation(materials,weights):
-
-#     for material in materials:
-
-#         attenuation = xg.get_mu()
-
-
-
-# def analyse_515(recon_slice):
-
-#     def create_mask():
-
-#         im = np.zeros([256,256])
-#         ii = 1
-
-#         # CTMAT(x) formel=H2O dichte=x
-#         LEN = 100
-
-#         A0  = 87.7082*np.pi/180
-#         A1 = 108.3346*np.pi/180
-#         A2 = 126.6693*np.pi/180
-#         A3 = 142.7121*np.pi/180
-#         A4 = 156.4631*np.pi/180
-#         A5 = 167.9223*np.pi/180
-#         A6 = 177.0896*np.pi/180
-#         A7 = 183.9651*np.pi/180
-#         A8 = 188.5487*np.pi/180
-
-#         B0 = 110.6265*np.pi/180
-#         B1 = 142.7121*np.pi/180
-#         B2 = 165.6304*np.pi/180
-#         B3 = 179.3814*np.pi/180
-
-#         # Phantom 
-#         # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-#         create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
-
-#         ii += 1
-
-#         # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-#         create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A1),  y= 5*sin(A1),  r=0.45, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A2),  y= 5*sin(A2),  r=0.40, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A3),  y= 5*sin(A3),  r=0.35, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A4),  y= 5*sin(A4),  r=0.30, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A5),  y= 5*sin(A5),  r=0.25, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A6),  y= 5*sin(A6),  r=0.20, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A7),  y= 5*sin(A7),  r=0.15, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A8),  y= 5*sin(A8),  r=0.10, index = ii, image = im); ii += 1
-
-#         return im
-
-#     def create_mask_multi():
-
-#         im = np.zeros([256,256])
-#         ii = 1
-
-#         # CTMAT(x) formel=H2O dichte=x
-#         LEN = 100
-
-#         A0  = 87.7082*np.pi/180
-#         A1 = 108.3346*np.pi/180
-#         A2 = 126.6693*np.pi/180
-#         A3 = 142.7121*np.pi/180
-#         A4 = 156.4631*np.pi/180
-#         A5 = 167.9223*np.pi/180
-#         A6 = 177.0896*np.pi/180
-#         A7 = 183.9651*np.pi/180
-#         A8 = 188.5487*np.pi/180
-
-#         B0 = 110.6265*np.pi/180
-#         B1 = 142.7121*np.pi/180
-#         B2 = 165.6304*np.pi/180
-#         B3 = 179.3814*np.pi/180
-
-#         # Phantom 
-#         # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-#         create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
-
-#         ii += 1
-
-#         # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-#         create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=0.45, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=0.45  , index = ii, image = im); ii += 1
-#         create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=0.45  , index = ii, image = im); ii += 1
-
-#         create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=0.75, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75, index = ii, image = im); ii += 1
-#         create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=0.75, index = ii, image = im); ii += 1
-        
-#         return im
-
-#     def create_circular_mask(x, y, r, index, image):
-    
-#         h,w = image.shape
-        
-#         center = [x*int(w/2)/10 + int(w/2),y*int(h/2)/10 + int(h/2)]
-
-#         if center is None: # use the middle of the image
-#             center = (int(w/2), int(h/2))
-#         if r is None: # use the smallest distance between the center and image walls
-#             radius = min(center[0], center[1], w-center[0], h-center[1])
-
-#         Y, X = np.ogrid[:h, :w]
-#         dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
-
-#         mask = dist_from_center <= r*int(w/2)/10
-        
-        
-#         image[mask] = index
-
-#     im = create_mask_multi()
-
-#     contrast = []
-#     noise = []
-#     cnr = []
-
-#     ii = 1
-
-#     ref_mean = np.mean(recon_slice[im == ii])
-#     ref_std = np.std(recon_slice[im == ii])
-
-#     for ii in range(2,8):
-        
-#         contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
-#         noise.append(np.std(recon_slice[im == ii]))
-        
-#         cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2 + ref_std**2)))
-        
-#     rs = np.linspace(0.1,0.45,8)
-
-#     return rs, contrast
 
 def log_interp_1d(xx, yy, kind='linear'):
     """
@@ -824,8 +692,6 @@ class Catphan_515:
         ref_mean = np.mean(recon_slice[im == ii])
         ref_std = np.std(recon_slice[im == ii])
 
-        print(ref_mean,ref_std)
-
         for ii in range(2,int(np.max(im)+1)):
             
             contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
@@ -842,59 +708,7 @@ class Catphan_515:
         else:
             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
         
-    def return_projs(self,kernels,angles,deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy'):
 
-        #phantom_mapping = ['air','water','bone','brain','bone']
-        # phantom_mapping = ['air','water','pmma','pmma','pmma','pmma','pmma','pmma']
-        phantom_mapping = ['air','water','water','water','water','water','water','water']
-
-        # Don't want to look for zeros
-        useful_phantom = self.phantom != 0
-
-        original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-
-        deposition_summed = np.array([    0.        ,  2395.25927928,  3434.7986552 ,  4416.62822646,
-            5373.00952021,  6067.40938147,  6955.18365258,  7901.50699458,
-            8860.76810654, 20457.403665  , 22916.6726841 , 26069.46417263,
-        29726.25290966, 31589.13314065, 49335.93687135])
-
-        masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
-        mapping_functions = []
-
-        # Get the mapping functions for the different tissues
-        for ii in range(1,len(phantom_mapping)):
-            
-            mapping_functions.append(get_mu(phantom_mapping[ii]))
-            masks[ii-1] = self.phantom == ii
-
-        phantom2 = self.phantom.copy().astype(np.float32)
-
-        proj = []
-
-        for energy in original_energies_keV[1:]:
-            for ii in range(0,len(phantom_mapping)-1):
-
-                phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-
-            proj.append(np.squeeze(tigre.Ax(phantom2,self.geomet,angles)))
-
-        proj_filt = proj.copy()
-
-        out = []
-
-        for kk in range(len(angles)):
-            for ii in range(len(original_energies_keV)-1):
-
-                proj_filt[ii] = fftconvolve(proj[ii][kk],kernels[ii+1], mode = 'same')
-
-            fluence_small = np.interp(original_energies_keV[1:],np.array(energies)*1000, fluence)
-
-            weights_small = fluence_small*deposition_summed
-
-            out.append(np.array(proj_filt).T@weights_small)
-
-        # import pdb;pdb.set_trace()
-        return np.array(out)
 class Spectrum:
     """
     Set of 2D points and discrete components representing a spectrum.
