@@ -252,7 +252,7 @@ class XpecgenGUI(Notebook):
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
-        self.geo.set("catphan_low_contrast_256")
+        self.geo.set("catphan_low_contrast_512")
 
         self.EMin = DoubleVar()
         self.EMin.set(3.0)
@@ -425,6 +425,7 @@ class XpecgenGUI(Notebook):
         target_list_load = list(map(lambda x: (os.path.split(x)[1]).split(
             ".txt")[0], glob(os.path.join(xg.data_path, "MV_spectra", "*.txt"))))
         # list(map(_add_element_name, available_list))
+        print(target_list_load)
         self.cmbload["values"] = target_list_load
 
         Grid.columnconfigure(self.frmPhysPar, 0, weight=0)
@@ -1763,7 +1764,7 @@ class XpecgenGUI(Notebook):
             return
         s2 = self.spectra[-1].clone()
         if crit == self.criteriaList2[0]:
-            self.noise = xg.update_fluence(self.load,value)
+            self.noise = xg.update_fluence(self.load.get(),value)
         elif crit == self.criteriaList2[1]:
             pass
             # self.noise = self.doseperproj.get()/value

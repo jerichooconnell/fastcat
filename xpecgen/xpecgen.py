@@ -51,7 +51,6 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
 
     deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
-    # TODO: solve the file issue
     # deposition_summed = np.append(deposition_summed[0],50000.5)
 
     deposition_summed = deposition_summed[0]/(original_energies_keV*355)
@@ -167,10 +166,14 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Reshape the projections
     weighted_projs = np.array(proj).transpose([3,2,1,0])
     # Downsize the kernel
-    small_kernel = (kernel.kernel[::2,::2] 
-                    + kernel.kernel[1::2,::2] 
-                    + kernel.kernel[::2,1::2] 
-                    + kernel.kernel[1::2,1::2])/4
+    if kernel.kernel.shape[0] == 50:
+        small_kernel = (kernel.kernel[::2,::2] 
+                        + kernel.kernel[1::2,::2] 
+                        + kernel.kernel[::2,1::2] 
+                        + kernel.kernel[1::2,1::2])/4
+    else:
+        small_kernel = kernel.kernel
+    
     # Normalize the kernel
     kernel_norm = small_kernel/np.sum(small_kernel)
     # log(i/i_0) to get back to intensity
@@ -193,11 +196,11 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     return (-np.log(filtered/scale_noise.x[1])*scale_noise.x[0]).transpose([2,0,1]), dose_in_mgrays
 
-def custom_attenuation(materials,weights):
+# def custom_attenuation(materials,weights):
 
-    for material in materials:
+#     for material in materials:
 
-        attenuation = xg.get_mu()
+#         attenuation = xg.get_mu()
 
 
 
@@ -579,9 +582,9 @@ class Catphan_515:
 
             return im
 
-        def create_mask_multi():
+        def create_mask_multi(shape):
 
-            im = np.zeros([256,256])
+            im = np.zeros(shape)
             ii = 1
 
             # CTMAT(x) formel=H2O dichte=x
@@ -639,7 +642,7 @@ class Catphan_515:
             
             image[mask] = index
 
-        im = create_mask_multi()
+        im = create_mask_multi(recon_slice.shape)
 
         contrast = []
         noise = []
@@ -663,9 +666,9 @@ class Catphan_515:
 
     def analyse_515(self,recon_slice):
 
-        def create_mask():
+        def create_mask(shape):
 
-            im = np.zeros([256,256])
+            im = np.zeros(shape)
             ii = 1
 
             # CTMAT(x) formel=H2O dichte=x
@@ -686,7 +689,7 @@ class Catphan_515:
             B2 = 165.6304*np.pi/180
             B3 = 179.3814*np.pi/180
 
-            tad = 0.05
+            tad = 0.03
 
             # Phantom 
             # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
@@ -751,9 +754,9 @@ class Catphan_515:
 
             return im
 
-        def create_mask_multi():
+        def create_mask_multi(shape):
 
-            im = np.zeros([256,256])
+            im = np.zeros(shape)
             ii = 1
 
             # CTMAT(x) formel=H2O dichte=x
@@ -810,7 +813,7 @@ class Catphan_515:
             
             image[mask] = index
 
-        im = create_mask()
+        im = create_mask(recon_slice.shape)
 
         contrast = []
         noise = []
@@ -823,7 +826,7 @@ class Catphan_515:
 
         print(ref_mean,ref_std)
 
-        for ii in range(2,int(np.max(im))):
+        for ii in range(2,int(np.max(im)+1)):
             
             contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
             noise.append(np.std(recon_slice[im == ii]))
@@ -832,7 +835,7 @@ class Catphan_515:
             
         rs = np.linspace(0.1,0.45,8)
 
-        return_im = True
+        return_im = False
 
         if return_im:
             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr, im
@@ -1395,9 +1398,9 @@ def update_fluence(mv_file,value):
 
     ])*15000000/6.242E9*value #
 
-    print(31/50000000 * fluences_per_ma[target_list_load.index(mv_file.get())])
+    print(31/50000000 * fluences_per_ma[target_list_load.index(mv_file)])
 
-    return 31/50000000 * fluences_per_ma[target_list_load.index(mv_file.get())]
+    return 31/50000000 * fluences_per_ma[target_list_load.index(mv_file)]
 
 def get_source_function(fluence, cs, mu, theta, e_g, phi=0.0):
     """
