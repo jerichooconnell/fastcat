@@ -1,0 +1,32 @@
+[I 23:39:20.516 NotebookApp] The port 8888 is already in use, trying another port.
+[I 23:39:20.516 NotebookApp] The port 8889 is already in use, trying another port.
+[I 23:39:20.528 NotebookApp] [jupyter_nbextensions_configurator] enabled 0.4.1
+[I 23:39:21.010 NotebookApp] JupyterLab extension loaded from /home/xcite/anaconda3/lib/python3.7/site-packages/jupyterlab
+[I 23:39:21.010 NotebookApp] JupyterLab application directory is /home/xcite/anaconda3/share/jupyter/lab
+[I 23:39:21.475 NotebookApp] Serving notebooks from local directory: /home/xcite/fastCAT/tests
+[I 23:39:21.475 NotebookApp] The Jupyter Notebook is running at:
+[I 23:39:21.475 NotebookApp] http://localhost:8890/?token=8ce32a23a6766f86dc40464afc29abd4d3f6166195410c34
+[I 23:39:21.475 NotebookApp]  or http://127.0.0.1:8890/?token=8ce32a23a6766f86dc40464afc29abd4d3f6166195410c34
+[I 23:39:21.475 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 23:39:21.502 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///home/xcite/.local/share/jupyter/runtime/nbserver-35490-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8890/?token=8ce32a23a6766f86dc40464afc29abd4d3f6166195410c34
+     or http://127.0.0.1:8890/?token=8ce32a23a6766f86dc40464afc29abd4d3f6166195410c34
+[I 23:39:30.046 NotebookApp] Kernel started: 433091bb-be57-461f-9d39-bc2f6326c6e5
+[I 23:41:30.084 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 23:43:30.044 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 23:45:22.883 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 23:47:30.055 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 23:49:30.054 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 00:11:12.257 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 00:13:30.059 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 00:15:30.049 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 00:15:56.431 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 00:17:30.076 NotebookApp] Saving file at /Make Catphan.ipynb
+[I 00:35:38.677 NotebookApp] Starting buffering for 433091bb-be57-461f-9d39-bc2f6326c6e5:40646ebac17a4b0b8adcd748aa81c841
+[C 00:35:39.214 NotebookApp] received signal 15, stopping
+[I 00:35:39.223 NotebookApp] Shutting down 1 kernel
+[I 00:35:39.224 NotebookApp] Kernel shutdown: 433091bb-be57-461f-9d39-bc2f6326c6e5

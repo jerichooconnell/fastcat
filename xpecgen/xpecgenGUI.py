@@ -1503,8 +1503,9 @@ class XpecgenGUI(Notebook):
                 # print(self.angles)
                 energy_deposition_file = os.path.join(
                     xg.data_path, "Detectors", self.det.get(), 'EnergyDeposition.npy')
-                self.phan_map = ['air','water','Spongiosa_Bone_ICRP','G4_BONE_COMPACT_ICRU',
-             'G4_BONE_CORTICAL_ICRP','C4_Vertebra_ICRP','D6_Vertebra_ICRP','G4_B-100_BONE']
+                self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"]
+            #     ['air','water','Spongiosa_Bone_ICRP','G4_BONE_COMPACT_ICRU',
+            #  'G4_BONE_CORTICAL_ICRP','C4_Vertebra_ICRP','D6_Vertebra_ICRP','G4_B-100_BONE']
                 # self.phan_map = ['air','water','adipose','adipose','adipose','adipose','adipose','adipose']
                
 
