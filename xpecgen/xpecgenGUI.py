@@ -250,7 +250,7 @@ class XpecgenGUI(Notebook):
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
-        self.geo.set("catphan_low_contrast_512")
+        self.geo.set("catphan_low_contrast_512_8cm")
 
         self.EMin = DoubleVar()
         self.EMin.set(3.0)
@@ -263,6 +263,9 @@ class XpecgenGUI(Notebook):
 
         self.algorithm = StringVar()
         self.algorithm.set('Filter Back Projection')
+
+        self.filt = StringVar()
+        self.filt.set('hamming')
 
         self.filetype = StringVar()
         self.filetype.set('*.npy')
@@ -865,7 +868,7 @@ class XpecgenGUI(Notebook):
         # -Operations frame
         self.frmRecon = LabelFrame(
             self.frmSino, text="Reconstruction operations")
-        self.frmRecon.grid(row=0, column=0, rowspan=4,
+        self.frmRecon.grid(row=0, column=0, rowspan=6,
                         columnspan=5, sticky=N + S + E + W)
         # self.cmdAtten2.grid(row=2, column=0, columnspan=3, sticky=E + W)
         # --Attenuation
@@ -877,9 +880,16 @@ class XpecgenGUI(Notebook):
         self.lblReconPar.grid(sticky=E + W)
         self.cmbReconType = Combobox(
             self.frmRecon, textvariable=self.algorithm)
+        self.cmbReconType.grid(sticky=E + W)
+        self.lblReconPar2 = Label(
+            self.frmRecon, text="Filter")
+        self.lblReconPar2.grid(sticky=E + W)
+        self.cmbReconType2 = Combobox(
+            self.frmRecon, textvariable=self.filt)
         #self.cmbReconType["values"] = list(map(_add_element_name, mu_list))
         # row=5, column=0,rowspan=4, sticky=E + W)
-        self.cmbReconType.grid(sticky=E + W)
+        self.cmbReconType2.grid(sticky=E + W)
+
         # self.get_proj = ParBox(
         #     self.get_proj, self.AttenThick2, lblText="Thickness", unitsTxt="cm", row=1)
         # self.frmRecon = LabelFrame(self.frmRecon, text="Spectral parameters")
@@ -1456,7 +1466,7 @@ class XpecgenGUI(Notebook):
                 print('FDK')
 
                 self.img = tigre.algorithms.FDK(
-                    np.transpose(self.proj,[0,2,1]), self.phantom.geomet, self.angles)
+                    np.transpose(self.proj,[0,2,1]), self.phantom.geomet, self.angles,filter=self.filt.get())
 
                 self.queue_calculation.put(True)
 

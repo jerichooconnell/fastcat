@@ -86,6 +86,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
         doses.append((energy)*(1-np.exp(-(proj[-1][0])/10)))
 
+
     # Binning to get the fluence per energy
     large_energies = np.linspace(0,6000,3001)/1000
     fluence_large = np.interp(large_energies,np.array(energies), fluence)
@@ -111,11 +112,14 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Scale by the amount of photons hitting the detector
     deposition_scale = np.trapz(fluence_original*deposition_summed,original_energies_keV)
 
+    return np.sum(np.sum(doses,1),1), fluence
     # Sum over the image dimesions to get the energy intensity and multiply by fluence
     dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@(fluence_small*mu_en_water)
 
     # Mass of the phantom there is a times 4 since the detector is 1/4 the size 1000 for mg
     dose_in_mgrays = dose_divided_by_initial_intensity*1.6021766e-13/2.0106*4*1000 # J/MeV 1/kG mGy/Gy
+
+    # print('Dose in mGy is ',dose_in_mgrays)
 
     if dose != 0:
         # Figure out the factor for the SNR
