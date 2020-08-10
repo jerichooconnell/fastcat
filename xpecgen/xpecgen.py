@@ -77,7 +77,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     proj = []
     doses = []
 
-    for energy in original_energies_keV:
+    for energy in energies:
         for ii in range(0,len(phantom_mapping)-1):
 
             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
