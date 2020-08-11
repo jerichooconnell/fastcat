@@ -74,17 +74,25 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
 
+    mu_en_water = np.array([0.1557  , 0.06947 , 0.04223 , 0.0319  , 0.027678, 0.02597 ,
+       0.025434, 0.02546 , 0.03192 , 0.03299 , 0.032501, 0.031562,
+       0.03103 , 0.02608 , 0.02066 , 0.01806 ])
+
+    mu_water = np.array([0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
+       0.176564, 0.1707  , 0.1186  , 0.09687 , 0.083614, 0.074411,
+       0.07072 , 0.04942 , 0.03403 , 0.0277  ])
+        
     proj = []
     doses = []
 
-    for energy in energies:
+    for jj, energy in enumerate(original_energies_keV):
         for ii in range(0,len(phantom_mapping)-1):
 
             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
 
         proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-        doses.append((energy)*(1-np.exp(-(proj[-1][0])/10)))
+        doses.append((energy)*(1-np.exp(-(proj[-1][0]*mu_en_water[jj]/mu_water[jj]*.997)/10)))
 
 
     # Binning to get the fluence per energy
@@ -112,7 +120,8 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Scale by the amount of photons hitting the detector
     deposition_scale = np.trapz(fluence_original*deposition_summed,original_energies_keV)
 
-    return np.sum(np.sum(doses,1),1), fluence
+    # This is the line to uncomment to run the working code for dose_comparison.ipynb
+    # return np.sum(np.sum(doses,1),1), fluence
     # Sum over the image dimesions to get the energy intensity and multiply by fluence
     dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@(fluence_small*mu_en_water)
 
