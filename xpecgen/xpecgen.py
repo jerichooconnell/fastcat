@@ -54,8 +54,6 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # These are what I used in the Monte Carlo
     original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
 
-    mu_en_water = np.array([0.1557, 0.06947,0.04223,0.03190,0.03800,0.02597,0.02554, 0.02546,0.03192,0.03299,0.03244,0.03150,0.03103,0.02608,0.02066,0.01806])
-
     # Loading the file from the monte carlo
     deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
 
@@ -139,6 +137,8 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     weights_small /= np.sum(weights_small)
 
     # load the arrays
+    #primary, noise = get_noise(phantom.shape[2])
+
     primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
     noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
     primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
@@ -157,9 +157,20 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # analytical_summed = np.mean(analytical_summed,0) # ??
 
     # Average the primary in 1d
+    # if phantom.shape[2] == 512:
     raw_prime = np.mean(primary_projections,0)
-    mean_analytical = np.mean(analytical_summed[:,:,0],1)
     raw_noise = np.mean(raw_noise,0)
+    # else:
+    #     raw_prime_512 = np.mean(primary_projections,0)
+    #     raw_noise_512 = np.mean(raw_noise,0)
+
+    #     xp = np.linspace(0,512,512,endpoint=False)
+    #     x = np.linspace(0,512,1024,endpoint=False)
+
+    #     raw_noise = np.interp(x,xp,raw_noise_512)
+    #     raw_prime = np.interp(x,xp,raw_prime_512)
+        
+    mean_analytical = np.mean(analytical_summed[:,:,0],1)
 
     def get_rmse(x):
         return np.sum(np.abs(np.exp(-mean_analytical/x[0])*x[1] - raw_prime))
@@ -289,6 +300,26 @@ def triangle(x, loc=0, size=0.5, area=1):
     # return 0 if t>1 else (1-t)*abs(area/size)
     return 0 if abs((x - loc) / size) > 1 else (1 - abs((x - loc) / size)) * abs(area / size)
 
+def get_noise(length):
+
+    if length == 512:
+
+        primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
+        noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
+        primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
+        primary = np.tile(primary_512,[1,1,2,1])
+
+        return primary, noise
+    elif length == 1024:
+        primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
+        noise_512 = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
+        primary_256 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
+        primary_512 = np.tile(primary_256,[1,1,2,1])
+
+        x = np.linspace(0,512,512,endpoint=False)
+        xp = np.linspace(0,512,1024,endpoint=False)
+
+        return np.interp(x,xp,primary_512),np.interp(x,xp,noise_512)
 
 # --------------------Spectrum model functionality----------------------#
 class IndexTracker(object):
@@ -406,6 +437,322 @@ class Kernel:
         place.set_ylabel('MTF')
 
 class Catphan_515:
+
+    def __init__(self,file_path):
+        self.phantom = np.load(file_path)
+        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet.nDetector = np.array([64,512])
+        self.geomet.dDetector = np.array([0.672, 0.672])
+
+        # I think I can get away with this
+        self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
+
+        self.geomet.sVoxel = np.array((160, 160, 160)) 
+        self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel 
+
+    def analyse(self,recon_slice):
+
+        def create_mask():
+
+            im = np.zeros([256,256])
+            ii = 1
+
+            # CTMAT(x) formel=H2O dichte=x
+            LEN = 100
+
+            A0  = 87.7082*np.pi/180
+            A1 = 108.3346*np.pi/180
+            A2 = 126.6693*np.pi/180
+            A3 = 142.7121*np.pi/180
+            A4 = 156.4631*np.pi/180
+            A5 = 167.9223*np.pi/180
+            A6 = 177.0896*np.pi/180
+            A7 = 183.9651*np.pi/180
+            A8 = 188.5487*np.pi/180
+
+            B0 = 110.6265*np.pi/180
+            B1 = 142.7121*np.pi/180
+            B2 = 165.6304*np.pi/180
+            B3 = 179.3814*np.pi/180
+
+            # Phantom 
+            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
+            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
+
+            ii += 1
+
+            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A1),  y= 5*sin(A1),  r=0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A2),  y= 5*sin(A2),  r=0.40, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A3),  y= 5*sin(A3),  r=0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A4),  y= 5*sin(A4),  r=0.30, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A5),  y= 5*sin(A5),  r=0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A6),  y= 5*sin(A6),  r=0.20, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A7),  y= 5*sin(A7),  r=0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A8),  y= 5*sin(A8),  r=0.10, index = ii, image = im); ii += 1
+
+            return im
+
+        def create_mask_multi(shape):
+
+            im = np.zeros(shape)
+            ii = 1
+
+            # CTMAT(x) formel=H2O dichte=x
+            LEN = 100
+
+            A0  = 87.7082*np.pi/180
+            A1 = 108.3346*np.pi/180
+            A2 = 126.6693*np.pi/180
+            A3 = 142.7121*np.pi/180
+            A4 = 156.4631*np.pi/180
+            A5 = 167.9223*np.pi/180
+            A6 = 177.0896*np.pi/180
+            A7 = 183.9651*np.pi/180
+            A8 = 188.5487*np.pi/180
+
+            B0 = 110.6265*np.pi/180
+            B1 = 142.7121*np.pi/180
+            B2 = 165.6304*np.pi/180
+            B3 = 179.3814*np.pi/180
+
+            # Phantom 
+            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
+            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
+
+            ii += 1
+
+            tad = 0.2
+            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+
+            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
+
+            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=0.45 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1       
+            return im
+
+        def create_circular_mask(x, y, r, index, image):
+        
+            h,w = image.shape
+            
+            center = [x*int(w/2)/10 + int(w/2),y*int(h/2)/10 + int(h/2)]
+
+            if center is None: # use the middle of the image
+                center = (int(w/2), int(h/2))
+            if r is None: # use the smallest distance between the center and image walls
+                radius = min(center[0], center[1], w-center[0], h-center[1])
+
+            Y, X = np.ogrid[:h, :w]
+            dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
+
+            mask = dist_from_center <= r*int(w/2)/10
+            
+            
+            image[mask] = index
+
+        im = create_mask_multi(recon_slice.shape)
+
+        contrast = []
+        noise = []
+        cnr = []
+
+        ii = 1
+
+        ref_mean = np.mean(recon_slice[im == ii])
+        ref_std = np.std(recon_slice[im == ii])
+
+        for ii in range(2,8):
+            
+            contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
+            noise.append(np.std(recon_slice[im == ii]))
+            
+            cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
+            
+        rs = np.linspace(0.1,0.45,8)
+
+        return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
+
+    def analyse_515(self,recon_slice):
+
+        def create_mask(shape):
+
+            im = np.zeros(shape)
+            ii = 1
+
+            # CTMAT(x) formel=H2O dichte=x
+            LEN = 100
+
+            A0  = 87.7082*np.pi/180
+            A1 = 108.3346*np.pi/180
+            A2 = 126.6693*np.pi/180
+            A3 = 142.7121*np.pi/180
+            A4 = 156.4631*np.pi/180
+            A5 = 167.9223*np.pi/180
+            A6 = 177.0896*np.pi/180
+            A7 = 183.9651*np.pi/180
+            A8 = 188.5487*np.pi/180
+
+            B0 = 110.6265*np.pi/180
+            B1 = 142.7121*np.pi/180
+            B2 = 165.6304*np.pi/180
+            B3 = 179.3814*np.pi/180
+
+            tad = 0.03
+
+            # Phantom 
+            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
+            create_circular_mask(x= 0.000,  y= 0.000,  r=-tad + 1.0, index = ii, image = im)
+
+            ii += 1
+
+            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=-tad + 0.75, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A1),  y= 5*sin(A1),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A2),  y= 5*sin(A2),  r=-tad + 0.40, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A3),  y= 5*sin(A3),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A4),  y= 5*sin(A4),  r=-tad + 0.30, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A5),  y= 5*sin(A5),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A6),  y= 5*sin(A6),  r=-tad + 0.20, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A7),  y= 5*sin(A7),  r=-tad + 0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A8),  y= 5*sin(A8),  r=-tad + 0.10, index = ii, image = im); ii += 1
+
+
+            # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A1+2/3*np.pi),  y= 5*sin(A1+2/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A2+2/3*np.pi),  y= 5*sin(A2+2/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A3+2/3*np.pi),  y= 5*sin(A3+2/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A4+2/3*np.pi),  y= 5*sin(A4+2/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A5+2/3*np.pi),  y= 5*sin(A5+2/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A6+2/3*np.pi),  y= 5*sin(A6+2/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A7+2/3*np.pi),  y= 5*sin(A7+2/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A8+2/3*np.pi),  y= 5*sin(A8+2/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
+
+
+            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A1+4/3*np.pi),  y= 5*sin(A1+4/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A2+4/3*np.pi),  y= 5*sin(A2+4/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A3+4/3*np.pi),  y= 5*sin(A3+4/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A4+4/3*np.pi),  y= 5*sin(A4+4/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A5+4/3*np.pi),  y= 5*sin(A5+4/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A6+4/3*np.pi),  y= 5*sin(A6+4/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A7+4/3*np.pi),  y= 5*sin(A7+4/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A8+4/3*np.pi),  y= 5*sin(A8+4/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
+
+            # ++++ subslice 1.0% targets 7mm long +++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B1),  y= 2.5*sin(B1),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B2),  y= 2.5*sin(B2),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B3),  y= 2.5*sin(B3),  r=-tad + 0.15, index = ii, image = im); ii += 1
+
+
+            # ++++ subslice 1.0% targets 3mm long +++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B1+2/3*np.pi) ,y= 2.5*sin(B1+2/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B2+2/3*np.pi) ,y= 2.5*sin(B2+2/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B3+2/3*np.pi) ,y= 2.5*sin(B3+2/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
+
+
+            # ++++ subslice 1.0% targets 5mm long +++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B1+4/3*np.pi) ,y= 2.5*sin(B1+4/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B2+4/3*np.pi) ,y= 2.5*sin(B2+4/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B3+4/3*np.pi) ,y= 2.5*sin(B3+4/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
+
+            return im
+
+        def create_mask_multi(shape):
+
+            im = np.zeros(shape)
+            ii = 1
+
+            # CTMAT(x) formel=H2O dichte=x
+            LEN = 100
+
+            A0  = 87.7082*np.pi/180
+            A1 = 108.3346*np.pi/180
+            A2 = 126.6693*np.pi/180
+            A3 = 142.7121*np.pi/180
+            A4 = 156.4631*np.pi/180
+            A5 = 167.9223*np.pi/180
+            A6 = 177.0896*np.pi/180
+            A7 = 183.9651*np.pi/180
+            A8 = 188.5487*np.pi/180
+            B0 = 110.6265*np.pi/180
+            B1 = 142.7121*np.pi/180
+            B2 = 165.6304*np.pi/180
+            B3 = 179.3814*np.pi/180
+
+            # Phantom 
+            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
+            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
+
+            ii += 1
+
+            tad = 0.2
+            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+
+            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
+
+            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=0.45 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1
+            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1       
+            return im
+
+        def create_circular_mask(x, y, r, index, image):
+        
+            h,w = image.shape
+            
+            center = [x*int(w/2)/10 + int(w/2),y*int(h/2)/10 + int(h/2)]
+
+            if center is None: # use the middle of the image
+                center = (int(w/2), int(h/2))
+            if r is None: # use the smallest distance between the center and image walls
+                radius = min(center[0], center[1], w-center[0], h-center[1])
+
+            Y, X = np.ogrid[:h, :w]
+            dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
+
+            mask = dist_from_center <= r*int(w/2)/10
+            
+            
+            image[mask] = index
+
+        im = create_mask(recon_slice.shape)
+
+        contrast = []
+        noise = []
+        cnr = []
+
+        ii = 1
+
+        ref_mean = np.mean(recon_slice[im == ii])
+        ref_std = np.std(recon_slice[im == ii])
+
+        for ii in range(2,int(np.max(im)+1)):
+            
+            contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
+            noise.append(np.std(recon_slice[im == ii]))
+            
+            cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
+            
+        rs = np.linspace(0.1,0.45,8)
+
+        return_im = False
+
+        if return_im:
+            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr, im
+        else:
+            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
+
+class Catphan_MTF:
 
     def __init__(self,file_path):
         self.phantom = np.load(file_path)
