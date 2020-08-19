@@ -58,7 +58,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
 
     # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-    deposition_summed = deposition_summed[0]/(original_energies_keV*355) #TODO: get rid of the 355
+    deposition_summed = deposition_summed[0]/(original_energies_keV*355) #TODO: get rid of the
 
     # The index of the different materials
     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
@@ -108,7 +108,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Normalize
     fluence_small /= np.sum(fluence_small)
     # Save the scale for later
-    # deposition_scale = np.sum(deposition_summed) # Thought about using trapz but don't think I need to
+    deposition_scale = np.sum(deposition_summed) # Thought about using trapz but don't think I need to
 
     weights_small = fluence_small*deposition_summed
 
@@ -119,9 +119,9 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     deposition_scale = np.trapz(fluence_original*deposition_summed,original_energies_keV)
 
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
-    # return np.mean(np.mean(doses,1),1), fluence
-    # Sum over the image dimesions to get the energy intensity and multiply by fluence
-    dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@(fluence_small*mu_en_water)
+    return np.mean(np.mean(doses,1),1), fluence
+    # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
+    dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@((fluence_small)*0.02681133)
 
     # Mass of the phantom there is a times 4 since the detector is 1/4 the size 1000 for mg
     dose_in_mgrays = dose_divided_by_initial_intensity/7.5 # J/MeV 1/kG mGy/Gy

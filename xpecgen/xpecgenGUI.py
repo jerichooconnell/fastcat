@@ -250,7 +250,7 @@ class XpecgenGUI(Notebook):
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
-        self.geo.set("MTF_phantom_1024")#"catphan_low_contrast_512_8cm")
+        self.geo.set("Catphan_MTF")#"catphan_low_contrast_512_8cm")
 
         self.EMin = DoubleVar()
         self.EMin.set(3.0)
@@ -682,6 +682,10 @@ class XpecgenGUI(Notebook):
             print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
                 file=sys.stderr)
 
+        geo_list = list(map(lambda x: (os.path.split(x)[1]).split(
+            ".npy")[0], glob(os.path.join(xg.data_path, "phantoms", "*.npy"))))
+        geo_list.sort(key=_human_order_key)  # Used later
+
         self.frmGeo = LabelFrame(self.frmKern, text="Geometries")
         self.frmGeo.grid(row=0, column=0, sticky=N + S + E + W)
         self.lblgeo = Label(self.frmGeo, text="Choose Geometry")
@@ -689,6 +693,7 @@ class XpecgenGUI(Notebook):
                                     "Choose a geometry")
         self.lblgeo.grid(row=0, column=0, sticky=W)
         self.cmbgeo = Combobox(self.frmGeo, textvariable=self.geo)
+        self.cmbgeo["values"] = geo_list
         self.cmbgeo.grid(row=1, column=0, sticky=W + E)
         self.cmbgeoTT = CreateToolTip(self.cmbgeo,
                                     "Choose a geometry")
@@ -1418,8 +1423,6 @@ class XpecgenGUI(Notebook):
         Calculates a new spectrum using the parameters in the GUI.
 
         """
-
-        self.CNRs = self.phantom.analyse(self.img[5],[self.subfig9,self.subfig10])
         
         if self.matplotlib_embedded:
 
@@ -1434,18 +1437,20 @@ class XpecgenGUI(Notebook):
             # self.fig6.tight_layout()
             # self.select(6)
 
-            self.subfig9.plot(self.CNRs[1], 'x',label=f'{self.det.get()}, {self.load.get()}')
-            self.subfig9.set_xticks(range(len(self.CNRs[1]))) 
-            self.subfig9.set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
-            self.subfig9.set_ylabel('% Contrast')
-            self.subfig9.set_title('Contrast')
-            self.subfig9.legend()
+            # self.subfig9.plot(self.CNRs[1], 'x',label=f'{self.det.get()}, {self.load.get()}')
+            # self.subfig9.set_xticks(range(len(self.CNRs[1]))) 
+            # self.subfig9.set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
+            # self.subfig9.set_ylabel('% Contrast')
+            # self.subfig9.set_title('Contrast')
+            # self.subfig9.legend()
 
-            self.subfig10.plot(self.CNRs[2], 'x',label=f'{self.det.get()}, {self.load.get()}')
-            self.subfig10.set_xticks(range(len(self.CNRs[1]))) 
-            self.subfig10.set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
-            self.subfig10.set_ylabel('CNR')
-            self.subfig10.set_title('Contrast to Noise')
+            # self.subfig10.plot(self.CNRs[2], 'x',label=f'{self.det.get()}, {self.load.get()}')
+            # self.subfig10.set_xticks(range(len(self.CNRs[1]))) 
+            # self.subfig10.set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
+            # self.subfig10.set_ylabel('CNR')
+            # self.subfig10.set_title('Contrast to Noise')
+            # self.phantom.phan_map = self.phan_map
+            self.phantom.analyse_515(self.img[5],[self.subfig9,self.subfig10])
             self.canvas6.draw()
             self.canvasToolbar6.update()
             self.fig6.tight_layout()
@@ -1528,7 +1533,7 @@ class XpecgenGUI(Notebook):
                             self.angles,
                             self.phantom.geomet,
                             energy_deposition_file,
-                            phantom_mapping = self.phan_map,
+                            phantom_mapping = self.phantom.phan_map,
                             scaling = self.noise,
                             dose =  self.current.get())# I think it should be inverse
                 print(np.array(self.proj).shape)
@@ -1562,7 +1567,14 @@ class XpecgenGUI(Notebook):
 
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
-                self.phantom = xg.Catphan_515(os.path.join(xg.data_path,f'phantoms/{self.geo.get()}.npy'))
+                dispatcher={'Catphan_515':xg.Catphan_515,
+                            'Catphan_MTF':xg.Catphan_MTF}
+                try:
+                    function=dispatcher[self.geo.get()]
+                except KeyError:
+                    raise ValueError('Invalid phantom module name')
+
+                self.phantom = function()
                 self.queue_calculation.put(True)
 
             except Exception as e:
