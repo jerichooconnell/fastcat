@@ -20,7 +20,7 @@ from matplotlib.colors import LogNorm
 
 import tigre
 import tigre.algorithms as algs
-from scipy.signal import fftconvolve
+from scipy.signal import fftconvolve, find_peaks
 from scipy.optimize import minimize
 from numpy import cos, sin
 from builtins import map
@@ -58,7 +58,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
 
     # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-    deposition_summed = deposition_summed[0]/(original_energies_keV*355)
+    deposition_summed = deposition_summed[0]/(original_energies_keV*355) #TODO: get rid of the 355
 
     # The index of the different materials
     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
@@ -108,7 +108,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Normalize
     fluence_small /= np.sum(fluence_small)
     # Save the scale for later
-    deposition_scale = np.sum(deposition_summed) # Thought about using trapz but don't think I need to
+    # deposition_scale = np.sum(deposition_summed) # Thought about using trapz but don't think I need to
 
     weights_small = fluence_small*deposition_summed
 
@@ -119,19 +119,19 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     deposition_scale = np.trapz(fluence_original*deposition_summed,original_energies_keV)
 
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
-    # return np.sum(np.sum(doses,1),1), fluence
+    # return np.mean(np.mean(doses,1),1), fluence
     # Sum over the image dimesions to get the energy intensity and multiply by fluence
     dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@(fluence_small*mu_en_water)
 
     # Mass of the phantom there is a times 4 since the detector is 1/4 the size 1000 for mg
-    dose_in_mgrays = dose_divided_by_initial_intensity*1.6021766e-13/2.0106*4*1000 # J/MeV 1/kG mGy/Gy
+    dose_in_mgrays = dose_divided_by_initial_intensity/7.5 # J/MeV 1/kG mGy/Gy
 
     # print('Dose in mGy is ',dose_in_mgrays)
 
     if dose != 0:
         # Figure out the factor for the SNR
         scaling = (dose)/dose_in_mgrays
-        print('Scaled by ', scaling)
+        print('Dose per particle ', scaling)
 
     # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
@@ -160,15 +160,6 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # if phantom.shape[2] == 512:
     raw_prime = np.mean(primary_projections,0)
     raw_noise = np.mean(raw_noise,0)
-    # else:
-    #     raw_prime_512 = np.mean(primary_projections,0)
-    #     raw_noise_512 = np.mean(raw_noise,0)
-
-    #     xp = np.linspace(0,512,512,endpoint=False)
-    #     x = np.linspace(0,512,1024,endpoint=False)
-
-    #     raw_noise = np.interp(x,xp,raw_noise_512)
-    #     raw_prime = np.interp(x,xp,raw_prime_512)
         
     mean_analytical = np.mean(analytical_summed[:,:,0],1)
 
@@ -209,9 +200,15 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     raw_weighted += np.tile(scatter,[len(angles),raw_weighted.shape[1],1]).T
     # add the poisson noise
     if scaling is not None:
-        scaling *= deposition_scale # I think that this is correct
+        # This gives me the number of photons I get
+        # nphotons = dose/dose_per_frame
+        # This should adjust to the number that reach the detector
+        nphotons *= deposition_scale # I think that this is correct
+        # We then divide by the number of pixels to get the final product
+        nphotons_per_voxel = nphotons/(phantom.shape[1]*phantom.shape[2])
+        print(nphotons_per_voxel)
         scaling = 1./scaling
-        raw_weighted = np.random.poisson(lam=raw_weighted/scaling)*scaling
+        raw_weighted = np.random.poisson(lam=raw_weighted/nphotons_per_voxe)*nphotons_per_voxel
     
     filtered = raw_weighted.copy()
 
@@ -438,8 +435,8 @@ class Kernel:
 
 class Catphan_515:
 
-    def __init__(self,file_path):
-        self.phantom = np.load(file_path)
+    def __init__(self):
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([64,512])
         self.geomet.dDetector = np.array([0.672, 0.672])
@@ -448,7 +445,8 @@ class Catphan_515:
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
 
         self.geomet.sVoxel = np.array((160, 160, 160)) 
-        self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel 
+        self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
+        self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"] 
 
     def analyse(self,recon_slice):
 
@@ -576,7 +574,7 @@ class Catphan_515:
 
         return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
 
-    def analyse_515(self,recon_slice):
+    def analyse_515(self,recon_slice,place):
 
         def create_mask(shape):
 
@@ -745,329 +743,102 @@ class Catphan_515:
             
         rs = np.linspace(0.1,0.45,8)
 
-        return_im = False
+        place[0].plot([(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], 'x')
+        # place[0].set_xticks(range(len(cnr))) 
+        # place[0].set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
+        place[0].set_ylabel('% Contrast')
+        place[0].set_title('Contrast')
+        place[0].legend()
 
-        if return_im:
-            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr, im
-        else:
-            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
+        place[1].plot(cnr, 'x')
+        # place[1].set_xticks(range(len(cnr))) 
+        # place[1].set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
+        place[1].set_ylabel('CNR')
+        place[1].set_title('Contrast to Noise')
+
+        # return_im = False
+
+        # if return_im:
+        #     return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr, im
+        # else:
+        #     return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
 
 class Catphan_MTF:
 
-    def __init__(self,file_path):
-        self.phantom = np.load(file_path)
+    def __init__(self):
+        self.phantom = np.load(os.path.join(data_path,'phantoms/MTF_phantom_1024.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([64,512])
         self.geomet.dDetector = np.array([0.672, 0.672])
-
+        self.phan_map = ['air','water',"G4_BONE_COMPACT_ICRU"] 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
 
         self.geomet.sVoxel = np.array((160, 160, 160)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel 
 
-    def analyse(self,recon_slice):
+    def analyse_515(self,slc,place):
 
-        def create_mask():
+        chunk_x = 100
+        chunk_y = 35
 
-            im = np.zeros([256,256])
-            ii = 1
+        signal = []
 
-            # CTMAT(x) formel=H2O dichte=x
-            LEN = 100
-
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
-
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
-
-            # Phantom 
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
-
-            ii += 1
-
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1),  y= 5*sin(A1),  r=0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2),  y= 5*sin(A2),  r=0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3),  y= 5*sin(A3),  r=0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4),  y= 5*sin(A4),  r=0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5),  y= 5*sin(A5),  r=0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6),  y= 5*sin(A6),  r=0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7),  y= 5*sin(A7),  r=0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8),  y= 5*sin(A8),  r=0.10, index = ii, image = im); ii += 1
-
-            return im
-
-        def create_mask_multi(shape):
-
-            im = np.zeros(shape)
-            ii = 1
-
-            # CTMAT(x) formel=H2O dichte=x
-            LEN = 100
-
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
-
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
-
-            # Phantom 
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
-
-            ii += 1
-
-            tad = 0.2
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
-
-            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=0.45 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1       
-            return im
-
-        def create_circular_mask(x, y, r, index, image):
-        
-            h,w = image.shape
+        def get_diff(smoothed_slice):
             
-            center = [x*int(w/2)/10 + int(w/2),y*int(h/2)/10 + int(h/2)]
 
-            if center is None: # use the middle of the image
-                center = (int(w/2), int(h/2))
-            if r is None: # use the smallest distance between the center and image walls
-                radius = min(center[0], center[1], w-center[0], h-center[1])
+                peak_info = find_peaks(smoothed_slice,height=0.07,prominence=0.005)
+                
+                peaks = peak_info[0]
+                valleys = np.unique(np.hstack([peak_info[1]['right_bases'],peak_info[1]['left_bases']]))
+                
+                inds = np.array(valleys < np.max(peaks)) * np.array(valleys > np.min(peaks))
+                
+                valleys = valleys[inds]
+                peaks = peaks[:-1]
+                
+                diffs = []
+                
+                for peak, valley in zip(peaks, valleys):
+                    
+                    diff = smoothed_slice[peak] - smoothed_slice[valley]
+                    
+                    diffs.append(diff)
+                
+                return diffs
 
-            Y, X = np.ogrid[:h, :w]
-            dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
+        start_x = 310
+        start_y = 270
 
-            mask = dist_from_center <= r*int(w/2)/10
-            
-            
-            image[mask] = index
+        smoothed_slice = np.convolve(np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
 
-        im = create_mask_multi(recon_slice.shape)
+        signal.append(np.mean(get_diff(smoothed_slice)))
 
-        contrast = []
-        noise = []
-        cnr = []
+        for start_y in [400,520,650]:
+            for start_x in [690, 570, 430, 300]: 
+                
+                smoothed_slice = np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)
+                
+                diffs = get_diff(smoothed_slice)
+                
+                if len(diffs) != 0:
+                    signal.append(np.mean(diffs))
+                else:
+                    signal.append(0)
+                    break
+                
 
-        ii = 1
+        pitch = 0.015625
 
-        ref_mean = np.mean(recon_slice[im == ii])
-        ref_std = np.std(recon_slice[im == ii])
+        lpmm = [1/(2*ii*pitch) for ii in range(12,0,-1)]
 
-        for ii in range(2,8):
-            
-            contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
-            noise.append(np.std(recon_slice[im == ii]))
-            
-            cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
-            
-        rs = np.linspace(0.1,0.45,8)
+        lpmm.insert(0,1/(2*30*pitch))
 
-        return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
+        place[0].plot(lpmm[:len(signal)],signal/signal[0],'kx')
+        place[0].plot(lpmm[:len(signal)],signal/signal[0])
+        place[0].set_xlabel('lp/cm')
+        place[0].set_ylabel('MTF')
 
-    def analyse_515(self,recon_slice):
-
-        def create_mask(shape):
-
-            im = np.zeros(shape)
-            ii = 1
-
-            # CTMAT(x) formel=H2O dichte=x
-            LEN = 100
-
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
-
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
-
-            tad = 0.03
-
-            # Phantom 
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-            create_circular_mask(x= 0.000,  y= 0.000,  r=-tad + 1.0, index = ii, image = im)
-
-            ii += 1
-
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=-tad + 0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1),  y= 5*sin(A1),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2),  y= 5*sin(A2),  r=-tad + 0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3),  y= 5*sin(A3),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4),  y= 5*sin(A4),  r=-tad + 0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5),  y= 5*sin(A5),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6),  y= 5*sin(A6),  r=-tad + 0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7),  y= 5*sin(A7),  r=-tad + 0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8),  y= 5*sin(A8),  r=-tad + 0.10, index = ii, image = im); ii += 1
-
-
-            # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1+2/3*np.pi),  y= 5*sin(A1+2/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2+2/3*np.pi),  y= 5*sin(A2+2/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3+2/3*np.pi),  y= 5*sin(A3+2/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4+2/3*np.pi),  y= 5*sin(A4+2/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5+2/3*np.pi),  y= 5*sin(A5+2/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6+2/3*np.pi),  y= 5*sin(A6+2/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7+2/3*np.pi),  y= 5*sin(A7+2/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8+2/3*np.pi),  y= 5*sin(A8+2/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
-
-
-            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1+4/3*np.pi),  y= 5*sin(A1+4/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2+4/3*np.pi),  y= 5*sin(A2+4/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3+4/3*np.pi),  y= 5*sin(A3+4/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4+4/3*np.pi),  y= 5*sin(A4+4/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5+4/3*np.pi),  y= 5*sin(A5+4/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6+4/3*np.pi),  y= 5*sin(A6+4/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7+4/3*np.pi),  y= 5*sin(A7+4/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8+4/3*np.pi),  y= 5*sin(A8+4/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
-
-            # ++++ subslice 1.0% targets 7mm long +++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B1),  y= 2.5*sin(B1),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B2),  y= 2.5*sin(B2),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B3),  y= 2.5*sin(B3),  r=-tad + 0.15, index = ii, image = im); ii += 1
-
-
-            # ++++ subslice 1.0% targets 3mm long +++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B1+2/3*np.pi) ,y= 2.5*sin(B1+2/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B2+2/3*np.pi) ,y= 2.5*sin(B2+2/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B3+2/3*np.pi) ,y= 2.5*sin(B3+2/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
-
-
-            # ++++ subslice 1.0% targets 5mm long +++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B1+4/3*np.pi) ,y= 2.5*sin(B1+4/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B2+4/3*np.pi) ,y= 2.5*sin(B2+4/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B3+4/3*np.pi) ,y= 2.5*sin(B3+4/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
-
-            return im
-
-        def create_mask_multi(shape):
-
-            im = np.zeros(shape)
-            ii = 1
-
-            # CTMAT(x) formel=H2O dichte=x
-            LEN = 100
-
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
-
-            # Phantom 
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
-
-            ii += 1
-
-            tad = 0.2
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
-
-            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=0.45 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1       
-            return im
-
-        def create_circular_mask(x, y, r, index, image):
-        
-            h,w = image.shape
-            
-            center = [x*int(w/2)/10 + int(w/2),y*int(h/2)/10 + int(h/2)]
-
-            if center is None: # use the middle of the image
-                center = (int(w/2), int(h/2))
-            if r is None: # use the smallest distance between the center and image walls
-                radius = min(center[0], center[1], w-center[0], h-center[1])
-
-            Y, X = np.ogrid[:h, :w]
-            dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
-
-            mask = dist_from_center <= r*int(w/2)/10
-            
-            
-            image[mask] = index
-
-        im = create_mask(recon_slice.shape)
-
-        contrast = []
-        noise = []
-        cnr = []
-
-        ii = 1
-
-        ref_mean = np.mean(recon_slice[im == ii])
-        ref_std = np.std(recon_slice[im == ii])
-
-        for ii in range(2,int(np.max(im)+1)):
-            
-            contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
-            noise.append(np.std(recon_slice[im == ii]))
-            
-            cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
-            
-        rs = np.linspace(0.1,0.45,8)
-
-        return_im = False
-
-        if return_im:
-            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr, im
-        else:
-            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
-        
 
 class Spectrum:
     """

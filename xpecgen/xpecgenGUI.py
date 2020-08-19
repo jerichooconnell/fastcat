@@ -1419,7 +1419,7 @@ class XpecgenGUI(Notebook):
 
         """
 
-        self.CNRs = self.phantom.analyse(self.img[5])
+        self.CNRs = self.phantom.analyse(self.img[5],[self.subfig9,self.subfig10])
         
         if self.matplotlib_embedded:
 
