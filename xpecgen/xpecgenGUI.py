@@ -273,6 +273,9 @@ class XpecgenGUI(Notebook):
         self.niter = IntVar()
         self.niter.set(0)
 
+        self.fs_size = DoubleVar()
+        self.fs_size.set(0.)
+
         # Operation-related variables
 
         self.AttenMaterial = StringVar()
@@ -694,7 +697,7 @@ class XpecgenGUI(Notebook):
         self.lblgeo.grid(row=0, column=0, sticky=W)
         self.cmbgeo = Combobox(self.frmGeo, textvariable=self.geo)
         self.cmbgeo["values"] = geo_list
-        self.cmbgeo.grid(row=1, column=0, sticky=W + E)
+        self.cmbgeo.grid(row=0, column=1, sticky=W + E)
         self.cmbgeoTT = CreateToolTip(self.cmbgeo,
                                     "Choose a geometry")
 
@@ -703,7 +706,20 @@ class XpecgenGUI(Notebook):
         self.cmdgeo.bind('<Return>', lambda event: self.computeGeometry())
         self.cmdgeo.bind(
             '<KP_Enter>', lambda event: self.computeGeometry())  # Enter (num. kb)
-        self.cmdgeo.grid(row=2, column=0, sticky=N + S + E + W)
+        self.cmdgeo.grid(row=6, column=0, columnspan=2, sticky=N + S + E + W)
+
+        self.cmbgeofs = Combobox(self.frmGeo, textvariable=self.geo)
+        self.cmbgeofs = ParBox(
+            self.frmGeo, self.fs_size, lblText="Focal spot size", unitsTxt="mm", row=2)
+        # self.cmbgeofs["values"] = geo_list
+        # self.cmbgeofs.grid(row=2, column=0, sticky=W + E)        
+
+        self.cmdgeofs = Button(self.frmGeo, text="Add focal spot")
+        self.cmdgeofs["command"] = self.add_focal_spot
+        self.cmdgeofs.bind('<Return>', lambda event: self.add_focal_spot())
+        self.cmdgeofs.bind(
+            '<KP_Enter>', lambda event: self.add_focal_spot())  # Enter (num. kb)
+        self.cmdgeofs.grid(row=5, column=0, columnspan=2, sticky=N + S + E + W)
 
         Grid.columnconfigure(self.frmKern, 0, weight=1)
         Grid.columnconfigure(self.frmKern, 1, weight=1)
@@ -1500,6 +1516,20 @@ class XpecgenGUI(Notebook):
         print('saving projections...')
         np.save(os.path.join(xg.data_path,'projs',self.filename.get()),self.img)
 
+    def add_focal_spot(self):
+
+        # fs size times magnification divided by the pixel pitch
+
+        self.computeGeometry()
+        self.select(2)
+
+        fs_size_in_pix = (self.fs_size.get() * self.phantom.geomet.DSD / self.phantom.geomet.DSO)/self.geomet.dDetector[0]
+
+        self.kernel.add_focal_spot(fs_size_in_pix)
+
+        self.update_plot_kern()
+
+
     def computeProjection(self):
         """
         Calculates a new spectrum using the parameters in the GUI.
@@ -1534,7 +1564,7 @@ class XpecgenGUI(Notebook):
                             self.phantom.geomet,
                             energy_deposition_file,
                             phantom_mapping = self.phantom.phan_map,
-                            scaling = self.noise,
+                            nphoton = self.noise,
                             dose =  self.current.get())# I think it should be inverse
                 print(np.array(self.proj).shape)
                 self.queue_calculation.put(True)

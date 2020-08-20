@@ -43,7 +43,7 @@ data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 # --------------------General purpose functions-------------------------#
 def return_projs(phantom,kernel,energies,fluence,angles,geo,
                 deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
-                phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],scaling = None,dose = None):
+                phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None,dose = None):
     '''
     The main function for returning the projections
     '''
@@ -55,10 +55,10 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
 
     # Loading the file from the monte carlo
-    deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
+    deposition = np.load(deposition_efficiency_file,allow_pickle=True)
 
     # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-    deposition_summed = deposition_summed[0]/(original_energies_keV*355) #TODO: get rid of the
+    deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
 
     # The index of the different materials
     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
@@ -107,31 +107,20 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
         
     # Normalize
     fluence_small /= np.sum(fluence_small)
-    # Save the scale for later
-    deposition_scale = np.sum(deposition_summed) # Thought about using trapz but don't think I need to
-
-    weights_small = fluence_small*deposition_summed
-
-    fluence_original = np.interp(original_energies_keV,energies,fluence)
-    fluence_original /= np.sum(fluence_original)
-
-    # Scale by the amount of photons hitting the detector
-    deposition_scale = np.trapz(fluence_original*deposition_summed,original_energies_keV)
-
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
-    return np.mean(np.mean(doses,1),1), fluence
+    # return np.mean(np.mean(doses,1),1), fluence
     # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
-    dose_divided_by_initial_intensity = np.sum(np.sum(doses,1),1)@((fluence_small)*0.02681133)
+    dose_per_photon = np.mean(np.mean(doses,1),1)@((fluence_small)*0.02681133)
 
-    # Mass of the phantom there is a times 4 since the detector is 1/4 the size 1000 for mg
-    dose_in_mgrays = dose_divided_by_initial_intensity/7.5 # J/MeV 1/kG mGy/Gy
-
-    # print('Dose in mGy is ',dose_in_mgrays)
+    # Dose in micro grays
+    dose_in_mgrays = dose_per_photon * 1.6021766e-16 * 1000 # J/MeV 1/kG mGy/Gy
 
     if dose != 0:
         # Figure out the factor for the SNR
-        scaling = (dose)/dose_in_mgrays
-        print('Dose per particle ', scaling)
+        nphoton = (dose)/dose_in_mgrays
+        print('Number of particles ', nphoton)
+
+    weights_small = fluence_small*deposition_summed
 
     # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
@@ -139,6 +128,14 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # load the arrays
     #primary, noise = get_noise(phantom.shape[2])
 
+    fluence_norm = fluence/np.sum(fluence)
+    
+    deposition_long = np.interp(energies,original_energies_keV/1000,deposition_summed)
+    
+    nphotons_at_energy = fluence_norm*deposition_long
+    
+    nphotons_av = np.sum(nphotons_at_energy)
+    
     primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
     noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
     primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
@@ -199,16 +196,17 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Add the already weighted noise
     raw_weighted += np.tile(scatter,[len(angles),raw_weighted.shape[1],1]).T
     # add the poisson noise
-    if scaling is not None:
+    if nphoton is not None:
         # This gives me the number of photons I get
         # nphotons = dose/dose_per_frame
         # This should adjust to the number that reach the detector
-        nphotons *= deposition_scale # I think that this is correct
+        nphoton *= nphotons_av
         # We then divide by the number of pixels to get the final product
-        nphotons_per_voxel = nphotons/(phantom.shape[1]*phantom.shape[2])
-        print(nphotons_per_voxel)
-        scaling = 1./scaling
-        raw_weighted = np.random.poisson(lam=raw_weighted/nphotons_per_voxe)*nphotons_per_voxel
+        nphotons_per_voxel = int(nphoton/(phantom.shape[1]*phantom.shape[2]))
+
+        raw_weighted = np.random.poisson(lam=raw_weighted*nphotons_per_voxel)/nphotons_per_voxel
+
+        print('Number of photons per voxel', nphotons_per_voxel)
     
     filtered = raw_weighted.copy()
 
@@ -432,6 +430,11 @@ class Kernel:
         place.set_title('MTF from Kernel')
         place.set_xlabel('Spacial Frequency [1/mm]')
         place.set_ylabel('MTF')
+
+    def add_focal_spot(self,fs_size_in_pix):
+
+        self.kernel = gaussian_filter(normalized_kernel.T@weights,sigma=fs_size_in_pix)
+
 
 class Catphan_515:
 
@@ -783,6 +786,7 @@ class Catphan_MTF:
         chunk_y = 35
 
         signal = []
+        standev = []
 
         def get_diff(smoothed_slice):
             
@@ -813,6 +817,7 @@ class Catphan_MTF:
         smoothed_slice = np.convolve(np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
 
         signal.append(np.mean(get_diff(smoothed_slice)))
+        standev.append(0)
 
         for start_y in [400,520,650]:
             for start_x in [690, 570, 430, 300]: 
@@ -823,8 +828,10 @@ class Catphan_MTF:
                 
                 if len(diffs) != 0:
                     signal.append(np.mean(diffs))
+                    standev.append(np.std(diffs))
                 else:
                     signal.append(0)
+                    standev.append(0)
                     break
                 
 
@@ -834,7 +841,7 @@ class Catphan_MTF:
 
         lpmm.insert(0,1/(2*30*pitch))
 
-        place[0].plot(lpmm[:len(signal)],signal/signal[0],'kx')
+        place[0].errorbar(lpmm[:len(signal)],signal/signal[0],yerr=standev/signal[0],fmt='kx')
         place[0].plot(lpmm[:len(signal)],signal/signal[0])
         place[0].set_xlabel('lp/cm')
         place[0].set_ylabel('MTF')
