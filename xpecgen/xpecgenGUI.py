@@ -1520,15 +1520,14 @@ class XpecgenGUI(Notebook):
 
         # fs size times magnification divided by the pixel pitch
 
-        self.computeGeometry()
-        self.select(2)
+        # self.computeGeometry()
+        # self.select(2)
 
-        fs_size_in_pix = (self.fs_size.get() * self.phantom.geomet.DSD / self.phantom.geomet.DSO)/self.geomet.dDetector[0]
+        fs_size_in_pix = (self.fs_size.get() * 1536 / 1000)/ 0.672
 
         self.kernel.add_focal_spot(fs_size_in_pix)
 
         self.update_plot_kern()
-
 
     def computeProjection(self):
         """

@@ -20,8 +20,9 @@ from matplotlib.colors import LogNorm
 
 import tigre
 import tigre.algorithms as algs
-from scipy.signal import fftconvolve, find_peaks
+from scipy.signal import fftconvolve, find_peaks, butter,filtfilt
 from scipy.optimize import minimize
+from scipy.ndimage import gaussian_filter
 from numpy import cos, sin
 from builtins import map
 
@@ -419,7 +420,8 @@ class Kernel:
         if N < 40:
             T = 0.784
         else:
-            T = 0.392
+            # T = 0.392
+            T = 0.336
         
         xf = np.linspace(0.0, 1.0/(2.0*T), int(N/2))
         
@@ -430,10 +432,11 @@ class Kernel:
         place.set_title('MTF from Kernel')
         place.set_xlabel('Spacial Frequency [1/mm]')
         place.set_ylabel('MTF')
+        place.grid()
 
     def add_focal_spot(self,fs_size_in_pix):
 
-        self.kernel = gaussian_filter(normalized_kernel.T@weights,sigma=fs_size_in_pix)
+        self.kernel = gaussian_filter(self.kernel,sigma=fs_size_in_pix)
 
 
 class Catphan_515:
@@ -814,15 +817,26 @@ class Catphan_MTF:
         start_x = 310
         start_y = 270
 
-        smoothed_slice = np.convolve(np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
+        b, a = butter(3, 1/7, btype='low', analog=False)
+
+        smoothed_slice = filtfilt(b, a, np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)) #np.convolve(np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
 
         signal.append(np.mean(get_diff(smoothed_slice)))
         standev.append(0)
 
-        for start_y in [400,520,650]:
+        b, a = butter(3, 1/5, btype='low', analog=False)
+        b2, a2 = butter(3, 1/3.5, btype='low', analog=False)
+        b3, a3 = butter(3, 1/2, btype='low', analog=False)
+
+        for start_y, freq in zip([400,520,650],[[b,a],[b2,a2],[b3,a3]]):
             for start_x in [690, 570, 430, 300]: 
                 
-                smoothed_slice = np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)
+                # Need this to correct against the artifacts
+                # if start_y == 400:
+                # b, a = butter(3, 1/freq, btype='low', analog=False)
+                smoothed_slice = filtfilt(freq[0], freq[1], np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0))
+                # else:
+                #     smoothed_slice = np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)
                 
                 diffs = get_diff(smoothed_slice)
                 
@@ -845,6 +859,8 @@ class Catphan_MTF:
         place[0].plot(lpmm[:len(signal)],signal/signal[0])
         place[0].set_xlabel('lp/cm')
         place[0].set_ylabel('MTF')
+
+        return [signal/signal[0], standev/signal[0]]
 
 
 class Spectrum:
@@ -1637,7 +1653,7 @@ def get_kernel(spectrum,
     
     # BUG: I think that this should not happen with the append
     deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
-    deposition_summed = np.append(deposition_summed[0],50000.5)
+    deposition_summed = np.insert(deposition_summed[0],0,0)
     # deposition_summed = deposition_summed[0]
     
     if len(deposition_summed) == 16:
@@ -1649,8 +1665,6 @@ def get_kernel(spectrum,
     # Divide by the energy to get the photon count plus a factor 355000 for the original number of photons
     deposition_summed[1:] /= (original_energies_keV[1:]/355)
     
-    print(deposition_summed.shape,original_energies_keV.shape)
-    
     deposition_interpolated = np.interp(energies, original_energies_keV, deposition_summed)
 
     super_kernel = np.zeros([len(fluence),kernels.shape[1],kernels.shape[2]])
@@ -1661,6 +1675,7 @@ def get_kernel(spectrum,
             
             super_kernel[:,ii,jj] = np.interp(np.array(energies), original_energies_keV, kernels[:,ii,jj])
 
+    
     weights = fluence*deposition_interpolated
     weights = weights/sum(weights)
 

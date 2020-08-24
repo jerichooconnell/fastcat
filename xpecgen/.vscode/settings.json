@@ -1,0 +1,27 @@
+{
+    "python.pythonPath": "/home/xcite/anaconda3/bin/python",
+    "files.watcherExclude": {
+        "**": true
+    },
+    "files.exclude": {
+        "**": true,
+        "**/data": true
+    },
+    "search.exclude": {
+        "**/data": true
+    },
+    "python.linting.ignorePatterns": [
+        ".vscode/*.py",
+        "**/site-packages/**/*.py",
+        "**/data",
+        "**/data/**",
+        "*.csv",
+        "**"
+    ],
+    "python.workspaceSymbols.exclusionPatterns": [
+        "**/site-packages/**",
+        "**/data",
+        "*.csv",
+        "**"
+    ]
+}
