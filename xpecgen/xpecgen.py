@@ -1681,12 +1681,12 @@ def get_kernel(spectrum,
 
     normalized_kernel = super_kernel.copy()
 
-    for ii in range(0,normalized_kernel.shape[0]):
+    # for ii in range(0,normalized_kernel.shape[0]):
         
-        sum_kern = np.sum(super_kernel[ii,:,:])
+    #     sum_kern = np.sum(super_kernel[ii,:,:])
         
-        if sum_kern > 0:
-            normalized_kernel[ii,:,:] = super_kernel[ii,:,:]/sum_kern
+    #     if sum_kern > 0:
+    #         normalized_kernel[ii,:,:] = super_kernel[ii,:,:]/sum_kern
 
     new_kern = Kernel()
 
