@@ -49,34 +49,29 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     The main function for returning the projections
     '''
 
+    # --- Making the phantom maps between G4 attenuation coeffs and ints in phantom ---
+
     # Don't want to look for zeros
     useful_phantom = phantom != 0
-
     # These are what I used in the Monte Carlo
     original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-
     # Loading the file from the monte carlo
     deposition = np.load(deposition_efficiency_file,allow_pickle=True)
-
     # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
     deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
-
     # The index of the different materials
     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
     mapping_functions = []
-
     # Get the mapping functions for the different tissues to reconstruct the phantom by energy
-    for ii in range(1,len(phantom_mapping)):
-        
+    for ii in range(1,len(phantom_mapping)):       
         mapping_functions.append(get_mu(phantom_mapping[ii]))
         masks[ii-1] = phantom == ii
-
     phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
 
+    # --- Ray tracing step ---
     mu_en_water = np.array([0.1557  , 0.06947 , 0.04223 , 0.0319  , 0.027678, 0.02597 ,
        0.025434, 0.02546 , 0.03192 , 0.03299 , 0.032501, 0.031562,
        0.03103 , 0.02608 , 0.02066 , 0.01806 ])
-
     mu_water = np.array([0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
        0.176564, 0.1707  , 0.1186  , 0.09687 , 0.083614, 0.074411,
        0.07072 , 0.04942 , 0.03403 , 0.0277  ])
@@ -86,84 +81,63 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     for jj, energy in enumerate(original_energies_keV):
         for ii in range(0,len(phantom_mapping)-1):
-
             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-
         proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
         doses.append((energy)*(1-np.exp(-(proj[-1][0]*mu_en_water[jj]/mu_water[jj]*.997)/10)))
 
-
+    # --- Factoring in the fluence and the energy deposition ---
     # Binning to get the fluence per energy
     large_energies = np.linspace(0,6000,3001)/1000
     fluence_large = np.interp(large_energies,np.array(energies), fluence)
-
     fluence_small = np.zeros(len(original_energies_keV))
-
     # Still binning
-    for ii, val in enumerate(large_energies):
-        
+    for ii, val in enumerate(large_energies):   
         index = np.argmin(np.abs(original_energies_keV-val*1000))
-        fluence_small[index] += fluence_large[ii] 
-        
+        fluence_small[index] += fluence_large[ii]       
     # Normalize
     fluence_small /= np.sum(fluence_small)
+    fluence_norm = fluence/np.sum(fluence)
+    weights_small = fluence_small*deposition_summed
+    # Need to make sure that the attenuations aren't janky for recon
+    weights_small /= np.sum(weights_small)
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
     # return np.mean(np.mean(doses,1),1), fluence
+    
+    # --- Dose calculation ---
     # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
     dose_per_photon = np.mean(np.mean(doses,1),1)@((fluence_small)*0.02681133)
-
     # Dose in micro grays
     dose_in_mgrays = dose_per_photon * 1.6021766e-16 * 1000 # J/MeV 1/kG mGy/Gy
-
     if dose != 0:
         # Figure out the factor for the SNR
         nphoton = (dose)/dose_in_mgrays
         print('Number of particles ', nphoton)
-
-    weights_small = fluence_small*deposition_summed
-
-    # Need to make sure that the attenuations aren't janky for recon
-    weights_small /= np.sum(weights_small)
-
-    # load the arrays
-    #primary, noise = get_noise(phantom.shape[2])
-
-    fluence_norm = fluence/np.sum(fluence)
     
+    # --- Noise and Scatter Calculation ---
+    # Now I interpolate deposition and get the average photons reaching the detector
     deposition_long = np.interp(energies,original_energies_keV/1000,deposition_summed)
-    
     nphotons_at_energy = fluence_norm*deposition_long
-    
     nphotons_av = np.sum(nphotons_at_energy)
-    
+    # These are the MC scatter kernels primary and total
     primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
     noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
     primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
     primary = np.tile(primary_512,[1,1,2,1])
-
+    np.save('primary_projections',primary)
     # sum the noise kernel with the weights
     noise_summed = noise.T @ weights_small
     # weight the primary
     primary_summed = primary.T @ weights_small
     # analytical
     analytical_summed = np.array(proj).T @ weights_small
-
     # Get a 2d sum
-    primary_projections = np.sum(primary_summed,0)
-    raw_noise = np.sum(noise_summed,0)
-    # analytical_summed = np.mean(analytical_summed,0) # ??
-
-    # Average the primary in 1d
-    # if phantom.shape[2] == 512:
-    raw_prime = np.mean(primary_projections,0)
-    raw_noise = np.mean(raw_noise,0)
-        
+    raw_prime = np.mean(np.sum(primary_summed,0),0)
+    raw_noise = np.mean(np.sum(noise_summed,0),0)
     mean_analytical = np.mean(analytical_summed[:,:,0],1)
 
     def get_rmse(x):
         return np.sum(np.abs(np.exp(-mean_analytical/x[0])*x[1] - raw_prime))
-
     def get_rmse_noise(x):
         return np.sum(np.abs(np.exp(-mean_analytical/x[0])*x[1] - raw_noise))
 
@@ -179,17 +153,17 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Reshape the projections
     weighted_projs = np.array(proj).transpose([3,2,1,0])
 
-    # Downsize the kernel if it is CWO, bit of a quirk
-    if kernel.kernel.shape[0] == 50:
-        small_kernel = (kernel.kernel[::2,::2] 
-                        + kernel.kernel[1::2,::2] 
-                        + kernel.kernel[::2,1::2] 
-                        + kernel.kernel[1::2,1::2])/4
-    else:
-        small_kernel = kernel.kernel
+    # # Downsize the kernel if it is CWO, bit of a quirk
+    # if kernel.kernel.shape[0] == 50:
+    #     small_kernel = (kernel.kernel[::2,::2] 
+    #                     + kernel.kernel[1::2,::2] 
+    #                     + kernel.kernel[::2,1::2] 
+    #                     + kernel.kernel[1::2,1::2])/4
+    # else:
+    #     small_kernel = kernel.kernel
     
     # Normalize the kernel
-    kernel_norm = small_kernel/np.sum(small_kernel)
+    kernel_norm = kernel.kernel/np.sum(small_kernel)
     # log(i/i_0) to get back to intensity
     raw = np.exp(-weighted_projs/scale.x[0])*scale.x[1]
     # Weight the intensity by fluence
@@ -370,11 +344,51 @@ class IndexTracker2(object):
 
 class Kernel:
 
-    def __init__(self):
-        """
-        Create an empty spectrum.
-        """
-        self.kernel = []
+    def __init__(self,spectrum,detector,Verbose = False):
+
+        dump_files = os.path.join(
+            data_path, "Detectors", detector, '*phsp.npy')
+        deposition_efficiency_file = os.path.join(
+            data_path, "Detectors", detector, 'EnergyDeposition.npy')
+
+        files = sorted(glob(dump_files))
+
+        for ii, file in enumerate(files):
+            
+            if ii == 0:
+                
+                # Make the first entry zeros
+                first_kernel = np.load(file)
+                kernels = np.zeros([len(files)+1,first_kernel.shape[0],first_kernel.shape[1]]) 
+                
+            kernels[ii+1] = np.load(file)
+                
+        fluence = spectrum.y/sum(spectrum.y)
+        
+        deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
+        deposition_summed = np.insert(deposition_summed[0],0,0)
+        
+        if len(deposition_summed) == 16:
+            deposition_summed = np.insert(deposition_summed,0,0)
+
+        original_energies_keV = np.array([0, 30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+
+        # Divide by the energy to get the photon count plus a factor 355000 for the original number of photons
+        deposition_summed[1:] /= (original_energies_keV[1:]/355)
+        deposition_interpolated = np.interp(spectrum.x, original_energies_keV, deposition_summed)
+        super_kernel = np.zeros([len(fluence),kernels.shape[1],kernels.shape[2]])
+
+
+        for ii in range(kernels.shape[1]):
+            for jj in range(kernels.shape[2]):
+                
+                super_kernel[:,ii,jj] = np.interp(np.array(spectrum.x), original_energies_keV, kernels[:,ii,jj])
+
+        weights = fluence*deposition_interpolated
+        weights = weights/sum(weights)
+
+        self.kernel = super_kernel.T@weights
+        self.pitch = int(detector[-14:-11])/1000  #mm
 
     def get_plot(self, place, show_mesh=True, prepare_format=True):
         """
@@ -397,41 +411,70 @@ class Kernel:
         place.set_xlabel('X [pix]')
         place.set_ylabel('Y [pix]')
 
-    def get_plot_mtf(self, place, show_mesh=True, prepare_format=True):
-        """
-        Prepare a plot of the data in the given place
+    def get_plot_mtf_real(self, place, show_mesh=True, prepare_format=True,label=''):
 
-        Args:
-            place: The class whose method plot is called to produce the plot (e.g., matplotlib.pyplot).
-            show_mesh (bool): Whether to plot the points over the continuous line as circles.
-            prepare_format (bool): Whether to include ticks and labels in the plot.
-            peak_shape: The window function used to plot the peaks. See :obj:`triangle` for an example.
+        h,w = 1024*4,1024 #Wouldn't change tbh for building lsf
+        step = 16*2 #Wouldn't change tbh for building lsf
+        pitch = self.pitch #mm 
+        angle = 2.3 #deg
+        lsf_width = 0.3 #mm Wouldn't change tbh
 
-        """
-        if prepare_format:
-            place.tick_params(axis='both', which='major', labelsize=10)
-            place.tick_params(axis='both', which='minor', labelsize=8)
+        # --- Make a high res line ---
 
-        center = int(self.kernel.shape[0]/2)
-        lsf = self.kernel[center,:]
+        high_res = np.zeros([h,w])
+        Y, X = np.mgrid[:h, :w]
+        dist_from_line = np.abs((X - high_res.shape[1]/2) + Y*np.tan(angle*np.pi/180))
+        # The MTF is from a 0.3 mm pixel times the angle times 16 since it will be averaged over 32 pix
+        num_pix = lsf_width*1/cos(angle*np.pi/180)/pitch*16
+        high_res[dist_from_line < num_pix] = 1
 
-        N = self.kernel.shape[0]
+        # --- Average to make low res line ---
+        # Ugly sorry
+        low_res = np.array([[np.mean(high_res[ii:ii+step,jj:jj+step]) 
+                            for ii in range(0,h,step)] for jj in range(0,w,step)]).T
 
-        if N < 40:
-            T = 0.784
-        else:
-            # T = 0.392
-            T = 0.336
-        
-        xf = np.linspace(0.0, 1.0/(2.0*T), int(N/2))
-        
-        mtf = np.absolute(np.fft.fft(lsf))
+        # --- Convlolve with the kernel ---
+        lsf_image = fftconvolve(low_res,self.kernel/np.sum(self.kernel),mode='same')
+
+        # --- Pad and presample ---
+        pad_len = int((512 - lsf_image.shape[1])/2)
+        lsf_image =  np.pad(lsf_image,((0,0),(pad_len,pad_len)),mode='constant')
+        Y, X = np.mgrid[:lsf_image.shape[0], :lsf_image.shape[1]]
+        center = int(lsf_image.shape[1]/2)
+        # pitch needs to convert to cm from mm
+        dist_from_line = (X + Y*np.tan(angle*np.pi/180) - center + 0.5)*pitch/10
+
+        # --- Crop the convolved edges ---
+        inds = np.argsort(dist_from_line[10:-10,:].flatten())
+        line = dist_from_line[10:-10,:].flatten()[inds]
+        lsf = lsf_image[10:-10,:].flatten()[inds]
+        n,bins = np.histogram(line,818,weights=lsf,density=True)
+
+        # if plot_stuff:
+        #     plt.figure()
+        #     plt.plot(bins[1:],n/(np.sum(n)),'x-',linewidth= 1.1,markersize=5,color='cornflowerblue')
+        #     plt.title('LSF')
+        #     plt.legend(['fastCAT','geant4'])
+        #     plt.xlabel('[mm]')
+        #     plt.ylabel('Normalized Amplitude')
+        #     plt.xlim([-0.5,0.5])
+        #     plt.savefig('LSF_good')
+
+        # --- fft to get mtf ---
+        n,bins = np.histogram(line,818,weights=lsf,density=True)
+        mtf = np.absolute(np.fft.fft(n))
         mtf_final = np.fft.fftshift(mtf)
+        N = len(mtf)
+        T = np.mean(np.diff(bins))
+        xf = np.linspace(0.0, 1.0/(2.0*T), int((N-1)/2))
+        mm = np.argmax(mtf_final)
 
-        place.plot(xf[:center],mtf_final[center:center + center]/mtf_final[center])
-        place.set_title('MTF from Kernel')
-        place.set_xlabel('Spacial Frequency [1/mm]')
+
+        place.plot(xf/10,mtf_final[mm+1:]/mtf_final[mm+1],'--',linewidth= 1.1,markersize=2,label=label)
+        place.set_xlim((0,1/(2*pitch)))
+        place.set_xlabel('Spatial Frequency [1/mm]')
         place.set_ylabel('MTF')
+        place.legend()
         place.grid()
 
     def add_focal_spot(self,fs_size_in_pix):
@@ -441,11 +484,11 @@ class Kernel:
 
 class Catphan_515:
 
-    def __init__(self):
+    def __init__(self,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([64,512])
-        self.geomet.dDetector = np.array([0.672, 0.672])
+        self.geomet.dDetector = np.array([det.pitch, det.pitch]) #TODO: Change this to get phantom
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
@@ -543,7 +586,7 @@ class Catphan_515:
         
             h,w = image.shape
             
-            center = [x*int(w/2)/10 + int(w/2),y*int(h/2)/10 + int(h/2)]
+            center = [x*int(w/2)/8 + int(w/2),y*int(h/2)/8 + int(h/2)] #TODO:Should be 8cm
 
             if center is None: # use the middle of the image
                 center = (int(w/2), int(h/2))
@@ -1628,71 +1671,3 @@ def cli():
 
 if __name__ == '__main__':
     cli()
-
-def get_kernel(spectrum,
-            dump_files = 'analysis/2020-06-06-h10m44/*.npy',
-            deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
-            Verbose = False):
-
-    files = sorted(glob(dump_files))
-
-    for ii, file in enumerate(files):
-        
-        if ii == 0:
-            
-            # Make the first entry zeros
-            first_kernel = np.load(file)
-            kernels = np.zeros([len(files)+1,first_kernel.shape[0],first_kernel.shape[1]]) 
-            
-        kernels[ii+1] = np.load(file)
-
-    fluence = spectrum.y
-    energies = spectrum.x
-            
-    fluence = fluence/sum(fluence)
-    
-    # BUG: I think that this should not happen with the append
-    deposition_summed = np.load(deposition_efficiency_file,allow_pickle=True)
-    deposition_summed = np.insert(deposition_summed[0],0,0)
-    # deposition_summed = deposition_summed[0]
-    
-    if len(deposition_summed) == 16:
-        
-        deposition_summed = np.insert(deposition_summed,0,0)
-
-    original_energies_keV = np.array([0, 30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-
-    # Divide by the energy to get the photon count plus a factor 355000 for the original number of photons
-    deposition_summed[1:] /= (original_energies_keV[1:]/355)
-    
-    deposition_interpolated = np.interp(energies, original_energies_keV, deposition_summed)
-
-    super_kernel = np.zeros([len(fluence),kernels.shape[1],kernels.shape[2]])
-
-
-    for ii in range(kernels.shape[1]):
-        for jj in range(kernels.shape[2]):
-            
-            super_kernel[:,ii,jj] = np.interp(np.array(energies), original_energies_keV, kernels[:,ii,jj])
-
-    
-    weights = fluence*deposition_interpolated
-    weights = weights/sum(weights)
-
-    normalized_kernel = super_kernel.copy()
-
-    # for ii in range(0,normalized_kernel.shape[0]):
-        
-    #     sum_kern = np.sum(super_kernel[ii,:,:])
-        
-    #     if sum_kern > 0:
-    #         normalized_kernel[ii,:,:] = super_kernel[ii,:,:]/sum_kern
-
-    new_kern = Kernel()
-
-    # print((normalized_kernel.T*weights).shape)
-
-    new_kern.kernel = normalized_kernel.T@weights
-
-
-    return new_kern, kernels

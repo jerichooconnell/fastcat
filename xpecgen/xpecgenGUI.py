@@ -191,7 +191,7 @@ class XpecgenGUI(Notebook):
         self.active_spec = 0  # The active spectrum from the list
 
         self.kernel = []
-        self.kernels = []
+        # self.kernels = []
         self.phantom = []
         self.img = []
         self.tracker = []
@@ -1127,7 +1127,7 @@ class XpecgenGUI(Notebook):
         if self.matplotlib_embedded:
             self.subfigKern.clear()
             self.kernel.get_plot(self.subfigKern)
-            self.kernel.get_plot_mtf(self.subfigKern2)
+            self.kernel.get_plot_mtf_real(self.subfigKern2,label=self.load.get())
             self.figKern.tight_layout()
             self.canvasKern.draw()
             self.canvasToolbarKern.update()
@@ -1398,7 +1398,6 @@ class XpecgenGUI(Notebook):
     def computeKernel(self):
         """
         Calculates a new spectrum using the parameters in the GUI.
-
         """
 
         self.calculation_count = 0
@@ -1407,13 +1406,8 @@ class XpecgenGUI(Notebook):
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
 
-                dump_files = os.path.join(
-                    xg.data_path, "Detectors", self.det.get(), '*phsp.npy')
-                energy_deposition_file = os.path.join(
-                    xg.data_path, "Detectors", self.det.get(), 'EnergyDeposition.npy')
-
-                self.kernel, self.kernels = xg.get_kernel(
-                    self.spectra[0], dump_files, energy_deposition_file)
+                self.kernel = xg.Kernel(
+                    self.spectra[0], self.det.get())
 
                 self.queue_calculation.put(True)
 
