@@ -42,6 +42,8 @@ data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 # --------------------General purpose functions-------------------------#
+
+
 def return_projs(phantom,kernel,energies,fluence,angles,geo,
                 deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
                 phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None,dose = None):
@@ -120,11 +122,9 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     nphotons_at_energy = fluence_norm*deposition_long
     nphotons_av = np.sum(nphotons_at_energy)
     # These are the MC scatter kernels primary and total
-    primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
-    noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
-    primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
-    primary = np.tile(primary_512,[1,1,2,1])
-    np.save('primary_projections',primary)
+    primary = np.load(os.path.join(data_path,'noise','primary_projections.npy')) #TODO: save these as something smaller
+    noise = np.load(os.path.join(data_path,'noise','noise_projections.npy'))
+    # np.save('primary_projections',primary)
     # sum the noise kernel with the weights
     noise_summed = noise.T @ weights_small
     # weight the primary
@@ -152,18 +152,9 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     # Reshape the projections
     weighted_projs = np.array(proj).transpose([3,2,1,0])
-
-    # # Downsize the kernel if it is CWO, bit of a quirk
-    # if kernel.kernel.shape[0] == 50:
-    #     small_kernel = (kernel.kernel[::2,::2] 
-    #                     + kernel.kernel[1::2,::2] 
-    #                     + kernel.kernel[::2,1::2] 
-    #                     + kernel.kernel[1::2,1::2])/4
-    # else:
-    #     small_kernel = kernel.kernel
     
     # Normalize the kernel
-    kernel_norm = kernel.kernel/np.sum(small_kernel)
+    kernel_norm = kernel.kernel/np.sum(kernel.kernel)
     # log(i/i_0) to get back to intensity
     raw = np.exp(-weighted_projs/scale.x[0])*scale.x[1]
     # Weight the intensity by fluence
@@ -383,6 +374,16 @@ class Kernel:
             for jj in range(kernels.shape[2]):
                 
                 super_kernel[:,ii,jj] = np.interp(np.array(spectrum.x), original_energies_keV, kernels[:,ii,jj])
+        
+        # normalized_kernel = super_kernel.copy()
+
+        # for ii in range(0,normalized_kernel.shape[0]):
+            
+        #     sum_kern = np.sum(super_kernel[ii,:,:])
+            
+        #     if sum_kern > 0:
+        #         normalized_kernel[ii,:,:] = super_kernel[ii,:,:]/sum_kern
+
 
         weights = fluence*deposition_interpolated
         weights = weights/sum(weights)
@@ -484,11 +485,11 @@ class Kernel:
 
 class Catphan_515:
 
-    def __init__(self,det):
+    def __init__(self): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([64,512])
-        self.geomet.dDetector = np.array([det.pitch, det.pitch]) #TODO: Change this to get phantom
+        self.geomet.dDetector = np.array([0.672, 0.672])#det.pitch, det.pitch]) #TODO: Change this to get phantom
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
@@ -1212,6 +1213,21 @@ class Spectrum:
             map(lambda x, y: y * math.exp(-mu(x) * depth), self.x, self.y))
         self.discrete = list(
             map(lambda l: [l[0], l[1] * math.exp(-mu(l[0]) * depth), l[2]], self.discrete))
+
+    def load(self, spectrum_file):
+
+        energies = []
+        fluence = []
+
+        with open(os.path.join(data_path, "MV_spectra", f'{spectrum_file}.txt')) as f:
+            for line in f:
+                energies.append(float(line.split()[0]))
+                fluence.append(float(line.split()[1]))
+
+        # Check if MV
+
+        self.x = np.array(energies)*1000  # to keV
+        self.y = np.array(fluence)
 
     def __add__(self, other):
         """Add two instances, assuming that makes sense."""

@@ -243,10 +243,10 @@ class XpecgenGUI(Notebook):
         self.load.set("Al_spectrum_6")
 
         self.det = StringVar()
-        self.det.set("CWO")
+        self.det.set("CWO-392-micrometer")
 
         self.det2 = StringVar()
-        self.det2.set("CWO")
+        self.det2.set("CWO-392-micrometer")
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
@@ -926,6 +926,18 @@ class XpecgenGUI(Notebook):
         # row=6, column=0, rowspan=4, sticky=E + W)
         self.cmdRecon.grid(sticky=E + W)
 
+        self.ParSave = ParBox(self.frmRecon, self.filename, lblText="File Name", row=8,
+                        read_only=False,
+                        helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
+
+        self.cmdSave = Button(self.frmRecon, text="Save Projections")
+        self.cmdSave["command"] = self.saveproj
+        self.cmdSave.bind('<Return>', lambda event: self.saveproj())
+        self.cmdSave.bind(
+            '<KP_Enter>', lambda event: self.saveproj())  # Enter (num. kb)
+        # row=6, column=0, rowspan=4, sticky=E + W)
+        self.cmdSave.grid(sticky=E + W)
+
         Grid.columnconfigure(self.frmSino, 0, weight=1)
         Grid.columnconfigure(self.frmSino, 1, weight=1)
         Grid.rowconfigure(self.frmSino, 0, weight=1)
@@ -986,10 +998,10 @@ class XpecgenGUI(Notebook):
                         read_only=False,
                         helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
         self.cmdRecon2 = Button(self.frmRecon2, text="Save Reconstruction")
-        self.cmdRecon2["command"] = self.saveproj
-        self.cmdRecon2.bind('<Return>', lambda event: self.saveproj())
+        self.cmdRecon2["command"] = self.saverecon
+        self.cmdRecon2.bind('<Return>', lambda event: self.saverecon())
         self.cmdRecon2.bind(
-            '<KP_Enter>', lambda event: self.saveproj())  # Enter (num. kb)
+            '<KP_Enter>', lambda event: self.saverecon())  # Enter (num. kb)
         # row=6, column=0, rowspan=4, sticky=E + W)
         self.cmdRecon2.grid(sticky=E + W)
 
@@ -1055,10 +1067,10 @@ class XpecgenGUI(Notebook):
                         read_only=False,
                         helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
         self.cmdRecon2 = Button(self.frmRecon2, text="Save Reconstruction")
-        self.cmdRecon2["command"] = self.saveproj
-        self.cmdRecon2.bind('<Return>', lambda event: self.saveproj())
+        self.cmdRecon2["command"] = self.saverecon
+        self.cmdRecon2.bind('<Return>', lambda event: self.saverecon())
         self.cmdRecon2.bind(
-            '<KP_Enter>', lambda event: self.saveproj())  # Enter (num. kb)
+            '<KP_Enter>', lambda event: self.saverecon())  # Enter (num. kb)
         self.cmdRecon2.grid(sticky=E + W)
         
         Grid.columnconfigure(self.frmOutp, 0, weight=1)
@@ -1502,13 +1514,26 @@ class XpecgenGUI(Notebook):
         self.cmdCalculate["text"] = "Abort"
         self.after(250, self.wait_for_recon)
 
+    def saverecon(self):
+        """
+        Calculates a new spectrum using the parameters in the GUI.
+        """
+                
+        print('saving reconstruction...')
+
+        np.save(os.path.join(xg.data_path,'recons',self.filename.get()),self.img)
+
+        print('Reconstruction saved to ',os.path.join(xg.data_path,'recons',self.filename.get()))
+
     def saveproj(self):
         """
         Calculates a new spectrum using the parameters in the GUI.
         """
                 
         print('saving projections...')
-        np.save(os.path.join(xg.data_path,'projs',self.filename.get()),self.img)
+        np.save(os.path.join(xg.data_path,'projs',self.filename.get()),self.proj)
+
+        print('Projections saved to ',os.path.join(xg.data_path,'projs',self.filename.get()))
 
     def add_focal_spot(self):
 
@@ -1805,6 +1830,8 @@ def main():
 
     """
     root = Tk()
+    root.style = Style()
+    root.style.theme_use("clam")
     root.configure()#background='black')
     app = XpecgenGUI(master=root)
     app.mainloop()
