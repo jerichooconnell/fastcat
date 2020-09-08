@@ -240,17 +240,17 @@ class XpecgenGUI(Notebook):
         self.Z.set(_add_element_name("74"))
 
         self.load = StringVar()
-        self.load.set("Al_spectrum_6")
+        self.load.set("W_spectrum_6")
 
         self.det = StringVar()
-        self.det.set("CWO-392-micrometer")
+        self.det.set("CWO-784-micrometer")
 
         self.det2 = StringVar()
-        self.det2.set("CWO-392-micrometer")
+        self.det2.set("CWO-784-micrometer")
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
-        self.geo.set("Catphan_MTF")#"catphan_low_contrast_512_8cm")
+        self.geo.set("Catphan_515")#"catphan_low_contrast_512_8cm")
 
         self.EMin = DoubleVar()
         self.EMin.set(3.0)
@@ -330,7 +330,7 @@ class XpecgenGUI(Notebook):
         self.HVL22 = StringVar()
         self.HVL22.set(0.0)
         self.HVL32 = DoubleVar()
-        self.HVL32.set(180)
+        self.HVL32.set(2)
         self.HVL42 = DoubleVar()
         self.HVL42.set(0.0)
         self.HVL52 = DoubleVar()

@@ -147,7 +147,9 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     raw_proj = np.exp(-mean_analytical/scale.x[0])*scale.x[1]
     # get the noise
     raw_proj = np.exp(-mean_analytical/scale.x[0])*scale.x[1]
-    raw_proj_noise = np.exp(-mean_analytical/scale_noise.x[0])*scale_noise.x[1]
+    # raw_proj_noise = np.exp(-mean_analytical/(scale_noise.x[0]+10.0))*(scale_noise.x[1]+0.2) # Hacky fix for C_25
+    raw_proj_noise = np.exp(-mean_analytical/(scale_noise.x[0]+15))*(scale_noise.x[1]+1.3) # Hacky fix
+
     scatter = raw_proj_noise - raw_proj
 
     # Reshape the projections
@@ -488,8 +490,9 @@ class Catphan_515:
     def __init__(self): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet.DSD = 1520 #1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
-        self.geomet.dDetector = np.array([0.672, 0.672])#det.pitch, det.pitch]) #TODO: Change this to get phantom
+        self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
