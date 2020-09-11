@@ -240,13 +240,13 @@ class XpecgenGUI(Notebook):
         self.Z.set(_add_element_name("74"))
 
         self.load = StringVar()
-        self.load.set("W_spectrum_6")
+        self.load.set("C_spectrum_25")
 
         self.det = StringVar()
-        self.det.set("CWO-784-micrometer")
+        self.det.set("CuGOS-784-micrometer")
 
         self.det2 = StringVar()
-        self.det2.set("CWO-784-micrometer")
+        self.det2.set("CuGOS-784-micrometer")
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
@@ -1492,8 +1492,7 @@ class XpecgenGUI(Notebook):
 
                 print('FDK')
 
-                self.img = tigre.algorithms.FDK(
-                    np.transpose(self.proj,[0,2,1]), self.phantom.geomet, self.angles,filter=self.filt.get())
+                self.img = tigre.algorithms.FDK(self.proj, self.phantom.geomet, self.angles,filter=self.filt.get())
 
                 self.queue_calculation.put(True)
 

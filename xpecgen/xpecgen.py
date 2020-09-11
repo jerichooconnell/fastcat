@@ -77,7 +77,9 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     mu_water = np.array([0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
        0.176564, 0.1707  , 0.1186  , 0.09687 , 0.083614, 0.074411,
        0.07072 , 0.04942 , 0.03403 , 0.0277  ])
-        
+    mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-01  , 1.824E-01 , 1.755E-01  ,
+        1.700E-01, 1.654E-01 , 1.180E-01 , 9.665E-02 , 8.351E-02, 7.434E-02,
+        7.066E-02 , 4.940E-02 , 0.03402 , 0.0277  ])        
     proj = []
     doses = []
 
@@ -86,7 +88,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
         proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-        doses.append((energy)*(1-np.exp(-(proj[-1][0]*mu_en_water[jj]/mu_water[jj]*.997)/10)))
+        doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))) # *mu_en_water[jj]/mu_water[jj]*.997
 
     # --- Factoring in the fluence and the energy deposition ---
     # Binning to get the fluence per energy
@@ -121,48 +123,42 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     deposition_long = np.interp(energies,original_energies_keV/1000,deposition_summed)
     nphotons_at_energy = fluence_norm*deposition_long
     nphotons_av = np.sum(nphotons_at_energy)
+
+    # -------- Scatter Correction -----------
     # These are the MC scatter kernels primary and total
-    primary = np.load(os.path.join(data_path,'noise','primary_projections.npy')) #TODO: save these as something smaller
-    noise = np.load(os.path.join(data_path,'noise','noise_projections.npy'))
-    # np.save('primary_projections',primary)
-    # sum the noise kernel with the weights
-    noise_summed = noise.T @ weights_small
-    # weight the primary
-    primary_summed = primary.T @ weights_small
-    # analytical
-    analytical_summed = np.array(proj).T @ weights_small
-    # Get a 2d sum
-    raw_prime = np.mean(np.sum(primary_summed,0),0)
-    raw_noise = np.mean(np.sum(noise_summed,0),0)
-    mean_analytical = np.mean(analytical_summed[:,:,0],1)
+    primary = np.load(os.path.join(data_path,'scatter','primary.npy'))
+    noise = np.load(os.path.join(data_path,'scatter','total.npy'))
+    flood = np.load(os.path.join(data_path,'scatter','total_flood.npy'))
+    projs = np.load(os.path.join(data_path,'scatter','fc_water_w_coherent.npy'))
+    scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
+    e_dist = np.load(os.path.join(data_path,'scatter','e_dist.npy'))
 
-    def get_rmse(x):
-        return np.sum(np.abs(np.exp(-mean_analytical/x[0])*x[1] - raw_prime))
-    def get_rmse_noise(x):
-        return np.sum(np.abs(np.exp(-mean_analytical/x[0])*x[1] - raw_noise))
 
-    scale = minimize(get_rmse,[10,32])
-    scale_noise = minimize(get_rmse_noise,[10,32])
+    scatter_edep = scatter @ e_dist/np.sum(e_dist,0)
 
-    raw_proj = np.exp(-mean_analytical/scale.x[0])*scale.x[1]
-    # get the noise
-    raw_proj = np.exp(-mean_analytical/scale.x[0])*scale.x[1]
-    # raw_proj_noise = np.exp(-mean_analytical/(scale_noise.x[0]+10.0))*(scale_noise.x[1]+0.2) # Hacky fix for C_25
-    raw_proj_noise = np.exp(-mean_analytical/(scale_noise.x[0]+15))*(scale_noise.x[1]+1.3) # Hacky fix
 
-    scatter = raw_proj_noise - raw_proj
+    mc_noise = noise @ weights_small
+    mc_prime = primary @ weights_small
+    fc_prime = projs @ weights_small
+    mc_scatter = scatter_edep @ weights_small
+
+
+    # scatter = mc_noise - fc_prime
+    flood_summed = np.mean(flood,1)
+
 
     # Reshape the projections
-    weighted_projs = np.array(proj).transpose([3,2,1,0])
+    weighted_projs = np.array(proj)
     
     # Normalize the kernel
     kernel_norm = kernel.kernel/np.sum(kernel.kernel)
     # log(i/i_0) to get back to intensity
-    raw = np.exp(-weighted_projs/scale.x[0])*scale.x[1]
+    raw = (np.exp(-weighted_projs/10)*(flood_summed/2)).T
     # Weight the intensity by fluence
-    raw_weighted = raw@weights_small
+    raw_weighted = (raw@weights_small).T
     # Add the already weighted noise
-    raw_weighted += np.tile(scatter,[len(angles),raw_weighted.shape[1],1]).T
+    raw_weighted += mc_scatter
+
     # add the poisson noise
     if nphoton is not None:
         # This gives me the number of photons I get
@@ -178,11 +174,11 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     
     filtered = raw_weighted.copy()
 
-    for ii in range(len(angles)):
+    # for ii in range(len(angles)):
 
-        filtered[:,:,ii] = fftconvolve(raw_weighted[:,:,ii],kernel_norm, mode = 'same')
+    #     filtered[ii,:,:] = fftconvolve(raw_weighted[ii,:,:],kernel_norm, mode = 'same')
 
-    return (-np.log(filtered/scale_noise.x[1])*scale_noise.x[0]).transpose([2,0,1]), dose_in_mgrays
+    return -10*np.log(filtered/(flood_summed/2)), dose_in_mgrays
 
 def log_interp_1d(xx, yy, kind='linear'):
     """
@@ -822,8 +818,9 @@ class Catphan_MTF:
         self.phantom = np.load(os.path.join(data_path,'phantoms/MTF_phantom_1024.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([64,512])
-        self.geomet.dDetector = np.array([0.672, 0.672])
+        self.geomet.dDetector = np.array([0.784, 0.784])
         self.phan_map = ['air','water',"G4_BONE_COMPACT_ICRU"] 
+        self.geomet.DSD = 1500
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
 
