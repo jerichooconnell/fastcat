@@ -142,9 +142,18 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     fc_prime = projs @ weights_small
     mc_scatter = scatter_edep @ weights_small
 
+    scatter_array = np.load('/home/xcite/fastCAT/tests/scatter_array.npy')/128
+
+    scatter_weighted = scatter_array.T @ weights_small
+
+    mc_scatter = np.sum(scatter_weighted,1)
+
+    dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
+
+    factor = (152/(np.sqrt(dist**2 + 152**2)))**3
 
     # scatter = mc_noise - fc_prime
-    flood_summed = np.mean(flood,1)
+    flood_summed = factor*np.mean(flood[250:260])
 
 
     # Reshape the projections
