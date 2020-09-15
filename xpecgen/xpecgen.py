@@ -92,12 +92,12 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     # --- Factoring in the fluence and the energy deposition ---
     # Binning to get the fluence per energy
-    large_energies = np.linspace(0,6000,3001)/1000
+    large_energies = np.linspace(0,6000,3001)
     fluence_large = np.interp(large_energies,np.array(energies), fluence)
     fluence_small = np.zeros(len(original_energies_keV))
     # Still binning
     for ii, val in enumerate(large_energies):   
-        index = np.argmin(np.abs(original_energies_keV-val*1000))
+        index = np.argmin(np.abs(original_energies_keV-val))
         fluence_small[index] += fluence_large[ii]       
     # Normalize
     fluence_small /= np.sum(fluence_small)
@@ -131,31 +131,25 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     flood = np.load(os.path.join(data_path,'scatter','total_flood.npy'))
     projs = np.load(os.path.join(data_path,'scatter','fc_water_w_coherent.npy'))
     scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
-    e_dist = np.load(os.path.join(data_path,'scatter','e_dist.npy'))
-
-
-    scatter_edep = scatter @ e_dist/np.sum(e_dist,0)
-
+    # e_dist = np.load(os.path.join(data_path,'scatter','e_dist.npy'))
+    scatter_coh = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
     mc_noise = noise @ weights_small
     mc_prime = primary @ weights_small
     fc_prime = projs @ weights_small
-    mc_scatter = scatter_edep @ weights_small
+    mc_scatter = scatter @ weights_small
+    coh_scatter = scatter_coh @ weights_small
 
-    scatter_array = np.load('/home/xcite/fastCAT/tests/scatter_array.npy')/128
-
-    scatter_weighted = scatter_array.T @ weights_small
-
-    mc_scatter = np.sum(scatter_weighted,1)
-
+    
     dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
 
     factor = (152/(np.sqrt(dist**2 + 152**2)))**3
 
     # scatter = mc_noise - fc_prime
-    flood_summed = factor*np.mean(flood[250:260])
+    flood_summed = factor*660 #np.mean(flood[250:260])
 
 
+    scatter = 2*mc_scatter + 3*coh_scatter
     # Reshape the projections
     weighted_projs = np.array(proj)
     
@@ -166,7 +160,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Weight the intensity by fluence
     raw_weighted = (raw@weights_small).T
     # Add the already weighted noise
-    raw_weighted += mc_scatter
+    raw_weighted += scatter
 
     # add the poisson noise
     if nphoton is not None:
