@@ -21,7 +21,7 @@ from matplotlib.colors import LogNorm
 import tigre
 import tigre.algorithms as algs
 from scipy.signal import fftconvolve, find_peaks, butter,filtfilt
-from scipy.optimize import minimize
+from scipy.optimize import minimize, curve_fit
 from scipy.ndimage import gaussian_filter
 from numpy import cos, sin
 from builtins import map
@@ -102,7 +102,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Normalize
     fluence_small /= np.sum(fluence_small)
     fluence_norm = fluence/np.sum(fluence)
-    weights_small = fluence_small*deposition_summed
+    weights_small = fluence_small #*deposition_summed
     # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
@@ -126,22 +126,31 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     # -------- Scatter Correction -----------
     # These are the MC scatter kernels primary and total
-    primary = np.load(os.path.join(data_path,'scatter','primary.npy'))
-    noise = np.load(os.path.join(data_path,'scatter','total.npy'))
-    flood = np.load(os.path.join(data_path,'scatter','total_flood.npy'))
-    projs = np.load(os.path.join(data_path,'scatter','fc_water_w_coherent.npy'))
+    # primary = np.load(os.path.join(data_path,'scatter','primary.npy'))
+    # noise = np.load(os.path.join(data_path,'scatter','total.npy'))
+    # flood = np.load(os.path.join(data_path,'scatter','total_flood.npy'))
+    # projs = np.load(os.path.join(data_path,'scatter','fc_water_w_coherent.npy'))
     scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
     # e_dist = np.load(os.path.join(data_path,'scatter','e_dist.npy'))
     scatter_coh = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
-    mc_noise = noise @ weights_small
-    mc_prime = primary @ weights_small
-    fc_prime = projs @ weights_small
-    mc_scatter = scatter @ weights_small
-    coh_scatter = scatter_coh @ weights_small
-
-    
     dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
+
+    def func(x, a, b):
+        return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
+
+    scatter_smooth = np.zeros(scatter.shape)
+
+    for jj in range(len(original_energies_keV)):
+
+            popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+            scatter_smooth[:,jj] = func(dist, *popt)
+
+    # mc_noise = noise @ weights_small
+    # mc_prime = primary @ weights_small
+    # fc_prime = projs @ weights_small
+    mc_scatter = scatter_smooth @ weights_small
+    coh_scatter = scatter_coh @ weights_small
 
     factor = (152/(np.sqrt(dist**2 + 152**2)))**3
 
@@ -149,14 +158,14 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     flood_summed = factor*660 #np.mean(flood[250:260])
 
 
-    scatter = 2*mc_scatter + 3*coh_scatter
+    scatter = 2.15*(mc_scatter + coh_scatter)
     # Reshape the projections
     weighted_projs = np.array(proj)
     
     # Normalize the kernel
     kernel_norm = kernel.kernel/np.sum(kernel.kernel)
     # log(i/i_0) to get back to intensity
-    raw = (np.exp(-weighted_projs/10)*(flood_summed/2)).T
+    raw = (np.exp(-weighted_projs/10)*(flood_summed)).T
     # Weight the intensity by fluence
     raw_weighted = (raw@weights_small).T
     # Add the already weighted noise
@@ -181,7 +190,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     #     filtered[ii,:,:] = fftconvolve(raw_weighted[ii,:,:],kernel_norm, mode = 'same')
 
-    return -10*np.log(filtered/(flood_summed/2)), dose_in_mgrays
+    return -10*np.log(filtered/(flood_summed)), dose_in_mgrays
 
 def log_interp_1d(xx, yy, kind='linear'):
     """

@@ -240,7 +240,7 @@ class XpecgenGUI(Notebook):
         self.Z.set(_add_element_name("74"))
 
         self.load = StringVar()
-        self.load.set("C_spectrum_25")
+        self.load.set("W_spectrum_25")
 
         self.det = StringVar()
         self.det.set("CuGOS-784-micrometer")
@@ -330,7 +330,7 @@ class XpecgenGUI(Notebook):
         self.HVL22 = StringVar()
         self.HVL22.set(0.0)
         self.HVL32 = DoubleVar()
-        self.HVL32.set(2)
+        self.HVL32.set(180)
         self.HVL42 = DoubleVar()
         self.HVL42.set(0.0)
         self.HVL52 = DoubleVar()
