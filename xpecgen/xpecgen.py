@@ -88,7 +88,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
         proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-        doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))) # *mu_en_water[jj]/mu_water[jj]*.997
+        doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water[jj]/mu_water[jj])
 
     # --- Factoring in the fluence and the energy deposition ---
     # Binning to get the fluence per energy
@@ -106,7 +106,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
-    # return np.mean(np.mean(doses,1),1), fluence
+    return np.mean(np.mean(doses,1),1), fluence
     
     # --- Dose calculation ---
     # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
@@ -125,13 +125,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     nphotons_av = np.sum(nphotons_at_energy)
 
     # -------- Scatter Correction -----------
-    # These are the MC scatter kernels primary and total
-    # primary = np.load(os.path.join(data_path,'scatter','primary.npy'))
-    # noise = np.load(os.path.join(data_path,'scatter','total.npy'))
-    # flood = np.load(os.path.join(data_path,'scatter','total_flood.npy'))
-    # projs = np.load(os.path.join(data_path,'scatter','fc_water_w_coherent.npy'))
     scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
-    # e_dist = np.load(os.path.join(data_path,'scatter','e_dist.npy'))
     scatter_coh = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
     dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
@@ -146,11 +140,8 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
             scatter_smooth[:,jj] = func(dist, *popt)
 
-    # mc_noise = noise @ weights_small
-    # mc_prime = primary @ weights_small
-    # fc_prime = projs @ weights_small
-    mc_scatter = scatter_smooth @ weights_small
-    coh_scatter = scatter_coh @ weights_small
+    mc_scatter = scatter_smooth #@ weights_small
+    coh_scatter = scatter_coh #@ weights_small
 
     factor = (152/(np.sqrt(dist**2 + 152**2)))**3
 
@@ -167,9 +158,10 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # log(i/i_0) to get back to intensity
     raw = (np.exp(-weighted_projs/10)*(flood_summed)).T
     # Weight the intensity by fluence
-    raw_weighted = (raw@weights_small).T
+    raw_weighted = raw#@weights_small).T
     # Add the already weighted noise
-    raw_weighted += scatter
+    # raw_weighted += scatter
+    raw_weighted = raw_weighted.transpose([2,1,0,3]) + scatter
 
     # add the poisson noise
     if nphoton is not None:
@@ -186,10 +178,14 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     
     filtered = raw_weighted.copy()
 
-    # for ii in range(len(angles)):
+    for ii in range(len(angles)):
+        for jj in range(len(original_energies_keV)):
 
-    #     filtered[ii,:,:] = fftconvolve(raw_weighted[ii,:,:],kernel_norm, mode = 'same')
+            kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
 
+            filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
+
+    filtered = filtered @ weights_small
     return -10*np.log(filtered/(flood_summed)), dose_in_mgrays
 
 def log_interp_1d(xx, yy, kind='linear'):
@@ -398,6 +394,7 @@ class Kernel:
         weights = fluence*deposition_interpolated
         weights = weights/sum(weights)
 
+        self.kernels = kernels
         self.kernel = super_kernel.T@weights
         self.pitch = int(detector[-14:-11])/1000  #mm
 
@@ -839,7 +836,7 @@ class Catphan_MTF:
         self.geomet.sVoxel = np.array((160, 160, 160)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel 
 
-    def analyse_515(self,slc,place):
+    def analyse_515(self,slc,place,fmt='-'):
 
         chunk_x = 100
         chunk_y = 35
@@ -912,7 +909,7 @@ class Catphan_MTF:
         lpmm.insert(0,1/(2*30*pitch))
 
         place[0].errorbar(lpmm[:len(signal)],signal/signal[0],yerr=standev/signal[0],fmt='kx')
-        place[0].plot(lpmm[:len(signal)],signal/signal[0])
+        place[0].plot(lpmm[:len(signal)],signal/signal[0],fmt = fmt)
         place[0].set_xlabel('lp/cm')
         place[0].set_ylabel('MTF')
 
