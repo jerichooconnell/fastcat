@@ -1159,7 +1159,7 @@ class XpecgenGUI(Notebook):
             # self.subfigGeo.clear()
             if len(self.proj.shape) > 2:
                 self.tracker3 = xg.IndexTracker(
-                    self.subfig5, self.proj.T([1,2,0]))
+                    self.subfig5, self.proj.transpose([1,2,0]))
                 self.fig4.canvas.mpl_connect(
                     'scroll_event', self.tracker3.onscroll)
                 self.tracker4 = xg.IndexTracker(

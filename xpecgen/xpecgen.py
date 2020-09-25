@@ -106,7 +106,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
-    return np.mean(np.mean(doses,1),1), fluence
+    # return np.mean(np.mean(doses,1),1), fluence
     
     # --- Dose calculation ---
     # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
@@ -117,6 +117,8 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
         # Figure out the factor for the SNR
         nphoton = (dose)/dose_in_mgrays
         print('Number of particles ', nphoton)
+
+        Hey Courage! I'm jericho. My microphone and video are not connected on this computer. I am a master's student working on MV CBCT simulations
     
     # --- Noise and Scatter Calculation ---
     # Now I interpolate deposition and get the average photons reaching the detector
@@ -151,17 +153,17 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
 
     scatter = 2.15*(mc_scatter + coh_scatter)
     # Reshape the projections
-    weighted_projs = np.array(proj)
+    # weighted_projs = np.array(proj)
     
     # Normalize the kernel
     kernel_norm = kernel.kernel/np.sum(kernel.kernel)
     # log(i/i_0) to get back to intensity
-    raw = (np.exp(-weighted_projs/10)*(flood_summed)).T
+    raw = (np.exp(-np.array(proj)/10)*(flood_summed)).T
     # Weight the intensity by fluence
-    raw_weighted = raw#@weights_small).T
+    # raw_weighted = raw#@weights_small).T
     # Add the already weighted noise
     # raw_weighted += scatter
-    raw_weighted = raw_weighted.transpose([2,1,0,3]) + scatter
+    raw_weighted = raw.transpose([2,1,0,3]) + scatter
 
     # add the poisson noise
     if nphoton is not None:
@@ -186,6 +188,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
             filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
 
     filtered = filtered @ weights_small
+
     return -10*np.log(filtered/(flood_summed)), dose_in_mgrays
 
 def log_interp_1d(xx, yy, kind='linear'):
