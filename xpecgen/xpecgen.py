@@ -40,13 +40,22 @@ __version__ = "1.3.0"
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
+mu_en_water = np.array([0.1557  , 0.06947 , 0.04223 , 0.0319  , 0.027678, 0.02597 ,
+    0.025434, 0.02546 , 0.03192 , 0.03299 , 0.032501, 0.031562,
+    0.03103 , 0.02608 , 0.02066 , 0.01806 ])
+mu_water = np.array([0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
+    0.176564, 0.1707  , 0.1186  , 0.09687 , 0.083614, 0.074411,
+    0.07072 , 0.04942 , 0.03403 , 0.0277  ])
+mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-01  , 1.824E-01 , 1.755E-01  ,
+    1.700E-01, 1.654E-01 , 1.180E-01 , 9.665E-02 , 8.351E-02, 7.434E-02,
+    7.066E-02 , 4.940E-02 , 0.03402 , 0.0277  ])
 
 # --------------------General purpose functions-------------------------#
 
 
 def return_projs(phantom,kernel,energies,fluence,angles,geo,
                 deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
-                phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None,dose = None):
+                phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None, mgy = None,return_dose=False):
     '''
     The main function for returning the projections
     '''
@@ -70,16 +79,7 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
         masks[ii-1] = phantom == ii
     phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
 
-    # --- Ray tracing step ---
-    mu_en_water = np.array([0.1557  , 0.06947 , 0.04223 , 0.0319  , 0.027678, 0.02597 ,
-       0.025434, 0.02546 , 0.03192 , 0.03299 , 0.032501, 0.031562,
-       0.03103 , 0.02608 , 0.02066 , 0.01806 ])
-    mu_water = np.array([0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
-       0.176564, 0.1707  , 0.1186  , 0.09687 , 0.083614, 0.074411,
-       0.07072 , 0.04942 , 0.03403 , 0.0277  ])
-    mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-01  , 1.824E-01 , 1.755E-01  ,
-        1.700E-01, 1.654E-01 , 1.180E-01 , 9.665E-02 , 8.351E-02, 7.434E-02,
-        7.066E-02 , 4.940E-02 , 0.03402 , 0.0277  ])        
+    # --- Ray tracing step ---        
     proj = []
     doses = []
 
@@ -106,19 +106,30 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
-    # return np.mean(np.mean(doses,1),1), fluence
+    if return_dose:
+        return np.mean(np.mean(doses,1),1), fluence
     
     # --- Dose calculation ---
     # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
-    dose_per_photon = np.mean(np.mean(doses,1),1)@((fluence_small)*0.02681133)
-    # Dose in micro grays
-    dose_in_mgrays = dose_per_photon * 1.6021766e-16 * 1000 # J/MeV 1/kG mGy/Gy
-    if dose != 0:
-        # Figure out the factor for the SNR
-        nphoton = (dose)/dose_in_mgrays
-        print('Number of particles ', nphoton)
+    def get_dose_nphoton(nphot):
+        return nphot/2e7
 
-        Hey Courage! I'm jericho. My microphone and video are not connected on this computer. I am a master's student working on MV CBCT simulations
+    def get_dose_mgy(mgy,doses,fluence_small):
+        nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13))
+        return get_dose_nphoton(nphoton)
+
+    def get_dose_per_photon(doses,fluence_small):
+        # linear fit of the data
+        pp = np.array([0.88759883, 0.01035186])
+        return ((np.mean(np.mean(doses,1),1)/1000)@((fluence_small)))*pp[0] + pp[1]
+
+    ratio = None
+
+    # Dose in micro grays
+    if mgy != 0.0:
+        ratio = get_dose_mgy(mgy,doses,fluence_small)
+    elif nphoton is not None:
+        ratio = get_dose_nphoton(nphoton)
     
     # --- Noise and Scatter Calculation ---
     # Now I interpolate deposition and get the average photons reaching the detector
@@ -126,70 +137,54 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     nphotons_at_energy = fluence_norm*deposition_long
     nphotons_av = np.sum(nphotons_at_energy)
 
+    print('ratio is', ratio,'number of photons', nphotons_av)
+
     # -------- Scatter Correction -----------
     scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
-    scatter_coh = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
+    coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
     dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
 
     def func(x, a, b):
         return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
 
-    scatter_smooth = np.zeros(scatter.shape)
+    mc_scatter = np.zeros(scatter.shape)
 
     for jj in range(len(original_energies_keV)):
 
             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-            scatter_smooth[:,jj] = func(dist, *popt)
-
-    mc_scatter = scatter_smooth #@ weights_small
-    coh_scatter = scatter_coh #@ weights_small
+            mc_scatter[:,jj] = func(dist, *popt)
 
     factor = (152/(np.sqrt(dist**2 + 152**2)))**3
-
-    # scatter = mc_noise - fc_prime
-    flood_summed = factor*660 #np.mean(flood[250:260])
-
-
+    flood_summed = factor*660 
     scatter = 2.15*(mc_scatter + coh_scatter)
-    # Reshape the projections
-    # weighted_projs = np.array(proj)
     
     # Normalize the kernel
     kernel_norm = kernel.kernel/np.sum(kernel.kernel)
     # log(i/i_0) to get back to intensity
     raw = (np.exp(-np.array(proj)/10)*(flood_summed)).T
-    # Weight the intensity by fluence
-    # raw_weighted = raw#@weights_small).T
+
     # Add the already weighted noise
-    # raw_weighted += scatter
     raw_weighted = raw.transpose([2,1,0,3]) + scatter
 
     # add the poisson noise
-    if nphoton is not None:
-        # This gives me the number of photons I get
-        # nphotons = dose/dose_per_frame
-        # This should adjust to the number that reach the detector
-        nphoton *= nphotons_av
-        # We then divide by the number of pixels to get the final product
-        nphotons_per_voxel = int(nphoton/(phantom.shape[1]*phantom.shape[2]))
+    if ratio is not None:
 
-        raw_weighted = np.random.poisson(lam=raw_weighted*nphotons_per_voxel)/nphotons_per_voxel
-
-        print('Number of photons per voxel', nphotons_per_voxel)
+        adjusted_ratio = ratio #*nphotons_av
+        raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
     
     filtered = raw_weighted.copy()
 
-    for ii in range(len(angles)):
-        for jj in range(len(original_energies_keV)):
+    # for ii in range(len(angles)):
+    #     for jj in range(len(original_energies_keV)):
 
-            kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
+    #         kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
 
-            filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
+    #         filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
 
     filtered = filtered @ weights_small
 
-    return -10*np.log(filtered/(flood_summed)), dose_in_mgrays
+    return -10*np.log(filtered/(flood_summed)), ratio
 
 def log_interp_1d(xx, yy, kind='linear'):
     """
@@ -912,7 +907,7 @@ class Catphan_MTF:
         lpmm.insert(0,1/(2*30*pitch))
 
         place[0].errorbar(lpmm[:len(signal)],signal/signal[0],yerr=standev/signal[0],fmt='kx')
-        place[0].plot(lpmm[:len(signal)],signal/signal[0],fmt = fmt)
+        place[0].plot(lpmm[:len(signal)],signal/signal[0],fmt)
         place[0].set_xlabel('lp/cm')
         place[0].set_ylabel('MTF')
 

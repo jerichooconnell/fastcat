@@ -285,7 +285,7 @@ class XpecgenGUI(Notebook):
         self.AttenThick.set(0.1)
 
         self.current = DoubleVar()
-        self.current.set(0)
+        self.current.set(6.200432949299284e-07)
 
         self.noise = None
 
@@ -1448,30 +1448,6 @@ class XpecgenGUI(Notebook):
         
         if self.matplotlib_embedded:
 
-            # self.subfig9.clear()
-            # self.subfig9.plot(self.CNRs[0],self.CNRs[1][:-1])
-            # self.subfig9.set_xlabel('Radius [mm]')
-            # self.subfig9.set_ylabel('CNR')
-            # self.subfig9.set_title('Contrast to Noise Ratio')
-            # self.kernel.get_plot_mtf(self.subfig10)
-            # self.canvas6.draw()
-            # self.canvasToolbar6.update()
-            # self.fig6.tight_layout()
-            # self.select(6)
-
-            # self.subfig9.plot(self.CNRs[1], 'x',label=f'{self.det.get()}, {self.load.get()}')
-            # self.subfig9.set_xticks(range(len(self.CNRs[1]))) 
-            # self.subfig9.set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
-            # self.subfig9.set_ylabel('% Contrast')
-            # self.subfig9.set_title('Contrast')
-            # self.subfig9.legend()
-
-            # self.subfig10.plot(self.CNRs[2], 'x',label=f'{self.det.get()}, {self.load.get()}')
-            # self.subfig10.set_xticks(range(len(self.CNRs[1]))) 
-            # self.subfig10.set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
-            # self.subfig10.set_ylabel('CNR')
-            # self.subfig10.set_title('Contrast to Noise')
-            # self.phantom.phan_map = self.phan_map
             self.phantom.analyse_515(self.img[5],[self.subfig9,self.subfig10])
             self.canvas6.draw()
             self.canvasToolbar6.update()
@@ -1582,7 +1558,7 @@ class XpecgenGUI(Notebook):
                             energy_deposition_file,
                             phantom_mapping = self.phantom.phan_map,
                             nphoton = self.noise,
-                            dose =  self.current.get())# I think it should be inverse
+                            mgy =  self.current.get())# I think it should be inverse
                 print(np.array(self.proj).shape)
                 self.queue_calculation.put(True)
 
