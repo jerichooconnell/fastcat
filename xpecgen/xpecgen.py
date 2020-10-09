@@ -55,7 +55,8 @@ mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-
 
 def return_projs(phantom,kernel,energies,fluence,angles,geo,
                 deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
-                phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None, mgy = None,return_dose=False):
+                phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None,
+                mgy = None,return_dose=False,det_on=True,scat_on=True):
     '''
     The main function for returning the projections
     '''
@@ -75,18 +76,26 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     mapping_functions = []
     # Get the mapping functions for the different tissues to reconstruct the phantom by energy
     for ii in range(1,len(phantom_mapping)):       
-        mapping_functions.append(get_mu(phantom_mapping[ii]))
+        mapping_functions.append(get_mu(phantom_mapping[ii].split(':')[0]))
         masks[ii-1] = phantom == ii
     phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
 
     # --- Ray tracing step ---        
     proj = []
     doses = []
+    # we assume tigre works
+    tigre_works = True
 
     for jj, energy in enumerate(original_energies_keV):
         for ii in range(0,len(phantom_mapping)-1):
             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-        proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
+        if tigre_works:
+            try:
+                proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
+            except Exception:
+                print("WARNING: Tigre GPU not. Switching to astra CPU",
+                    file=sys.stderr)
+                proj.append(np.squeeze(tigre2astra(phantom2,geo,angles)))
         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
         doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water[jj]/mu_water[jj])
 
@@ -102,7 +111,12 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     # Normalize
     fluence_small /= np.sum(fluence_small)
     fluence_norm = fluence/np.sum(fluence)
-    weights_small = fluence_small #*deposition_summed
+
+    if det_on:
+        weights_small = fluence_small*deposition_summed
+    else:
+        weights_small = fluence_small
+    
     # Need to make sure that the attenuations aren't janky for recon
     weights_small /= np.sum(weights_small)
     # This is the line to uncomment to run the working code for dose_comparison.ipynb
@@ -158,29 +172,38 @@ def return_projs(phantom,kernel,energies,fluence,angles,geo,
     factor = (152/(np.sqrt(dist**2 + 152**2)))**3
     flood_summed = factor*660 
     scatter = 2.15*(mc_scatter + coh_scatter)
-    
-    # Normalize the kernel
-    kernel_norm = kernel.kernel/np.sum(kernel.kernel)
     # log(i/i_0) to get back to intensity
     raw = (np.exp(-np.array(proj)/10)*(flood_summed)).T
 
     # Add the already weighted noise
-    raw_weighted = raw.transpose([2,1,0,3]) + scatter
+    if scat_on:
+        raw_weighted = raw.transpose([2,1,0,3]) + scatter
+    else:
+        raw_weighted = raw.transpose([2,1,0,3])
 
+    # Normalize the kernel
+    kernel_norm = kernel.kernel/np.sum(kernel.kernel)
+        
     # add the poisson noise
     if ratio is not None:
-
-        adjusted_ratio = ratio #*nphotons_av
+        
+        if det_on:
+            adjusted_ratio = ratio*nphotons_av
+        else:
+            adjusted_ratio = ratio
+        
         raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
     
     filtered = raw_weighted.copy()
 
-    # for ii in range(len(angles)):
-    #     for jj in range(len(original_energies_keV)):
+    if det_on: # if the detector is to be simulated
 
-    #         kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
+        for ii in range(len(angles)):
+            for jj in range(len(original_energies_keV)):
 
-    #         filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
+                kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
+
+                filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
 
     filtered = filtered @ weights_small
 
@@ -481,7 +504,7 @@ class Kernel:
         place.set_xlabel('Spatial Frequency [1/mm]')
         place.set_ylabel('MTF')
         place.legend()
-        place.grid()
+        place.grid(True)
 
     def add_focal_spot(self,fs_size_in_pix):
 

@@ -348,6 +348,12 @@ class XpecgenGUI(Notebook):
         self.kV = BooleanVar()
         self.kV.set(True)
 
+        self.scatter_on = IntVar()
+        self.scatter_on.set(1)
+
+        self.det_on = IntVar()
+        self.det_on.set(1)
+
     def createWidgets(self):
         """Create the widgets in the GUI"""
 
@@ -696,17 +702,17 @@ class XpecgenGUI(Notebook):
                                     "Choose a geometry")
         self.lblgeo.grid(row=0, column=0, sticky=W)
         self.cmbgeo = Combobox(self.frmGeo, textvariable=self.geo)
-        self.cmbgeo["values"] = geo_list
+        self.cmbgeo["values"] = ['Catphan_515','Catphan_MTF']#geo_list # these names correspond to xpecgen classes
         self.cmbgeo.grid(row=0, column=1, sticky=W + E)
         self.cmbgeoTT = CreateToolTip(self.cmbgeo,
                                     "Choose a geometry")
 
-        self.cmdgeo = Button(self.frmGeo, text="Geometry Viewer")
+        self.cmdgeo = Button(self.frmKern, text="Geometry Viewer")
         self.cmdgeo["command"] = self.computeGeometry
         self.cmdgeo.bind('<Return>', lambda event: self.computeGeometry())
         self.cmdgeo.bind(
             '<KP_Enter>', lambda event: self.computeGeometry())  # Enter (num. kb)
-        self.cmdgeo.grid(row=6, column=0, columnspan=2, sticky=N + S + E + W)
+        self.cmdgeo.grid(row=3, column=0, sticky=S + E + W)
 
         self.cmbgeofs = Combobox(self.frmGeo, textvariable=self.geo)
         self.cmbgeofs = ParBox(
@@ -729,13 +735,13 @@ class XpecgenGUI(Notebook):
         # --Spectral parameters frame
         self.frmSpectralParameters2 = LabelFrame(
             self.frmKern, text="Spectral parameters")
-        self.frmSpectralParameters2.grid(row=2, column=0, sticky=S + E + W)
+        self.frmSpectralParameters2.grid(row=1, column=0, sticky=N+E + W)
         self.ParHVL12 = ParBox(self.frmSpectralParameters2, self.load, lblText="Loaded Spectra", row=0,
                             read_only=True,
                             helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.ParHVL22 = ParBox(self.frmSpectralParameters2, self.geo, lblText="Geo file", row=1,
-                            read_only=True,
-                            helpTxt="Thickness of Al at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.")
+        # self.ParHVL22 = ParBox(self.frmSpectralParameters2, self.geo, lblText="Geo file", row=1,
+        #                     read_only=True,
+        #                     helpTxt="Thickness of Al at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.")
 
         Grid.columnconfigure(self.frmKern, 0, weight=1)
 
@@ -751,7 +757,7 @@ class XpecgenGUI(Notebook):
         """Initialize geom frame"""
 
         # -History frame
-        self.frmHist2 = LabelFrame(self.frmGeom, text="History")
+        self.frmHist2 = LabelFrame(self.frmGeom, text="Phantom Mapping")
         self.frmHist2.grid(row=0, column=0, sticky=N + S + E + W)
 
         self.lstHistory2 = Listbox(self.frmHist2, selectmode=BROWSE)
@@ -762,14 +768,27 @@ class XpecgenGUI(Notebook):
 
         self.lstHistory2.config(yscrollcommand=self.scrollHistory2.set)
         self.scrollHistory2.config(command=self.lstHistory2.yview)
+
+        mu_list = list(map(lambda x: (os.path.split(x)[1]).split(
+            ".csv")[0], glob(os.path.join(xg.data_path, "mu", "*.csv"))))
+        mu_list.sort(key=_human_order_key)  # Used later
+
+        self.cmbChangeMaterial = Combobox(
+            self.frmHist2, textvariable=self.AttenMaterial)
+        self.lblChange = Label(self.frmHist2, text="Material")
+        self.lblChangeTT = CreateToolTip(self.lblChange,
+                                    "Change a selected material in the phantom mapping to the material above")
+        self.lblChange.grid(row=1, column=0, sticky=W)
+        self.cmbChangeMaterial["values"] = list(map(_add_element_name, mu_list))
+        self.cmbChangeMaterial.grid(row=2, column=0, sticky=E + W)
         self.cmdCleanHistory2 = Button(
-            self.frmHist2, text="Revert to selected", state=DISABLED)
-        self.cmdCleanHistory2["command"] = self.clean_history
-        self.cmdCleanHistory2.grid(row=1, column=0, columnspan=2, sticky=E + W)
-        self.cmdExport2 = Button(
-            self.frmHist2, text="Save selected", state=DISABLED)
-        self.cmdExport2["command"] = self.export
-        self.cmdExport2.grid(row=2, column=0, columnspan=2, sticky=E + W)
+            self.frmHist2, text="Change Selected")
+        self.cmdCleanHistory2["command"] = self.update_phan_map
+        self.cmdCleanHistory2.grid(row=3, column=0, columnspan=2, sticky=E + W)
+        # self.cmdExport2 = Button(
+        #     self.frmHist2, text="Save selected", state=DISABLED)
+        # self.cmdExport2["command"] = self.export
+        # self.cmdExport2.grid(row=2, column=0, columnspan=2, sticky=E + W)
 
         self.cmddet2 = Button(self.frmGeom, text="Generate Projections")
         self.cmddet2["command"] = self.computeProjection
@@ -783,11 +802,15 @@ class XpecgenGUI(Notebook):
         Grid.columnconfigure(self.frmHist2, 1, weight=0)
 
         # -Operations frame
-        self.frmOper2 = LabelFrame(self.frmGeom, text="Spectrum operations")
+        self.frmOper2 = LabelFrame(self.frmGeom, text="Operations")
         self.frmOper2.grid(row=1, column=0, sticky=N + S + E + W)
         # --Attenuation
-        self.frmOperAtten2 = LabelFrame(self.frmOper2, text="Noise")
+        self.frmOperAtten2 = LabelFrame(self.frmOper2, text="Simulation Parameters")
         self.frmOperAtten2.grid(row=0, column=0, sticky=N + S + E + W)
+
+        self.radio1 = Checkbutton(self.frmOperAtten2,text='Scatter Correction',variable=self.scatter_on).pack(anchor=W)
+        self.radio2 = Checkbutton(self.frmOperAtten2,text='Detector Convolution',variable=self.det_on).pack(anchor=W)
+
         Grid.columnconfigure(self.frmOperAtten2, 0, weight=0)
         Grid.columnconfigure(self.frmOperAtten2, 1, weight=1)
         Grid.columnconfigure(self.frmOperAtten2, 2, weight=0)
@@ -810,6 +833,7 @@ class XpecgenGUI(Notebook):
             self.frmOperNorm2, text="Update", state=DISABLED)
         self.cmdNorm["command"] = self.normalize2
         self.cmdNorm.grid(row=2, column=0, columnspan=3, sticky=E + W)
+
         Grid.columnconfigure(self.frmOperNorm2, 0, weight=0)
         Grid.columnconfigure(self.frmOperNorm2, 1, weight=1)
         Grid.columnconfigure(self.frmOperNorm2, 2, weight=0)
@@ -840,9 +864,7 @@ class XpecgenGUI(Notebook):
             self.matplotlib_embedded = True
         except Exception:
             self.matplotlib_embedded = False
-            # self.cmdShowPlot = Button(self.frmPlot,text="Open plot window")
-            # self.cmdShowPlot["command"] = self.update_plot
-            # self.cmdShowPlot.grid(row=0,column=0)
+
             print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
                 file=sys.stderr)
 
@@ -865,13 +887,9 @@ class XpecgenGUI(Notebook):
         self.ParHVL52 = ParBox(self.frmSpectralParameters2, self.HVL52, lblText="Ending Angle", row=4,
                             read_only=False,
                             helpTxt="Ending angle of projection")
-        self.ParHVL62 = ParBox(self.frmSpectralParameters2, self.doseperproj, lblText="mGy", unitsTxt="cm", row=5,
+        self.ParHVL62 = ParBox(self.frmSpectralParameters2, self.doseperproj, lblText="mGy", row=5,
                             read_only=True,
                             helpTxt="Thickness of Cu at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.ParHVL72 = ParBox(self.frmSpectralParameters2, self.fluenceperproj, lblText="2HVL Cu", unitsTxt="nAs", row=6,
-                            read_only=True,
-                            helpTxt="Thickness of Cu at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.")
-        
 
         Grid.columnconfigure(self.frmGeom, 0, weight=1)
 
@@ -882,66 +900,85 @@ class XpecgenGUI(Notebook):
         Grid.rowconfigure(self.frmGeom, 0, weight=1)
         Grid.rowconfigure(self.frmGeom, 1, weight=1)
 
+    def update_phan_map(self):
+
+        try:
+            now = int(self.lstHistory2.curselection()[0])
+            
+            self.lstHistory2.delete(0, END)
+
+            self.phantom.phan_map[now] = self.AttenMaterial.get()
+
+            for ii, item in enumerate(self.phantom.phan_map):
+                self.lstHistory2.insert(END, f'{ii},' + item)
+
+        except IndexError:  # Ignore if nothing selected
+            pass
+
     def init_sino(self):
 
         """Initialize sino frame"""
 
-        # -Operations frame
         self.frmRecon = LabelFrame(
             self.frmSino, text="Reconstruction operations")
-        self.frmRecon.grid(row=0, column=0, rowspan=6,
-                        columnspan=5, sticky=N + S + E + W)
-        # self.cmdAtten2.grid(row=2, column=0, columnspan=3, sticky=E + W)
-        # --Attenuation
-        self.frmReconPar = LabelFrame(self.frmRecon, text="Attenuate")
-        # row=4, column=0,rowspan=4, sticky=E + W)
-        self.frmReconPar.grid(sticky=E + W)
+        self.frmRecon.grid(row=0, column=0, sticky=N + S + E + W)
         self.lblReconPar = Label(
             self.frmRecon, text="Reconstruction Algorithm")
-        self.lblReconPar.grid(sticky=E + W)
+        self.lblReconPar.grid(row=2, column=0,sticky= W)
         self.cmbReconType = Combobox(
             self.frmRecon, textvariable=self.algorithm)
-        self.cmbReconType.grid(sticky=E + W)
-        self.lblReconPar2 = Label(
-            self.frmRecon, text="Filter")
-        self.lblReconPar2.grid(sticky=E + W)
+        self.cmbReconType.grid(row=3, column=0,sticky=E + W)
         self.cmbReconType2 = Combobox(
             self.frmRecon, textvariable=self.filt)
+        self.lblReconPar2 = Label(
+            self.frmRecon, text="Filter")
+        self.lblReconPar2.grid(row=4, column=0,sticky=E + W)
+
         #self.cmbReconType["values"] = list(map(_add_element_name, mu_list))
         # row=5, column=0,rowspan=4, sticky=E + W)
-        self.cmbReconType2.grid(sticky=E + W)
+        self.cmbReconType2.grid(row=5, column=0,sticky=E + W)
+
+        self.frmReconParameters = LabelFrame(
+            self.frmSino, text="Spectral parameters")
+        self.frmReconParameters.grid(row=1, column=0, sticky=N + S + E + W)
 
         # self.get_proj = ParBox(
         #     self.get_proj, self.AttenThick2, lblText="Thickness", unitsTxt="cm", row=1)
         # self.frmRecon = LabelFrame(self.frmRecon, text="Spectral parameters")
         # self.frmSpectralParameters2.grid(row=2, column=0, sticky=S + E + W)
-        self.Par1 = ParBox(self.frmRecon, self.niter, lblText="Number of Iterations", row=5,
+        self.Parrecon = ParBox(self.frmReconParameters, self.niter, lblText="Number of Iterations", row=0,
                         read_only=False,
                         helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.cmdRecon = Button(self.frmRecon, text="Reconstruct")
+        self.cmdRecon = Button(self.frmReconParameters, text="Reconstruct")
         self.cmdRecon["command"] = self.reconstruct
         self.cmdRecon.bind('<Return>', lambda event: self.reconstruct())
         self.cmdRecon.bind(
             '<KP_Enter>', lambda event: self.reconstruct())  # Enter (num. kb)
         # row=6, column=0, rowspan=4, sticky=E + W)
-        self.cmdRecon.grid(sticky=E + W)
+        self.cmdRecon.grid(row=1, column=0,columnspan=2,sticky=S+E + W)
 
-        self.ParSave = ParBox(self.frmRecon, self.filename, lblText="File Name", row=8,
+        self.ParSave = ParBox(self.frmReconParameters, self.filename, lblText="File Name", row=2,
                         read_only=False,
                         helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-
-        self.cmdSave = Button(self.frmRecon, text="Save Projections")
+        
+        self.cmdSave = Button(self.frmReconParameters, text="Save Projections")
         self.cmdSave["command"] = self.saveproj
         self.cmdSave.bind('<Return>', lambda event: self.saveproj())
         self.cmdSave.bind(
             '<KP_Enter>', lambda event: self.saveproj())  # Enter (num. kb)
         # row=6, column=0, rowspan=4, sticky=E + W)
-        self.cmdSave.grid(sticky=E + W)
+        self.cmdSave.grid(row=3, column=0,columnspan=2,sticky=E + W)
 
-        Grid.columnconfigure(self.frmSino, 0, weight=1)
-        Grid.columnconfigure(self.frmSino, 1, weight=1)
+        Grid.columnconfigure(self.frmReconParameters, 0, weight=0)
+        Grid.columnconfigure(self.frmReconParameters, 1, weight=1)
+        Grid.columnconfigure(self.frmReconParameters, 2, weight=0)
+
+
+        Grid.columnconfigure(self.frmRecon, 0, weight=1)
+        Grid.columnconfigure(self.frmRecon, 1, weight=0)
         Grid.rowconfigure(self.frmSino, 0, weight=1)
-        Grid.rowconfigure(self.frmSino, 1, weight=1)
+        Grid.rowconfigure(self.frmSino, 1, weight=0)
+        # Grid.rowconfigure(self.frmSino, 2, weight=0)
         # Grid.columnconfigure(self.frmRecon, 2, weight=0)
 
         self.frmPlot4 = Frame(self.frmSino)
@@ -972,6 +1009,15 @@ class XpecgenGUI(Notebook):
             print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
                 file=sys.stderr)
 
+        Grid.columnconfigure(self.frmSino, 0, weight=1)
+
+        if self.matplotlib_embedded:
+            # If not embedding, use the whole window
+            Grid.columnconfigure(self.frmSino, 1, weight=3)
+
+        Grid.rowconfigure(self.frmSino, 0, weight=1)
+        Grid.rowconfigure(self.frmSino, 1, weight=1)
+
     def init_reso(self):
         # self.frmReso.grid(row=0, column=0, rowspan=4,
         #         columnspan=5, sticky=N + S + E + W)
@@ -981,42 +1027,45 @@ class XpecgenGUI(Notebook):
         # -Operations frame
         self.frmRecon2 = LabelFrame(
             self.frmReso, text="Save file")
-        self.frmRecon2.grid(row=0, column=0, rowspan=7,
-                        columnspan=5, sticky=N + S + E + W)
+        self.frmRecon2.grid(row=0, column=0,
+                        sticky=N + S + E + W)
         # self.cmdAtten2.grid(row=2, column=0, columnspan=3, sticky=E + W)
         # --Attenuation
-        self.frmRecon2Par = LabelFrame(self.frmRecon2, text="Attenuate")
-        # row=4, column=0,rowspan=4, sticky=E + W)
-        self.frmRecon2Par.grid(sticky=E + W)
+        # self.frmRecon2Par = LabelFrame(self.frmRecon2, text="Attenuate")
+        # # row=4, column=0,rowspan=4, sticky=E + W)
+        # self.frmRecon2Par.grid(sticky=E + W)
         self.lblRecon2Par = Label(
             self.frmRecon2, text="File Type")
-        self.lblRecon2Par.grid(sticky=E + W)
+        self.lblRecon2Par.grid(row=0,column=0,sticky=E + W)
         self.cmbRecon2Type = Combobox(
             self.frmRecon2, textvariable=self.filetype)
-        self.cmbRecon2Type.grid(sticky=E + W)
-        self.Par1 = ParBox(self.frmRecon2, self.filename, lblText="File Name", row=5,
+        self.cmbRecon2Type.grid(row=1,column=1,sticky=E + W)
+        self.Par1 = ParBox(self.frmRecon2, self.filename, lblText="File Name", row=3,
                         read_only=False,
                         helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.cmdRecon2 = Button(self.frmRecon2, text="Save Reconstruction")
+        self.cmdRecon2 = Button(self.frmReso, text="Save Reconstruction")
         self.cmdRecon2["command"] = self.saverecon
         self.cmdRecon2.bind('<Return>', lambda event: self.saverecon())
         self.cmdRecon2.bind(
             '<KP_Enter>', lambda event: self.saverecon())  # Enter (num. kb)
         # row=6, column=0, rowspan=4, sticky=E + W)
-        self.cmdRecon2.grid(sticky=E + W)
+        self.cmdRecon2.grid(row=1,column=0,sticky=S+E + W)
 
-        self.cmdRecon3 = Button(self.frmRecon2, text="Analyze Phantom")
+        self.cmdRecon3 = Button(self.frmReso, text="Analyze Phantom")
         self.cmdRecon3["command"] = self.analyse_phan
         self.cmdRecon3.bind('<Return>', lambda event: self.analyse_phan())
         self.cmdRecon3.bind(
             '<KP_Enter>', lambda event: self.analyse_phan())  # Enter (num. kb)
-        self.cmdRecon3.grid(sticky=E + W,row=7, column=0, rowspan=4)
+        self.cmdRecon3.grid(sticky=S+E + W,row=2, column=0)
 
 
-        Grid.columnconfigure(self.frmReso, 0, weight=1)
-        Grid.columnconfigure(self.frmReso, 1, weight=1)
+        Grid.columnconfigure(self.frmRecon2, 0, weight=0)
+        Grid.columnconfigure(self.frmRecon2, 1, weight=1)
+        Grid.columnconfigure(self.frmRecon2, 2, weight=0)
         Grid.rowconfigure(self.frmReso, 0, weight=1)
-        Grid.rowconfigure(self.frmReso, 1, weight=1)
+        Grid.rowconfigure(self.frmReso, 1, weight=0)
+        Grid.rowconfigure(self.frmReso, 2, weight=0)
+
 
         self.frmPlot5 = Frame(self.frmReso)
 
@@ -1043,6 +1092,15 @@ class XpecgenGUI(Notebook):
             print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
                 file=sys.stderr)
 
+        Grid.columnconfigure(self.frmReso, 0, weight=1)
+
+        if self.matplotlib_embedded:
+            # If not embedding, use the whole window
+            Grid.columnconfigure(self.frmReso, 1, weight=3)
+
+        Grid.rowconfigure(self.frmReso, 0, weight=1)
+        Grid.rowconfigure(self.frmReso, 1, weight=1)
+
     def init_outp(self):
 
         """Initialize reso frame"""
@@ -1050,13 +1108,12 @@ class XpecgenGUI(Notebook):
         # -Operations frame
         self.frmRecon2 = LabelFrame(
             self.frmOutp, text="Reconstruction operations")
-        self.frmRecon2.grid(row=0, column=0, rowspan=4,
-                        columnspan=5, sticky=N + S + E + W)
+        self.frmRecon2.grid(row=0, column=0, sticky=N + S + E + W)
         # self.cmdAtten2.grid(row=2, column=0, columnspan=3, sticky=E + W)
         # --Attenuation
-        self.frmRecon2Par = LabelFrame(self.frmRecon2, text="Attenuate")
+        # self.frmRecon2Par = LabelFrame(self.frmRecon2, text="Attenuate")
         # row=4, column=0,rowspan=4, sticky=E + W)
-        self.frmRecon2Par.grid(sticky=E + W)
+        # self.frmRecon2Par.grid(sticky=E + W)
         self.lblRecon2Par = Label(
             self.frmRecon2, text="File Type")
         self.lblRecon2Par.grid(sticky=E + W)
@@ -1073,8 +1130,9 @@ class XpecgenGUI(Notebook):
             '<KP_Enter>', lambda event: self.saverecon())  # Enter (num. kb)
         self.cmdRecon2.grid(sticky=E + W)
         
-        Grid.columnconfigure(self.frmOutp, 0, weight=1)
+        Grid.columnconfigure(self.frmOutp, 0, weight=0)
         Grid.columnconfigure(self.frmOutp, 1, weight=1)
+        Grid.columnconfigure(self.frmOutp, 2, weight=0)
         Grid.rowconfigure(self.frmOutp, 0, weight=1)
         Grid.rowconfigure(self.frmOutp, 1, weight=1)
 
@@ -1103,6 +1161,13 @@ class XpecgenGUI(Notebook):
             print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
                 file=sys.stderr)
 
+        if self.matplotlib_embedded:
+            # If not embedding, use the whole window
+            Grid.columnconfigure(self.frmReso, 1, weight=3)
+
+        Grid.rowconfigure(self.frmReso, 0, weight=1)
+        Grid.rowconfigure(self.frmReso, 1, weight=1)
+        
     def enable_analyze_buttons(self):
         """
         Enable widgets requiring a calculated spectrum to work.
@@ -1558,7 +1623,9 @@ class XpecgenGUI(Notebook):
                             energy_deposition_file,
                             phantom_mapping = self.phantom.phan_map,
                             nphoton = self.noise,
-                            mgy =  self.current.get())# I think it should be inverse
+                            mgy =  self.current.get(),
+                            scat_on = self.scatter_on.get(),
+                            det_on = self.det_on.get())# I think it should be inverse
                 print(np.array(self.proj).shape)
                 self.queue_calculation.put(True)
 
@@ -1599,6 +1666,10 @@ class XpecgenGUI(Notebook):
 
                 self.phantom = function()
                 self.queue_calculation.put(True)
+
+                self.lstHistory2.delete(0,END)
+                for ii, item in enumerate(self.phantom.phan_map):
+                    self.lstHistory2.insert(END, f'{ii},' + item)
 
             except Exception as e:
                 print_exc()
