@@ -1222,21 +1222,21 @@ class XpecgenGUI(Notebook):
         """
         if self.matplotlib_embedded:
             # self.subfigGeo.clear()
-            if len(self.proj.shape) > 2:
+            if len(self.phantom.proj.shape) > 2:
                 self.tracker3 = xg.IndexTracker(
-                    self.subfig5, self.proj.transpose([1,2,0]))
+                    self.subfig5, self.phantom.proj.transpose([1,2,0]))
                 self.fig4.canvas.mpl_connect(
                     'scroll_event', self.tracker3.onscroll)
                 self.tracker4 = xg.IndexTracker(
-                    self.subfig6, self.proj)
+                    self.subfig6, self.phantom.proj)
                 self.fig4.canvas.mpl_connect(
                     'scroll_event', self.tracker4.onscroll)
                 self.fig4.tight_layout()
                 self.canvas4.draw()
                 self.canvasToolbar4.update()
             else:
-                self.subfig5.imshow(self.proj.T)
-                self.subfig6.imshow(np.transpose(self.proj))
+                self.subfig5.imshow(self.phantom.proj.T)
+                self.subfig6.imshow(np.transpose(self.phantom.proj))
                 self.fig4.tight_layout()
                 self.canvas4.draw()
                 self.canvasToolbar4.update()                
@@ -1249,10 +1249,10 @@ class XpecgenGUI(Notebook):
         """
         if self.matplotlib_embedded:
             print('Starting FDK reconstruction ...')
-            self.tracker5 = xg.IndexTracker(self.subfig7, self.img.T)
+            self.tracker5 = xg.IndexTracker(self.subfig7, self.phantom.img.T)
             self.fig5.canvas.mpl_connect(
                 'scroll_event', self.tracker5.onscroll)
-            self.tracker6 = xg.IndexTracker(self.subfig8, self.img)
+            self.tracker6 = xg.IndexTracker(self.subfig8, self.phantom.img)
             self.fig5.canvas.mpl_connect(
                 'scroll_event', self.tracker6.onscroll)
             self.canvas5.draw()
@@ -1513,7 +1513,7 @@ class XpecgenGUI(Notebook):
         
         if self.matplotlib_embedded:
 
-            self.phantom.analyse_515(self.img[5],[self.subfig9,self.subfig10])
+            self.phantom.analyse_515(self.phantom.img[5],[self.subfig9,self.subfig10])
             self.canvas6.draw()
             self.canvasToolbar6.update()
             self.fig6.tight_layout()
@@ -1533,7 +1533,7 @@ class XpecgenGUI(Notebook):
 
                 print('FDK')
 
-                self.img = tigre.algorithms.FDK(self.proj, self.phantom.geomet, self.angles,filter=self.filt.get())
+                self.phantom.reconstruct('FDK',self.filt.get())
 
                 self.queue_calculation.put(True)
 
@@ -1541,7 +1541,7 @@ class XpecgenGUI(Notebook):
                 print_exc()
                 self.queue_calculation.put(False)
                 messagebox.showerror(
-                    "Error", "An error occurred during the calculation:\n%s\nCheck the parameters are valid." % str(e))
+                    "Error", "An error occurred during the calculation:\n%s\nTigre not working resorting to astra" % str(e))
 
         self.queue_calculation = queue.Queue(maxsize=1)
         # The child will fill the queue with a value indicating whether an error occured.
@@ -1561,7 +1561,7 @@ class XpecgenGUI(Notebook):
                 
         print('saving reconstruction...')
 
-        np.save(os.path.join(xg.data_path,'recons',self.filename.get()),self.img)
+        np.save(os.path.join(xg.data_path,'recons',self.filename.get()),self.phantom.img)
 
         print('Reconstruction saved to ',os.path.join(xg.data_path,'recons',self.filename.get()))
 
@@ -1571,7 +1571,7 @@ class XpecgenGUI(Notebook):
         """
                 
         print('saving projections...')
-        np.save(os.path.join(xg.data_path,'projs',self.filename.get()),self.proj)
+        np.save(os.path.join(xg.data_path,'projs',self.filename.get()),self.phantom.proj)
 
         print('Projections saved to ',os.path.join(xg.data_path,'projs',self.filename.get()))
 
@@ -1615,18 +1615,15 @@ class XpecgenGUI(Notebook):
 
                 # value = self.current.get()
 
-                self.proj, doseperproj = xg.return_projs(self.phantom.phantom,self.kernel,
-                            self.spectra[self.active_spec].x,
-                            self.spectra[self.active_spec].y,
+                self.phantom.return_projs(self.kernel,
+                            self.spectra[self.active_spec],
                             self.angles,
-                            self.phantom.geomet,
-                            energy_deposition_file,
-                            phantom_mapping = self.phantom.phan_map,
                             nphoton = self.noise,
                             mgy =  self.current.get(),
                             scat_on = self.scatter_on.get(),
                             det_on = self.det_on.get())# I think it should be inverse
-                print(np.array(self.proj).shape)
+                
+                print(np.array(self.phantom.proj).shape)
                 self.queue_calculation.put(True)
 
             except Exception as e:
