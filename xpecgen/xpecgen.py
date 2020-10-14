@@ -19,7 +19,11 @@ from matplotlib import cm
 from matplotlib.colors import LogNorm
 
 import tigre
-import astra
+try:
+    import astra
+except ImportError as error:
+    # Output expected ImportErrors.
+    print(error.__class__.__name__ + ": " + error.message)
 import tigre.algorithms as algs
 from scipy.signal import fftconvolve, find_peaks, butter,filtfilt
 from scipy.optimize import minimize, curve_fit
@@ -54,163 +58,163 @@ mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-
 # --------------------General purpose functions-------------------------#
 
 
-def return_projs(phantom,kernel,energies,fluence,angles,geo,
-                deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
-                phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None,
-                mgy = None,return_dose=False,det_on=True,scat_on=True):
-    '''
-    The main function for returning the projections
-    '''
+# def return_projs(phantom,kernel,energies,fluence,angles,geo,
+#                 deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
+#                 phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None,
+#                 mgy = None,return_dose=False,det_on=True,scat_on=True):
+#     '''
+#     The main function for returning the projections
+#     '''
 
-    # --- Making the phantom maps between G4 attenuation coeffs and ints in phantom ---
+#     # --- Making the phantom maps between G4 attenuation coeffs and ints in phantom ---
 
-    # Don't want to look for zeros
-    useful_phantom = phantom != 0
-    # These are what I used in the Monte Carlo
-    original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-    # Loading the file from the monte carlo
-    deposition = np.load(deposition_efficiency_file,allow_pickle=True)
-    # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-    deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
-    # The index of the different materials
-    masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
-    mapping_functions = []
-    # Get the mapping functions for the different tissues to reconstruct the phantom by energy
-    for ii in range(1,len(phantom_mapping)):       
-        mapping_functions.append(get_mu(phantom_mapping[ii].split(':')[0]))
-        masks[ii-1] = phantom == ii
-    phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
+#     # Don't want to look for zeros
+#     useful_phantom = phantom != 0
+#     # These are what I used in the Monte Carlo
+#     original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+#     # Loading the file from the monte carlo
+#     deposition = np.load(deposition_efficiency_file,allow_pickle=True)
+#     # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
+#     deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
+#     # The index of the different materials
+#     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
+#     mapping_functions = []
+#     # Get the mapping functions for the different tissues to reconstruct the phantom by energy
+#     for ii in range(1,len(phantom_mapping)):       
+#         mapping_functions.append(get_mu(phantom_mapping[ii].split(':')[0]))
+#         masks[ii-1] = phantom == ii
+#     phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
 
-    # --- Ray tracing step ---        
-    proj = []
-    doses = []
-    # we assume tigre works
-    tigre_works = True
+#     # --- Ray tracing step ---        
+#     proj = []
+#     doses = []
+#     # we assume tigre works
+#     tigre_works = True
 
-    for jj, energy in enumerate(original_energies_keV):
-        for ii in range(0,len(phantom_mapping)-1):
-            phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-        if tigre_works:
-            try:
-                proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles)))
-            except Exception:
-                print("WARNING: Tigre GPU not working. Switching to Astra CPU",
-                    file=sys.stderr)
-                proj.append(np.squeeze(tigre2astra(phantom2,geo,angles,tile=True)))
-        else:
-            proj.append(np.squeeze(tigre2astra(phantom2,geo,angles,tile=True)))
-        # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-        doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water[jj]/mu_water[jj])
+#     for jj, energy in enumerate(original_energies_keV):
+#         for ii in range(0,len(phantom_mapping)-1):
+#             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
+#         if tigre_works:
+#             try:
+#                 proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles,this,that)))
+#             except Exception:
+#                 print("WARNING: Tigre GPU not working. Switching to Astra CPU",
+#                     file=sys.stderr)
+#                 proj.append(np.squeeze(tigre2astra(phantom2,geo,angles,tile=True)))
+#         else:
+#             proj.append(np.squeeze(tigre2astra(phantom2,geo,angles,tile=True)))
+#         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
+#         doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water[jj]/mu_water[jj])
 
-    # --- Factoring in the fluence and the energy deposition ---
-    # Binning to get the fluence per energy
-    large_energies = np.linspace(0,6000,3001)
-    fluence_large = np.interp(large_energies,np.array(energies), fluence)
-    fluence_small = np.zeros(len(original_energies_keV))
-    # Still binning
-    for ii, val in enumerate(large_energies):   
-        index = np.argmin(np.abs(original_energies_keV-val))
-        fluence_small[index] += fluence_large[ii]       
-    # Normalize
-    fluence_small /= np.sum(fluence_small)
-    fluence_norm = fluence/np.sum(fluence)
+#     # --- Factoring in the fluence and the energy deposition ---
+#     # Binning to get the fluence per energy
+#     large_energies = np.linspace(0,6000,3001)
+#     fluence_large = np.interp(large_energies,np.array(energies), fluence)
+#     fluence_small = np.zeros(len(original_energies_keV))
+#     # Still binning
+#     for ii, val in enumerate(large_energies):   
+#         index = np.argmin(np.abs(original_energies_keV-val))
+#         fluence_small[index] += fluence_large[ii]       
+#     # Normalize
+#     fluence_small /= np.sum(fluence_small)
+#     fluence_norm = fluence/np.sum(fluence)
 
-    if det_on:
-        weights_small = fluence_small*deposition_summed
-    else:
-        weights_small = fluence_small
+#     if det_on:
+#         weights_small = fluence_small*deposition_summed
+#     else:
+#         weights_small = fluence_small
     
-    # Need to make sure that the attenuations aren't janky for recon
-    weights_small /= np.sum(weights_small)
-    # This is the line to uncomment to run the working code for dose_comparison.ipynb
-    if return_dose:
-        return np.mean(np.mean(doses,1),1), fluence
+#     # Need to make sure that the attenuations aren't janky for recon
+#     weights_small /= np.sum(weights_small)
+#     # This is the line to uncomment to run the working code for dose_comparison.ipynb
+#     if return_dose:
+#         return np.mean(np.mean(doses,1),1), fluence
     
-    # --- Dose calculation ---
-    # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
-    def get_dose_nphoton(nphot):
-        return nphot/2e7
+#     # --- Dose calculation ---
+#     # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
+#     def get_dose_nphoton(nphot):
+#         return nphot/2e7
 
-    def get_dose_mgy(mgy,doses,fluence_small):
-        nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13))
-        return get_dose_nphoton(nphoton)
+#     def get_dose_mgy(mgy,doses,fluence_small):
+#         nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13))
+#         return get_dose_nphoton(nphoton)
 
-    def get_dose_per_photon(doses,fluence_small):
-        # linear fit of the data
-        pp = np.array([0.88759883, 0.01035186])
-        return ((np.mean(np.mean(doses,1),1)/1000)@((fluence_small)))*pp[0] + pp[1]
+#     def get_dose_per_photon(doses,fluence_small):
+#         # linear fit of the data
+#         pp = np.array([0.88759883, 0.01035186])
+#         return ((np.mean(np.mean(doses,1),1)/1000)@((fluence_small)))*pp[0] + pp[1]
 
-    ratio = None
+#     ratio = None
 
-    # Dose in micro grays
-    if mgy != 0.0:
-        ratio = get_dose_mgy(mgy,doses,fluence_small)
-    elif nphoton is not None:
-        ratio = get_dose_nphoton(nphoton)
+#     # Dose in micro grays
+#     if mgy != 0.0:
+#         ratio = get_dose_mgy(mgy,doses,fluence_small)
+#     elif nphoton is not None:
+#         ratio = get_dose_nphoton(nphoton)
     
-    # --- Noise and Scatter Calculation ---
-    # Now I interpolate deposition and get the average photons reaching the detector
-    deposition_long = np.interp(energies,original_energies_keV/1000,deposition_summed)
-    nphotons_at_energy = fluence_norm*deposition_long
-    nphotons_av = np.sum(nphotons_at_energy)
+#     # --- Noise and Scatter Calculation ---
+#     # Now I interpolate deposition and get the average photons reaching the detector
+#     deposition_long = np.interp(energies,original_energies_keV/1000,deposition_summed)
+#     nphotons_at_energy = fluence_norm*deposition_long
+#     nphotons_av = np.sum(nphotons_at_energy)
 
-    print('ratio is', ratio,'number of photons', nphotons_av)
+#     print('ratio is', ratio,'number of photons', nphotons_av)
 
-    # -------- Scatter Correction -----------
-    scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
-    coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
+#     # -------- Scatter Correction -----------
+#     scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
+#     coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
-    dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
+#     dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
 
-    def func(x, a, b):
-        return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
+#     def func(x, a, b):
+#         return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
 
-    mc_scatter = np.zeros(scatter.shape)
+#     mc_scatter = np.zeros(scatter.shape)
 
-    for jj in range(len(original_energies_keV)):
+#     for jj in range(len(original_energies_keV)):
 
-            popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-            mc_scatter[:,jj] = func(dist, *popt)
+#             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+#             mc_scatter[:,jj] = func(dist, *popt)
 
-    factor = (152/(np.sqrt(dist**2 + 152**2)))**3
-    flood_summed = factor*660 
-    scatter = 2.15*(mc_scatter + coh_scatter)
-    # log(i/i_0) to get back to intensity
-    raw = (np.exp(-np.array(proj)/10)*(flood_summed)).T
+#     factor = (152/(np.sqrt(dist**2 + 152**2)))**3
+#     flood_summed = factor*660 
+#     scatter = 2.15*(mc_scatter + coh_scatter)
+#     # log(i/i_0) to get back to intensity
+#     raw = (np.exp(-np.array(proj)/10)*(flood_summed)).T
 
-    # Add the already weighted noise
-    if scat_on:
-        raw_weighted = raw.transpose([2,1,0,3]) + scatter
-    else:
-        raw_weighted = raw.transpose([2,1,0,3])
+#     # Add the already weighted noise
+#     if scat_on:
+#         raw_weighted = raw.transpose([2,1,0,3]) + scatter
+#     else:
+#         raw_weighted = raw.transpose([2,1,0,3])
 
-    # Normalize the kernel
-    kernel_norm = kernel.kernel/np.sum(kernel.kernel)
+#     # Normalize the kernel
+#     kernel_norm = kernel.kernel/np.sum(kernel.kernel)
         
-    # add the poisson noise
-    if ratio is not None:
+#     # add the poisson noise
+#     if ratio is not None:
         
-        if det_on:
-            adjusted_ratio = ratio*nphotons_av
-        else:
-            adjusted_ratio = ratio
+#         if det_on:
+#             adjusted_ratio = ratio*nphotons_av
+#         else:
+#             adjusted_ratio = ratio
         
-        raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
+#         raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
     
-    filtered = raw_weighted.copy()
+#     filtered = raw_weighted.copy()
 
-    if det_on: # if the detector is to be simulated
+#     if det_on: # if the detector is to be simulated
 
-        for ii in range(len(angles)):
-            for jj in range(len(original_energies_keV)):
+#         for ii in range(len(angles)):
+#             for jj in range(len(original_energies_keV)):
 
-                kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
+#                 kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
 
-                filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
+#                 filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
 
-    filtered = filtered @ weights_small
+#     filtered = filtered @ weights_small
 
-    return -10*np.log(filtered/(flood_summed)), ratio
+#     return -10*np.log(filtered/(flood_summed)), ratio
 
 def log_interp_1d(xx, yy, kind='linear'):
     """
@@ -242,7 +246,8 @@ def _infunc(x, func, c, d, more_args, epsrel):
     myargs = (x,) + more_args
     return integrate.quad(func, c, d, args=myargs, epsrel=epsrel, limit=2000)[0]
 
-def tigre2astra(phantom,geomet,angles,tile=False):
+def tigre2astra(phantom,geomet,angles,tile=False,init=False):
+
     tigre_shape = geomet.nVoxel
     
     # Create a geometry object
@@ -251,16 +256,19 @@ def tigre2astra(phantom,geomet,angles,tile=False):
     ratio = tigre_shape[1]/geomet.sVoxel[0]
     # create the projection
     proj_geom = astra.create_proj_geom('fanflat', ratio*geomet.dDetector[0],
-                                       geomet.nDetector[1], angles + np.pi/2,
+                                       geomet.nDetector[1], angles - np.pi/2,
                                        ratio*geomet.DSO,ratio*(geomet.DSD-geomet.DSO))
     # For CPU-based algorithms, a "projector" object specifies the projection
     # model used. In this case, we use the "strip" model.
     proj_id = astra.create_projector('strip_fanflat', proj_geom, vol_geom)
     
+    if init:
+        return proj_id, vol_geom
+    
     if tile:
         sin_id, sinogram = astra.create_sino(phantom[0,:,:], proj_id)
         
-        return 1.601*np.tile(sinogram,[tigre_shape[0],1,1]),sin_id, proj_id, vol_geom
+        return np.tile(sinogram,[tigre_shape[0],1,1])/(1.6*(geomet.nDetector[1]/256)),sin_id, proj_id, vol_geom
     else:
         sinogram = np.zeros([tigre_shape[0],len(angles),geomet.nDetector[1]])
         
@@ -273,39 +281,39 @@ def tigre2astra(phantom,geomet,angles,tile=False):
                 
             sin_id, sinogram[ii,:,:] = astra.create_sino(phantom[ii,:,:], proj_id) # this is some sort of relation
             
-        return 1.601*sinogram, sin_id, proj_id, vol_geom
+        return sinogram/(1.6*(geomet.nDetector[1]/256)), sin_id, proj_id, vol_geom
 
-def astra_recon(projs, sin_id, proj_id, vol_geom,algo ='CGLS',niter=10):
+# def astra_recon(projs, sin_id, proj_id, vol_geom,algo ='CGLS',niter=10):
     
-    rec_id = astra.data2d.create('-vol', vol_geom)
+#     rec_id = astra.data2d.create('-vol', vol_geom)
 
-    cfg = astra.astra_dict(algo)
+#     cfg = astra.astra_dict('CGLS')
     
-    cfg['ReconstructionDataId'] = rec_id
-    cfg['ProjectionDataId'] = sin_id
-    cfg['ProjectorId'] = proj_id
+#     cfg['ReconstructionDataId'] = 94
+#     cfg['ProjectionDataId'] = 88
+#     cfg['ProjectorId'] = 86
     
-    # Create the algorithm object from the configuration structure
-    alg_id = astra.algorithm.create(cfg)
+#     # Create the algorithm object from the configuration structure
+#     alg_id = astra.algorithm.create(cfg)
 
-    recon = []
+#     recon = []
 
-    for ii in range(projs.T.shape[2]):
+#     for ii in range(projs.T.shape[2]):
 
-        astra.data2d.store(sin_id,projs[ii,:,:]/1.601)
-        # Available algorithms:
-        # ART, SART, SIRT, CGLS, FBP
+#         # Available algorithms:
+#         # ART, SART, SIRT, CGLS, FBP
+#         astra.data2d.store(88,projs[ii,:,:]*(1.6*2))
 
-        # Run 20 iterations of the algorithm
-        # This will have a runtime in the order of 10 seconds.
-        astra.algorithm.run(alg_id,niter)
+#         # Run 20 iterations of the algorithm
+#         # This will have a runtime in the order of 10 seconds.
+#         astra.algorithm.run(alg_id,niter)
 
-        # Get the result
-        rec = astra.data2d.get(rec_id)
+#         # Get the result
+#         rec = astra.data2d.get(rec_id)
 
-        recon.append(rec)
+#         recon.append(rec)
         
-    return np.array(recon)
+#     return np.array(recon)
 
 def custom_dblquad(func, a, b, c, d, args=(), epsabs=1.49e-8, epsrel=1.49e-8, maxp1=50, limit=2000):
     """
@@ -583,7 +591,7 @@ class Phantom:
         pass
 
     def return_projs(self,kernel,spectra,angles,nphoton = None,
-                    mgy = None,return_dose=False,det_on=True,scat_on=True):
+                    mgy = None,return_dose=False,det_on=True,scat_on=True,tigre_works = True):
         '''
         The main function for returning the projections
         '''
@@ -607,12 +615,16 @@ class Phantom:
             masks[ii-1] = self.phantom == ii
         phantom2 = self.phantom.copy().astype(np.float32) # Tigre only works with float32
 
+        self.angles = angles
+
         # --- Ray tracing step ---        
         proj = []
         doses = []
         # we assume tigre works
-        tigre_works = True
         tile = True
+
+        if not tigre_works:
+            self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,init=True)
 
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
@@ -621,19 +633,18 @@ class Phantom:
             
             if tigre_works: # resort to astra if tigre doesn't work
                 try:
-                    proj.append(np.squeeze(tigre.Ax(phantom2,self.geomet,angles,this,that)))
+                    proj.append(np.squeeze(tigre.Ax(phantom2,self.geomet,angles)))
                 except Exception:
                     print("WARNING: Tigre GPU not working. Switching to Astra CPU")
-                    import astra
 
                     sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,tile=True)
                     proj.append(sinogram.transpose([1,0,2]))
                     tigre_works=False
             else:
                 if tile:
-                    sin_id, sinogram = astra.create_sino(phantom2[0,:,:], self.proj_id)
+                    sin_id, sinogram = astra.create_sino(np.fliplr(phantom2[0,:,:]), self.proj_id)
                     
-                    proj.append(1.601*np.tile(sinogram,[phantom2.shape[0],1,1]).transpose([1,0,2]))
+                    proj.append(np.tile(sinogram,[phantom2.shape[0],1,1]).transpose([1,0,2])/(1.6*(geomet.nDetector[1]/256)))
                 else:
                     sinogram = np.zeros([phantom2.shape[0],len(angles),geomet.nDetector[1]])
                     
@@ -644,9 +655,9 @@ class Phantom:
                         if sin_id is not None:
                             astra.data2d.delete(sin_id)
                             
-                        sin_id, sinogram[kk,:,:] = astra.create_sino(phantom2[kk,:,:], self.proj_id)
+                        sin_id, sinogram[kk,:,:] = astra.create_sino(np.fliplr(phantom2[kk,:,:]), self.proj_id)
                     
-                    proj.append(sinogram.transpose([1,0,2])*1.601)
+                    proj.append(sinogram.transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256)))
 
                 astra.data2d.delete(sin_id)
             # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
@@ -762,6 +773,21 @@ class Phantom:
 
         self.proj = -10*np.log(filtered/(flood_summed))
 
+    def plot_projs(self,fig):
+
+        subfig1 = fig.add_subplot(121)
+        subfig2 = fig.add_subplot(122)
+
+        tracker = IndexTracker(
+            subfig1, self.proj.transpose([1,2,0]))
+        fig.canvas.mpl_connect(
+            'scroll_event', tracker.onscroll)
+        tracker2 = IndexTracker(
+            subfig2, self.proj.transpose([0,2,1]))
+        fig.canvas.mpl_connect(
+            'scroll_event', tracker2.onscroll)
+        fig.tight_layout()
+
     def reconstruct(self,algo,filt):
         
         if algo == 'FDK':
@@ -769,7 +795,46 @@ class Phantom:
                 self.img = tigre.algorithms.FDK(self.proj, self.geomet, self.angles,filter=filt)
             except Exception:
                 print('WARNING: Tigre failed during recon using Astra')
-                self.img = astra_recon(self.proj.transpose([1,0,2])/1.601, self.sin_id, self.proj_id, self.vol_geom)
+                self.img = self.astra_recon(self.proj.transpose([1,0,2]))
+
+    def astra_recon(self,projs,algo ='CGLS',niter=10):
+
+        sinogram, sin_id, proj_id, vol_geom = tigre2astra(self.phantom,self.geomet,self.angles,tile=True)
+    
+        rec_id = astra.data2d.create('-vol', vol_geom)
+
+        cfg = astra.astra_dict('CGLS')
+        
+        cfg['ReconstructionDataId'] = rec_id
+        cfg['ProjectionDataId'] = sin_id
+        cfg['ProjectorId'] = proj_id
+        
+        # Create the algorithm object from the configuration structure
+        alg_id = astra.algorithm.create(cfg)
+
+        recon = []
+
+        for ii in range(projs.T.shape[2]):
+
+            # Available algorithms:
+            # ART, SART, SIRT, CGLS, FBP
+            astra.data2d.store(sin_id,projs[ii,:,:]*(1.6*(self.geomet.nDetector[1]/256))
+
+            # Run 20 iterations of the algorithm
+            # This will have a runtime in the order of 10 seconds.
+            astra.algorithm.run(alg_id,niter)
+
+            # Get the result
+            rec = astra.data2d.get(rec_id)
+
+            recon.append(rec)
+
+        astra.algorithm.delete(alg_id)
+        astra.data2d.delete(rec_id)
+        astra.data2d.delete(sin_id)
+        astra.projector.delete(proj_id)
+            
+        return np.array(recon)
         
 class Catphan_515(Phantom):
 
