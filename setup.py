@@ -1,4 +1,4 @@
-"""A setuptools based setup module for xpecgen.
+"""A setuptools based setup module for fastcat.
 
 See:
 https://packaging.python.org/en/latest/distributing.html
@@ -14,8 +14,8 @@ from os import path, environ
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
-    long_description = f.read()
+# with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+#     long_description = f.read()
 
 # Dependencies are mocked on RTD
 on_rtd = environ.get('READTHEDOCS') == 'True'
@@ -35,7 +35,7 @@ setup(
     version='1.3.0',
 
     description='A fast CBCT simulation application',
-    long_description=long_description,
+    # long_description=long_description,
 
     # The project's main homepage.
     url='https://github.com/jerichooconnell/fastcat',
@@ -53,7 +53,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 5 - Production/Stable',
+        'Development Status ::3 - Alpha',
 
         # Indicate who your project is intended for
         'Intended Audience :: Science/Research',
@@ -72,6 +72,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
 
     # What does your project relate to?
@@ -79,7 +80,7 @@ setup(
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    packages=find_packages(exclude=['tests']),
     
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment
@@ -115,7 +116,7 @@ setup(
     # http://docs.python.org/3.4/distutils/setupscript.html#installing-additional-files # noqa
     # In this case, 'data_file' will be installed into '<sys.prefix>/my_data'
     #data_files=[('my_data', ['data/data_file'])],
-    data_files=[],
+    # data_files=[],
     
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow

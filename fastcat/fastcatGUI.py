@@ -6,8 +6,8 @@
 from __future__ import print_function
 
 import tigre
-import xpecgen as xg
-import re  # Regular expressions, used for sorting
+import fastcat as fc
+import re
 from glob import glob
 import os
 import numpy as np
@@ -23,9 +23,6 @@ from tigre.demos.Test_data import data_loader
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
-
-# plt.style.use('dark_background')
-
 
 
 __author__ = "Dih5"
@@ -183,7 +180,7 @@ class XpecgenGUI(Notebook):
         Grid.rowconfigure(master, 0, weight=1)
         Grid.columnconfigure(master, 0, weight=1)
         self.grid(row=0, column=0, sticky=N + S + E + W)
-        self.master.title("".join(('xpecgen v', xg.__version__, " GUI")))
+        self.master.title("".join(('fastcat v', fc.__version__, " GUI")))
         self.master.minsize(800, 600)
 
         self.spectra = []
@@ -198,9 +195,9 @@ class XpecgenGUI(Notebook):
         self.tracker2 = []
 
         # Interpolations used to calculate HVL
-        self.fluence_to_dose = xg.get_fluence_to_dose()
-        self.mu_Al = xg.get_mu(13)
-        self.mu_Cu = xg.get_mu(29)
+        self.fluence_to_dose = fc.get_fluence_to_dose()
+        self.mu_Al = fc.get_mu(13)
+        self.mu_Cu = fc.get_mu(29)
 
         self.initVariables()
         self.createWidgets()
@@ -406,14 +403,14 @@ class XpecgenGUI(Notebook):
                                     "Atomic number of the target. IMPORTANT: Only used in the cross-section and distance scaling. Fluence uses a tugsten model, but the range is increased in lower Z materials. Besides, characteristic radiation is only calculated for tugsten.")
         # Available cross-section data
         target_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(xg.data_path, "cs", "*.csv"))))
+            ".csv")[0], glob(os.path.join(fc.data_path, "cs", "*.csv"))))
         target_list.remove("grid")
         # Available csda-data
         csda_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(xg.data_path, "csda", "*.csv"))))
+            ".csv")[0], glob(os.path.join(fc.data_path, "csda", "*.csv"))))
         # Available attenuation data
         mu_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(xg.data_path, "mu", "*.csv"))))
+            ".csv")[0], glob(os.path.join(fc.data_path, "mu", "*.csv"))))
         mu_list.sort(key=_human_order_key)  # Used later
 
         available_list = list(
@@ -433,7 +430,7 @@ class XpecgenGUI(Notebook):
 
         # Available cross-section data
         target_list_load = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".txt")[0], glob(os.path.join(xg.data_path, "MV_spectra", "*.txt"))))
+            ".txt")[0], glob(os.path.join(fc.data_path, "MV_spectra", "*.txt"))))
         # list(map(_add_element_name, available_list))
         print(target_list_load)
         self.cmbload["values"] = target_list_load
@@ -526,7 +523,7 @@ class XpecgenGUI(Notebook):
 
         # Available cross-section data
         target_list_det = list(map(lambda x: (os.path.split(
-            x)[-1]), glob(os.path.join(xg.data_path, "Detectors", '*'))))
+            x)[-1]), glob(os.path.join(fc.data_path, "Detectors", '*'))))
 
         # list(map(_add_element_name, available_list))
         self.cmbdet["values"] = target_list_det
@@ -544,14 +541,14 @@ class XpecgenGUI(Notebook):
 
         # Available cross-section data
         target_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(xg.data_path, "cs", "*.csv"))))
+            ".csv")[0], glob(os.path.join(fc.data_path, "cs", "*.csv"))))
         target_list.remove("grid")
         # Available csda-data
         csda_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(xg.data_path, "csda", "*.csv"))))
+            ".csv")[0], glob(os.path.join(fc.data_path, "csda", "*.csv"))))
         # Available attenuation data
         mu_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(xg.data_path, "mu", "*.csv"))))
+            ".csv")[0], glob(os.path.join(fc.data_path, "mu", "*.csv"))))
         mu_list.sort(key=_human_order_key)  # Used later
 
         available_list = list(
@@ -692,7 +689,7 @@ class XpecgenGUI(Notebook):
                 file=sys.stderr)
 
         geo_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".npy")[0], glob(os.path.join(xg.data_path, "phantoms", "*.npy"))))
+            ".npy")[0], glob(os.path.join(fc.data_path, "phantoms", "*.npy"))))
         geo_list.sort(key=_human_order_key)  # Used later
 
         self.frmGeo = LabelFrame(self.frmKern, text="Geometries")
@@ -770,7 +767,7 @@ class XpecgenGUI(Notebook):
         self.scrollHistory2.config(command=self.lstHistory2.yview)
 
         mu_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(xg.data_path, "mu", "*.csv"))))
+            ".csv")[0], glob(os.path.join(fc.data_path, "mu", "*.csv"))))
         mu_list.sort(key=_human_order_key)  # Used later
 
         self.cmbChangeMaterial = Combobox(
@@ -1223,11 +1220,11 @@ class XpecgenGUI(Notebook):
         if self.matplotlib_embedded:
             # self.subfigGeo.clear()
             if len(self.phantom.proj.shape) > 2:
-                self.tracker3 = xg.IndexTracker(
+                self.tracker3 = fc.IndexTracker(
                     self.subfig5, self.phantom.proj.transpose([1,2,0]))
                 self.fig4.canvas.mpl_connect(
                     'scroll_event', self.tracker3.onscroll)
-                self.tracker4 = xg.IndexTracker(
+                self.tracker4 = fc.IndexTracker(
                     self.subfig6, self.phantom.proj)
                 self.fig4.canvas.mpl_connect(
                     'scroll_event', self.tracker4.onscroll)
@@ -1249,10 +1246,10 @@ class XpecgenGUI(Notebook):
         """
         if self.matplotlib_embedded:
             print('Starting FDK reconstruction ...')
-            self.tracker5 = xg.IndexTracker(self.subfig7, self.phantom.img.T)
+            self.tracker5 = fc.IndexTracker(self.subfig7, self.phantom.img.T)
             self.fig5.canvas.mpl_connect(
                 'scroll_event', self.tracker5.onscroll)
-            self.tracker6 = xg.IndexTracker(self.subfig8, self.phantom.img)
+            self.tracker6 = fc.IndexTracker(self.subfig8, self.phantom.img)
             self.fig5.canvas.mpl_connect(
                 'scroll_event', self.tracker6.onscroll)
             self.canvas5.draw()
@@ -1265,9 +1262,9 @@ class XpecgenGUI(Notebook):
 
         """
         if self.matplotlib_embedded:
-            self.tracker = xg.IndexTracker(self.subfig3, self.phantom.phantom.T)
+            self.tracker = fc.IndexTracker(self.subfig3, self.phantom.phantom.T)
             self.fig3.canvas.mpl_connect('scroll_event', self.tracker.onscroll)
-            self.tracker2 = xg.IndexTracker(
+            self.tracker2 = fc.IndexTracker(
                 self.subfig4, self.phantom.phantom)
             self.fig3.canvas.mpl_connect(
                 'scroll_event', self.tracker2.onscroll)
@@ -1395,7 +1392,7 @@ class XpecgenGUI(Notebook):
 
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
-                s = xg.calculate_spectrum(self.E0.get(), self.Theta.get(), self.EMin.get(
+                s = fc.calculate_spectrum(self.E0.get(), self.Theta.get(), self.EMin.get(
                 ), self.NumE.get(), phi=self.Phi.get(), epsrel=self.Eps.get(), monitor=monitor, z=z)
                 self.spectra = [s]
                 self.queue_calculation.put(True)
@@ -1436,12 +1433,12 @@ class XpecgenGUI(Notebook):
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
 
-                s = xg.Spectrum()
+                s = fc.Spectrum()
 
                 energies = []
                 fluence = []
 
-                with open(os.path.join(xg.data_path, "MV_spectra", f'{self.load.get()}.txt')) as f:
+                with open(os.path.join(fc.data_path, "MV_spectra", f'{self.load.get()}.txt')) as f:
                     for line in f:
                         energies.append(float(line.split()[0]))
                         fluence.append(float(line.split()[1]))
@@ -1483,7 +1480,7 @@ class XpecgenGUI(Notebook):
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
 
-                self.kernel = xg.Kernel(
+                self.kernel = fc.Kernel(
                     self.spectra[0], self.det.get())
 
                 self.queue_calculation.put(True)
@@ -1561,9 +1558,9 @@ class XpecgenGUI(Notebook):
                 
         print('saving reconstruction...')
 
-        np.save(os.path.join(xg.data_path,'recons',self.filename.get()),self.phantom.img)
+        np.save(os.path.join(fc.data_path,'recons',self.filename.get()),self.phantom.img)
 
-        print('Reconstruction saved to ',os.path.join(xg.data_path,'recons',self.filename.get()))
+        print('Reconstruction saved to ',os.path.join(fc.data_path,'recons',self.filename.get()))
 
     def saveproj(self):
         """
@@ -1571,9 +1568,9 @@ class XpecgenGUI(Notebook):
         """
                 
         print('saving projections...')
-        np.save(os.path.join(xg.data_path,'projs',self.filename.get()),self.phantom.proj)
+        np.save(os.path.join(fc.data_path,'projs',self.filename.get()),self.phantom.proj)
 
-        print('Projections saved to ',os.path.join(xg.data_path,'projs',self.filename.get()))
+        print('Projections saved to ',os.path.join(fc.data_path,'projs',self.filename.get()))
 
     def add_focal_spot(self):
 
@@ -1605,7 +1602,7 @@ class XpecgenGUI(Notebook):
                 )*(np.pi)/180, int(self.HVL32.get()), dtype=np.float32)
                 # print(self.angles)
                 energy_deposition_file = os.path.join(
-                    xg.data_path, "Detectors", self.det.get(), 'EnergyDeposition.npy')
+                    fc.data_path, "Detectors", self.det.get(), 'EnergyDeposition.npy')
                 self.phan_map = ['air','water',"G4_BONE_COMPACT_ICRU"]
                 # real one ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"]
             #     ['air','water','Spongiosa_Bone_ICRP','G4_BONE_COMPACT_ICRU',
@@ -1654,8 +1651,8 @@ class XpecgenGUI(Notebook):
 
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
-                dispatcher={'Catphan_515':xg.Catphan_515,
-                            'Catphan_MTF':xg.Catphan_MTF}
+                dispatcher={'Catphan_515':fc.Catphan_515,
+                            'Catphan_MTF':fc.Catphan_MTF}
                 try:
                     function=dispatcher[self.geo.get()]
                 except KeyError:
@@ -1803,7 +1800,7 @@ class XpecgenGUI(Notebook):
         """
         s2 = self.spectra[-1].clone()
         s2.attenuate(self.AttenThick.get(),
-                     xg.get_mu(_remove_element_name(self.AttenMaterial.get())))
+                     fc.get_mu(_remove_element_name(self.AttenMaterial.get())))
         self.spectra.append(s2)
         self.lstHistory.insert(
             END, "Attenuated: " + str(self.AttenThick.get()) + "cm of " + self.AttenMaterial.get())
@@ -1858,7 +1855,7 @@ class XpecgenGUI(Notebook):
             return
         s2 = self.spectra[-1].clone()
         if crit == self.criteriaList2[0]:
-            self.noise = xg.update_fluence(self.load.get(),value)
+            self.noise = fc.update_fluence(self.load.get(),value)
         elif crit == self.criteriaList2[1]:
             pass
             # self.noise = self.doseperproj.get()/value

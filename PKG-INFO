@@ -1,0 +1,31 @@
+Metadata-Version: 1.1
+Name: fastcat
+Version: 1.3.0
+Summary: A package with a GUI to calculate X-ray sPECtra GENerated in tungsten anodes
+Home-page: https://github.com/jerichooconnell/fastcat
+Author: jerichooconnell
+Author-email: jericho.oconnell@gmail.com
+License: GPLv3
+Description-Content-Type: UNKNOWN
+Description: xpecgen
+        =========
+        
+        xpecgen is a python package to calculate x-ray spectra generated in tungsten anodes using the model of `Med. Phys. 43, 4655 <http://dx.doi.org/10.1118/1.4955120>`_. It includes a Graphical User Interface and allows calculation of half-value-layers, norms, and attenuation. It can also export the calculations in XLSX and CSV formats.
+        
+        For more information check the `GitHub repository <https://github.com/Dih5/xpecgen>`_.
+        
+Keywords: X-ray spectra,Tungsten anode,Computer modeling
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7

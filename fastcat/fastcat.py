@@ -58,151 +58,6 @@ mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-
 # --------------------General purpose functions-------------------------#
 
 
-# def return_projs(phantom,kernel,energies,fluence,angles,geo,
-#                 deposition_efficiency_file = 'analysis/2020-06-04-h08m58/EnergyDeposition.npy',
-#                 phantom_mapping = ['air','water','pmma','bone','brain','lung','muscle','pmma'],nphoton = None,
-#                 mgy = None,return_dose=False,det_on=True,scat_on=True):
-#     '''
-#     The main function for returning the projections
-#     '''
-
-#     # --- Making the phantom maps between G4 attenuation coeffs and ints in phantom ---
-
-#     # Don't want to look for zeros
-#     useful_phantom = phantom != 0
-#     # These are what I used in the Monte Carlo
-#     original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-#     # Loading the file from the monte carlo
-#     deposition = np.load(deposition_efficiency_file,allow_pickle=True)
-#     # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-#     deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
-#     # The index of the different materials
-#     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
-#     mapping_functions = []1879rgies_keV):
-#         for ii in range(0,len(phantom_mapping)-1):
-#             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-#         if tigre_works:
-#             try:
-#                 proj.append(np.squeeze(tigre.Ax(phantom2,geo,angles,this,that)))
-#             except Exception:
-#                 print("WARNING: Tigre GPU not working. Switching to Astra CPU",
-#                     file=sys.stderr)
-#                 proj.append(np.squeeze(tigre2astra(phantom2,geo,angles,tile=True)))
-#         else:
-#             proj.append(np.squeeze(tigre2astra(phantom2,geo,angles,tile=True)))
-#         # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-#         doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water[jj]/mu_water[jj])
-
-#     # --- Factoring in the fluence and the energy deposition ---
-#     # Binning to get the fluence per energy
-#     large_energies = np.linspace(0,6000,3001)
-#     fluence_large = np.interp(large_energies,np.array(energies), fluence)
-#     fluence_small = np.zeros(len(original_energies_keV))
-#     # Still binning
-#     for ii, val in enumerate(large_energies):   
-#         index = np.argmin(np.abs(original_energies_keV-val))
-#         fluence_small[index] += fluence_large[ii]       
-#     # Normalize
-#     fluence_small /= np.sum(fluence_small)
-#     fluence_norm = fluence/np.sum(fluence)
-
-#     if det_on:
-#         weights_small = fluence_small*deposition_summed
-#     else:
-#         weights_small = fluence_small
-    
-#     # Need to make sure that the attenuations aren't janky for recon
-#     weights_small /= np.sum(weights_small)
-#     # This is the line to uncomment to run the working code for dose_comparison.ipynb
-#     if return_dose:
-#         return np.mean(np.mean(doses,1),1), fluence
-    
-#     # --- Dose calculation ---
-#     # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
-#     def get_dose_nphoton(nphot):
-#         return nphot/2e7
-
-#     def get_dose_mgy(mgy,doses,fluence_small):
-#         nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13))
-#         return get_dose_nphoton(nphoton)
-
-#     def get_dose_per_photon(doses,fluence_small):
-#         # linear fit of the data
-#         pp = np.array([0.88759883, 0.01035186])
-#         return ((np.mean(np.mean(doses,1),1)/1000)@((fluence_small)))*pp[0] + pp[1]
-
-#     ratio = None
-
-#     # Dose in micro grays
-#     if mgy != 0.0:
-#         ratio = get_dose_mgy(mgy,doses,fluence_small)
-#     elif nphoton is not None:
-#         ratio = get_dose_nphoton(nphoton)
-    
-#     # --- Noise and Scatter Calculation ---
-#     # Now I interpolate deposition and get the average photons reaching the detector
-#     deposition_long = np.interp(energies,original_energies_keV/1000,deposition_summed)
-#     nphotons_at_energy = fluence_norm*deposition_long
-#     nphotons_av = np.sum(nphotons_at_energy)
-
-#     print('ratio is', ratio,'number of photons', nphotons_av)
-
-#     # -------- Scatter Correction -----------
-#     scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
-#     coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
-
-#     dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
-
-#     def func(x, a, b):
-#         return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
-
-#     mc_scatter = np.zeros(scatter.shape)
-
-#     for jj in range(len(original_energies_keV)):
-
-#             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-#             mc_scatter[:,jj] = func(dist, *popt)
-
-#     factor = (152/(np.sqrt(dist**2 + 152**2)))**3
-#     flood_summed = factor*660 
-#     scatter = 2.15*(mc_scatter + coh_scatter)
-#     # log(i/i_0) to get back to intensity
-#     raw = (np.exp(-np.array(proj)/10)*(flood_summed)).T
-
-#     # Add the already weighted noise
-#     if scat_on:
-#         raw_weighted = raw.transpose([2,1,0,3]) + scatter
-#     else:
-#         raw_weighted = raw.transpose([2,1,0,3])
-
-#     # Normalize the kernel
-#     kernel_norm = kernel.kernel/np.sum(kernel.kernel)
-        
-#     # add the poisson noise
-#     if ratio is not None:
-        
-#         if det_on:
-#             adjusted_ratio = ratio*nphotons_av
-#         else:
-#             adjusted_ratio = ratio
-        
-#         raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
-    
-#     filtered = raw_weighted.copy()
-
-#     if det_on: # if the detector is to be simulated
-
-#         for ii in range(len(angles)):
-#             for jj in range(len(original_energies_keV)):
-
-#                 kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
-
-#                 filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
-
-#     filtered = filtered @ weights_small
-
-#     return -10*np.log(filtered/(flood_summed)), ratio
-
 def log_interp_1d(xx, yy, kind='linear'):
     """
     Perform interpolation in log-log scale.
@@ -318,26 +173,26 @@ def triangle(x, loc=0, size=0.5, area=1):
     # return 0 if t>1 else (1-t)*abs(area/size)
     return 0 if abs((x - loc) / size) > 1 else (1 - abs((x - loc) / size)) * abs(area / size)
 
-def get_noise(length):
+# def get_noise(length):
 
-    if length == 512:
+#     if length == 512:
 
-        primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
-        noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
-        primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
-        primary = np.tile(primary_512,[1,1,2,1])
+#         primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
+#         noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
+#         primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
+#         primary = np.tile(primary_512,[1,1,2,1])
 
-        return primary, noise
-    elif length == 1024:
-        primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
-        noise_512 = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
-        primary_256 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
-        primary_512 = np.tile(primary_256,[1,1,2,1])
+#         return primary, noise
+#     elif length == 1024:
+#         primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
+#         noise_512 = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
+#         primary_256 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
+#         primary_512 = np.tile(primary_256,[1,1,2,1])
 
-        x = np.linspace(0,512,512,endpoint=False)
-        xp = np.linspace(0,512,1024,endpoint=False)
+#         x = np.linspace(0,512,512,endpoint=False)
+#         xp = np.linspace(0,512,1024,endpoint=False)
 
-        return np.interp(x,xp,primary_512),np.interp(x,xp,noise_512)
+#         return np.interp(x,xp,primary_512),np.interp(x,xp,noise_512)
 
 # --------------------Spectrum model functionality----------------------#
 class IndexTracker(object):
@@ -773,7 +628,7 @@ class Phantom:
 
             # Available algorithms:
             # ART, SART, SIRT, CGLS, FBP
-            astra.data2d.store(sin_id,projs[ii,:,:]*(1.6*(self.geomet.nDetector[1]/256))
+            astra.data2d.store(sin_id,projs[ii,:,:]*(1.6*(self.geomet.nDetector[1]/256)))
 
             # Run 20 iterations of the algorithm
             # This will have a runtime in the order of 10 seconds.
