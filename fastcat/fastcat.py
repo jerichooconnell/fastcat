@@ -78,20 +78,7 @@ mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-
 #     deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
 #     # The index of the different materials
 #     masks = np.zeros([len(phantom_mapping)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
-#     mapping_functions = []
-#     # Get the mapping functions for the different tissues to reconstruct the phantom by energy
-#     for ii in range(1,len(phantom_mapping)):       
-#         mapping_functions.append(get_mu(phantom_mapping[ii].split(':')[0]))
-#         masks[ii-1] = phantom == ii
-#     phantom2 = phantom.copy().astype(np.float32) # Tigre only works with float32
-
-#     # --- Ray tracing step ---        
-#     proj = []
-#     doses = []
-#     # we assume tigre works
-#     tigre_works = True
-
-#     for jj, energy in enumerate(original_energies_keV):
+#     mapping_functions = []1879rgies_keV):
 #         for ii in range(0,len(phantom_mapping)-1):
 #             phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
 #         if tigre_works:
@@ -282,38 +269,6 @@ def tigre2astra(phantom,geomet,angles,tile=False,init=False):
             sin_id, sinogram[ii,:,:] = astra.create_sino(phantom[ii,:,:], proj_id) # this is some sort of relation
             
         return sinogram/(1.6*(geomet.nDetector[1]/256)), sin_id, proj_id, vol_geom
-
-# def astra_recon(projs, sin_id, proj_id, vol_geom,algo ='CGLS',niter=10):
-    
-#     rec_id = astra.data2d.create('-vol', vol_geom)
-
-#     cfg = astra.astra_dict('CGLS')
-    
-#     cfg['ReconstructionDataId'] = 94
-#     cfg['ProjectionDataId'] = 88
-#     cfg['ProjectorId'] = 86
-    
-#     # Create the algorithm object from the configuration structure
-#     alg_id = astra.algorithm.create(cfg)
-
-#     recon = []
-
-#     for ii in range(projs.T.shape[2]):
-
-#         # Available algorithms:
-#         # ART, SART, SIRT, CGLS, FBP
-#         astra.data2d.store(88,projs[ii,:,:]*(1.6*2))
-
-#         # Run 20 iterations of the algorithm
-#         # This will have a runtime in the order of 10 seconds.
-#         astra.algorithm.run(alg_id,niter)
-
-#         # Get the result
-#         rec = astra.data2d.get(rec_id)
-
-#         recon.append(rec)
-        
-#     return np.array(recon)
 
 def custom_dblquad(func, a, b, c, d, args=(), epsabs=1.49e-8, epsrel=1.49e-8, maxp1=50, limit=2000):
     """

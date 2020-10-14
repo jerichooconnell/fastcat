@@ -27,22 +27,22 @@ else:
 
 
 setup(
-    name='xpecgen',
+    name='fastcat',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
     version='1.3.0',
 
-    description='A package with a GUI to calculate X-ray sPECtra GENerated in tungsten anodes',
+    description='A fast CBCT simulation application',
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/Dih5/xpecgen',
+    url='https://github.com/jerichooconnell/fastcat',
 
     # Author details
-    author='Dih5',
-    author_email='guillehg@gmail.com',
+    author='jerichooconnell',
+    author_email='jericho.oconnell@gmail.com',
 
     # Choose your license
     license='GPLv3',
@@ -75,7 +75,7 @@ setup(
     ],
 
     # What does your project relate to?
-    keywords=['X-ray spectra', 'Tungsten anode', 'Computer modeling'],
+    keywords=['CBCT','Monte Carlo Simulation','X-ray spectra', 'Tungsten anode', 'Computer modeling'],
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
@@ -105,7 +105,7 @@ setup(
     # installed, specify them here.  If using Python 2.6 or less, then these
     # have to be included in MANIFEST.in as well.
     package_data={
-        'xpecgen': ['xpecgen/data'],
+        'fastcat': ['fastcat/data'],
     },
     
     include_package_data=True,
@@ -122,8 +122,8 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'xpecgen=xpecgen.xpecgenGUI:main',
-            'xpecgencli=xpecgen.xpecgen:cli',
+            'fastcat=fastcat.fastcatGUI:main',
+            'fastcatcli=fastcat.fastcat:cli',
         ],
     },
 )
