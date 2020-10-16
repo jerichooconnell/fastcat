@@ -6,7 +6,7 @@
 from __future__ import print_function
 
 import tigre
-import fastcat as fc
+import fastcat.fastcat as fc
 import re
 from glob import glob
 import os
@@ -282,7 +282,7 @@ class XpecgenGUI(Notebook):
         self.AttenThick.set(0.1)
 
         self.current = DoubleVar()
-        self.current.set(6.200432949299284e-07)
+        self.current.set(0)#6.200432949299284e-07)
 
         self.noise = None
 
@@ -318,6 +318,9 @@ class XpecgenGUI(Notebook):
         self.filename = StringVar()
         self.filename.set("filename")
 
+        self.label = StringVar()
+        self.label.set("")
+
         self.NormValue2 = DoubleVar()
         self.NormValue2.set(1.0)
 
@@ -327,7 +330,7 @@ class XpecgenGUI(Notebook):
         self.HVL22 = StringVar()
         self.HVL22.set(0.0)
         self.HVL32 = DoubleVar()
-        self.HVL32.set(2)
+        self.HVL32.set(30)
         self.HVL42 = DoubleVar()
         self.HVL42.set(0.0)
         self.HVL52 = DoubleVar()
@@ -1040,6 +1043,9 @@ class XpecgenGUI(Notebook):
         self.Par1 = ParBox(self.frmRecon2, self.filename, lblText="File Name", row=3,
                         read_only=False,
                         helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
+        self.Par2 = ParBox(self.frmRecon2, self.label, lblText="Plotting Label", row=4,
+                        read_only=False,
+                        helpTxt="label that will appear in the legend of the analysis plots")
         self.cmdRecon2 = Button(self.frmReso, text="Save Reconstruction")
         self.cmdRecon2["command"] = self.saverecon
         self.cmdRecon2.bind('<Return>', lambda event: self.saverecon())
@@ -1510,7 +1516,7 @@ class XpecgenGUI(Notebook):
         
         if self.matplotlib_embedded:
 
-            self.phantom.analyse_515(self.phantom.img[5],[self.subfig9,self.subfig10])
+            self.phantom.analyse_515(self.phantom.img[5],[self.subfig9,self.subfig10],self.label.get())
             self.canvas6.draw()
             self.canvasToolbar6.update()
             self.fig6.tight_layout()

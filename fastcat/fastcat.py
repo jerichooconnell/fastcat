@@ -17,6 +17,7 @@ from scipy import interpolate, integrate, optimize
 import xlsxwriter
 from matplotlib import cm
 from matplotlib.colors import LogNorm
+import astropy.stats as stats
 
 import tigre
 try:
@@ -24,6 +25,7 @@ try:
 except ImportError as error:
     # Output expected ImportErrors.
     print(error.__class__.__name__ + ": " + error.message)
+
 import tigre.algorithms as algs
 from scipy.signal import fftconvolve, find_peaks, butter,filtfilt
 from scipy.optimize import minimize, curve_fit
@@ -662,219 +664,99 @@ class Catphan_515(Phantom):
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"] 
 
-    def analyse(self,recon_slice):
-
-        def create_mask():
-
-            im = np.zeros([256,256])
-            ii = 1
-
-            # CTMAT(x) formel=H2O dichte=x
-            LEN = 100
-
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
-
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
-
-            # Phantom 
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
-
-            ii += 1
-
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1),  y= 5*sin(A1),  r=0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2),  y= 5*sin(A2),  r=0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3),  y= 5*sin(A3),  r=0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4),  y= 5*sin(A4),  r=0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5),  y= 5*sin(A5),  r=0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6),  y= 5*sin(A6),  r=0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7),  y= 5*sin(A7),  r=0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8),  y= 5*sin(A8),  r=0.10, index = ii, image = im); ii += 1
-
-            return im
-
-        def create_mask_multi(shape):
-
-            im = np.zeros(shape)
-            ii = 1
-
-            # CTMAT(x) formel=H2O dichte=x
-            LEN = 100
-
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
-
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
-
-            # Phantom 
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-            create_circular_mask(x= 0.000,  y= 0.000,  r=1.0, index = ii, image = im)
-
-            ii += 1
-
-            tad = 0.2
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
-
-            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=0.45 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1       
-            return im
-
-        def create_circular_mask(x, y, r, index, image):
-        
-            h,w = image.shape
-            
-            center = [x*int(w/2)/8 + int(w/2),y*int(h/2)/8 + int(h/2)] #TODO:Should be 8cm
-
-            if center is None: # use the middle of the image
-                center = (int(w/2), int(h/2))
-            if r is None: # use the smallest distance between the center and image walls
-                radius = min(center[0], center[1], w-center[0], h-center[1])
-
-            Y, X = np.ogrid[:h, :w]
-            dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
-
-            mask = dist_from_center <= r*int(w/2)/10
-            
-            
-            image[mask] = index
-
-        im = create_mask_multi(recon_slice.shape)
-
-        contrast = []
-        noise = []
-        cnr = []
-
-        ii = 1
-
-        ref_mean = np.mean(recon_slice[im == ii])
-        ref_std = np.std(recon_slice[im == ii])
-
-        for ii in range(2,8):
-            
-            contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
-            noise.append(np.std(recon_slice[im == ii]))
-            
-            cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
-            
-        rs = np.linspace(0.1,0.45,8)
-
-        return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
-
-    def analyse_515(self,recon_slice,place):
+    def analyse_515(self,recon_slice,place,run_name):
 
         def create_mask(shape):
 
             im = np.zeros(shape)
             ii = 1
-
+            
+            offset = 0.1
+            
+            first_radius = 5 - offset
+            second_radius = 2.5 - offset
+            
+            correction = -2*np.pi/180
             # CTMAT(x) formel=H2O dichte=x
             LEN = 100
 
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
+            A0  = 87.7082*np.pi/180 + correction
+            A1 = 108.3346*np.pi/180 + correction
+            A2 = 126.6693*np.pi/180 + correction
+            A3 = 142.7121*np.pi/180 + correction
+            A4 = 156.4631*np.pi/180 + correction
+            A5 = 167.9223*np.pi/180 + correction
+            A6 = 177.0896*np.pi/180 + correction
+            A7 = 183.9651*np.pi/180 + correction
+            A8 = 188.5487*np.pi/180 + correction
 
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
+            B0 = 110.6265*np.pi/180 + correction
+            B1 = 142.7121*np.pi/180 + correction
+            B2 = 165.6304*np.pi/180 + correction
+            B3 = 179.3814*np.pi/180 + correction
 
-            tad = 0.03
+            tad = 0.2
 
             # Phantom 
             # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-            create_circular_mask(x= 0.000,  y= 0.000,  r=-tad + 1.0, index = ii, image = im)
+            create_circular_mask(x= 0.000,  y= 0.000,  r=-tad + 2, index = ii, image = im)
 
             ii += 1
 
             # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=-tad + 0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1),  y= 5*sin(A1),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2),  y= 5*sin(A2),  r=-tad + 0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3),  y= 5*sin(A3),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4),  y= 5*sin(A4),  r=-tad + 0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5),  y= 5*sin(A5),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6),  y= 5*sin(A6),  r=-tad + 0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7),  y= 5*sin(A7),  r=-tad + 0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8),  y= 5*sin(A8),  r=-tad + 0.10, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A0),  y= first_radius*sin(A0),  r=-tad + 0.75, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A1),  y= first_radius*sin(A1),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A2),  y= first_radius*sin(A2),  r=-tad + 0.40, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A3),  y= first_radius*sin(A3),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A4),  y= first_radius*sin(A4),  r=-tad + 0.30, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A5),  y= first_radius*sin(A5),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A6),  y= first_radius*sin(A6),  r=-tad + 0.20, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A7),  y= first_radius*sin(A7),  r=-tad + 0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A8),  y= first_radius*sin(A8),  r=-tad + 0.10, index = ii, image = im); ii += 1
 
 
             # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1+2/3*np.pi),  y= 5*sin(A1+2/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2+2/3*np.pi),  y= 5*sin(A2+2/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3+2/3*np.pi),  y= 5*sin(A3+2/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4+2/3*np.pi),  y= 5*sin(A4+2/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5+2/3*np.pi),  y= 5*sin(A5+2/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6+2/3*np.pi),  y= 5*sin(A6+2/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7+2/3*np.pi),  y= 5*sin(A7+2/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8+2/3*np.pi),  y= 5*sin(A8+2/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A0+2/3*np.pi),  y= first_radius*sin(A0+2/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A1+2/3*np.pi),  y= first_radius*sin(A1+2/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A2+2/3*np.pi),  y= first_radius*sin(A2+2/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A3+2/3*np.pi),  y= first_radius*sin(A3+2/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A4+2/3*np.pi),  y= first_radius*sin(A4+2/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A5+2/3*np.pi),  y= first_radius*sin(A5+2/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A6+2/3*np.pi),  y= first_radius*sin(A6+2/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A7+2/3*np.pi),  y= first_radius*sin(A7+2/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A8+2/3*np.pi),  y= first_radius*sin(A8+2/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
 
 
             # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A1+4/3*np.pi),  y= 5*sin(A1+4/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A2+4/3*np.pi),  y= 5*sin(A2+4/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A3+4/3*np.pi),  y= 5*sin(A3+4/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A4+4/3*np.pi),  y= 5*sin(A4+4/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A5+4/3*np.pi),  y= 5*sin(A5+4/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A6+4/3*np.pi),  y= 5*sin(A6+4/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A7+4/3*np.pi),  y= 5*sin(A7+4/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A8+4/3*np.pi),  y= 5*sin(A8+4/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A0+4/3*np.pi),  y= first_radius*sin(A0+4/3*np.pi),  r=-tad + 0.75, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A1+4/3*np.pi),  y= first_radius*sin(A1+4/3*np.pi),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A2+4/3*np.pi),  y= first_radius*sin(A2+4/3*np.pi),  r=-tad + 0.40, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A3+4/3*np.pi),  y= first_radius*sin(A3+4/3*np.pi),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A4+4/3*np.pi),  y= first_radius*sin(A4+4/3*np.pi),  r=-tad + 0.30, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A5+4/3*np.pi),  y= first_radius*sin(A5+4/3*np.pi),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A6+4/3*np.pi),  y= first_radius*sin(A6+4/3*np.pi),  r=-tad + 0.20, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A7+4/3*np.pi),  y= first_radius*sin(A7+4/3*np.pi),  r=-tad + 0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A8+4/3*np.pi),  y= first_radius*sin(A8+4/3*np.pi),  r=-tad + 0.10, index = ii, image = im); ii += 1
 
             # ++++ subslice 1.0% targets 7mm long +++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=-tad + 0.45, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B1),  y= 2.5*sin(B1),  r=-tad + 0.35, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B2),  y= 2.5*sin(B2),  r=-tad + 0.25, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B3),  y= 2.5*sin(B3),  r=-tad + 0.15, index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B0),  y= second_radius*sin(B0),  r=-tad + 0.45, index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B1),  y= second_radius*sin(B1),  r=-tad + 0.35, index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B2),  y= second_radius*sin(B2),  r=-tad + 0.25, index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B3),  y= second_radius*sin(B3),  r=-tad + 0.15, index = ii, image = im); ii += 1
 
 
             # ++++ subslice 1.0% targets 3mm long +++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B1+2/3*np.pi) ,y= 2.5*sin(B1+2/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B2+2/3*np.pi) ,y= 2.5*sin(B2+2/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B3+2/3*np.pi) ,y= 2.5*sin(B3+2/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B0+2/3*np.pi) ,y= second_radius*sin(B0+2/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B1+2/3*np.pi) ,y= second_radius*sin(B1+2/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B2+2/3*np.pi) ,y= second_radius*sin(B2+2/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B3+2/3*np.pi) ,y= second_radius*sin(B3+2/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
 
 
             # ++++ subslice 1.0% targets 5mm long +++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B1+4/3*np.pi) ,y= 2.5*sin(B1+4/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B2+4/3*np.pi) ,y= 2.5*sin(B2+4/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B3+4/3*np.pi) ,y= 2.5*sin(B3+4/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B0+4/3*np.pi) ,y= second_radius*sin(B0+4/3*np.pi),  r=-tad + 0.45  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B1+4/3*np.pi) ,y= second_radius*sin(B1+4/3*np.pi),  r=-tad + 0.35  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B2+4/3*np.pi) ,y= second_radius*sin(B2+4/3*np.pi),  r=-tad + 0.25  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B3+4/3*np.pi) ,y= second_radius*sin(B3+4/3*np.pi),  r=-tad + 0.15  , index = ii, image = im); ii += 1
 
             return im
 
@@ -882,23 +764,27 @@ class Catphan_515(Phantom):
 
             im = np.zeros(shape)
             ii = 1
+            
+            correction = 0
+            first_radius = 5
+            second_radius = 2.5
 
             # CTMAT(x) formel=H2O dichte=x
             LEN = 100
 
-            A0  = 87.7082*np.pi/180
-            A1 = 108.3346*np.pi/180
-            A2 = 126.6693*np.pi/180
-            A3 = 142.7121*np.pi/180
-            A4 = 156.4631*np.pi/180
-            A5 = 167.9223*np.pi/180
-            A6 = 177.0896*np.pi/180
-            A7 = 183.9651*np.pi/180
-            A8 = 188.5487*np.pi/180
-            B0 = 110.6265*np.pi/180
-            B1 = 142.7121*np.pi/180
-            B2 = 165.6304*np.pi/180
-            B3 = 179.3814*np.pi/180
+            A0  = 87.7082*np.pi/180 + correction
+            A1 = 108.3346*np.pi/180 + correction
+            A2 = 126.6693*np.pi/180 + correction
+            A3 = 142.7121*np.pi/180 + correction
+            A4 = 156.4631*np.pi/180 + correction
+            A5 = 167.9223*np.pi/180 + correction
+            A6 = 177.0896*np.pi/180 + correction
+            A7 = 183.9651*np.pi/180 + correction
+            A8 = 188.5487*np.pi/180 + correction
+            B0 = 110.6265*np.pi/180 + correction
+            B1 = 142.7121*np.pi/180 + correction
+            B2 = 165.6304*np.pi/180 + correction
+            B3 = 179.3814*np.pi/180 + correction
 
             # Phantom 
             # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
@@ -906,23 +792,23 @@ class Catphan_515(Phantom):
 
             ii += 1
 
-            tad = 0.2
+            tad = 0.5
             # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
 
-            create_circular_mask(x= 5*cos(A0),  y= 5*sin(A0),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+2/3*np.pi),  y= 5*sin(A0+2/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 5*cos(A0+4/3*np.pi),  y= 5*sin(A0+4/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A0),  y= first_radius*sin(A0),  r=0.75 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A0+2/3*np.pi),  y= first_radius*sin(A0+2/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= first_radius*cos(A0+4/3*np.pi),  y= first_radius*sin(A0+4/3*np.pi),  r=0.75 - tad, index = ii, image = im); ii += 1
 
-            create_circular_mask(x= 2.5*cos(B0),  y= 2.5*sin(B0),  r=0.45 - tad, index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+2/3*np.pi) ,y= 2.5*sin(B0+2/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1
-            create_circular_mask(x= 2.5*cos(B0+4/3*np.pi) ,y= 2.5*sin(B0+4/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1       
+            create_circular_mask(x= second_radius*cos(B0),  y= second_radius*sin(B0),  r=0.45 - tad, index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B0+2/3*np.pi),  y= second_radius*sin(B0+2/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1
+            create_circular_mask(x= second_radius*cos(B0+4/3*np.pi),  y= second_radius*sin(B0+4/3*np.pi),  r=0.45 - tad  , index = ii, image = im); ii += 1       
             return im
 
         def create_circular_mask(x, y, r, index, image):
         
             h,w = image.shape
             
-            center = [x*int(w/2)/10 + int(w/2),y*int(h/2)/10 + int(h/2)]
+            center = [x*int(w/2)/8 + int(w/2),y*int(h/2)/8 + int(h/2)]
 
             if center is None: # use the middle of the image
                 center = (int(w/2), int(h/2))
@@ -932,7 +818,7 @@ class Catphan_515(Phantom):
             Y, X = np.ogrid[:h, :w]
             dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
 
-            mask = dist_from_center <= r*int(w/2)/10
+            mask = dist_from_center <= r*int(w/2)/8
             
             
             image[mask] = index
@@ -942,31 +828,58 @@ class Catphan_515(Phantom):
         contrast = []
         noise = []
         cnr = []
+        ci = []
 
         ii = 1
 
         ref_mean = np.mean(recon_slice[im == ii])
         ref_std = np.std(recon_slice[im == ii])
 
+        # for ii in range(2,int(np.max(im)+1)):
+            
+        #     contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
+        #     noise.append(np.std(recon_slice[im == ii]))
+            
+        #     cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
+
         for ii in range(2,int(np.max(im)+1)):
             
-            contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
-            noise.append(np.std(recon_slice[im == ii]))
+            nsample = len(recon_slice[im == ii])
             
-            cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
+            if nsample > 2:
+                
+                noise.append(np.std(recon_slice[im == ii]))
+                
+                booted = np.abs(stats.bootstrap(recon_slice[im == ii],100,samples=int(nsample/5),bootfunc=np.mean) - ref_mean)
+
+                ci.append(np.std(booted))
+                contrast.append(np.mean(booted))
+
+                cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
+                      
+        ci_v = [2*(ci[ii]/ref_mean)*100 for ii in range(len(ci))]
             
         rs = np.linspace(0.1,0.45,8)
 
-        place[0].plot([(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], 'x')
-        # place[0].set_xticks(range(len(cnr))) 
-        # place[0].set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
+        inds_i_want = [0,6,12,18,21,24]
+        ww = 0.085
+
+        shorts = ['Lung','Compact Bone','Cortical Bone','Adipose','Brain','B-100']
+
+        contrasts_i_want = np.array([(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))])[inds_i_want]
+
+        place[0].errorbar(np.arange(len(inds_i_want)),contrasts_i_want
+                                ,capsize = ww+1.5, yerr=np.array(ci_v)[inds_i_want],fmt='x',label=run_name)
+        place[0].set_xticks(range(len(inds_i_want))) 
+        place[0].set_xticklabels(shorts, fontsize=12, rotation = 75)
         place[0].set_ylabel('% Contrast')
         place[0].set_title('Contrast')
         place[0].legend()
 
-        place[1].plot(cnr, 'x')
-        # place[1].set_xticks(range(len(cnr))) 
-        # place[1].set_xticklabels(self.phan_map[2:], fontsize=12, rotation = 45)
+        place[1].errorbar(np.arange(len(inds_i_want)),np.array(cnr)[inds_i_want],capsize = ww+1.5,
+                            yerr=np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want),fmt='x')
+        place[1].set_xticks(range(len(inds_i_want))) 
+        place[1].set_xticklabels(shorts, fontsize=12, rotation = 75)
         place[1].set_ylabel('CNR')
         place[1].set_title('Contrast to Noise')
 
