@@ -47,10 +47,10 @@ __version__ = "1.3.0"
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
-mu_en_water = np.array([0.1557  , 0.06947 , 0.04223 , 0.0319  , 0.027678, 0.02597 ,
+mu_en_water = np.array([4.944, 0.5503, 0.1557  , 0.06947 , 0.04223 , 0.0319  , 0.027678, 0.02597 ,
     0.025434, 0.02546 , 0.03192 , 0.03299 , 0.032501, 0.031562,
     0.03103 , 0.02608 , 0.02066 , 0.01806 ])
-mu_water = np.array([0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
+mu_water = np.array([5.329, 0.8096, 0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
     0.176564, 0.1707  , 0.1186  , 0.09687 , 0.083614, 0.074411,
     0.07072 , 0.04942 , 0.03403 , 0.0277  ])
 mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-01  , 1.824E-01 , 1.755E-01  ,
@@ -276,7 +276,10 @@ class Kernel:
         if len(deposition_summed) == 16:
             deposition_summed = np.insert(deposition_summed,0,0)
 
-        original_energies_keV = np.array([0, 30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+        if len(deposition_summed) == 19:
+            original_energies_keV = np.array([0, 10 ,20, 30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+        else:
+            original_energies_keV = np.array([0, 30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
 
         # Divide by the energy to get the photon count plus a factor 355000 for the original number of photons
         deposition_summed[1:] /= (original_energies_keV[1:]/355)
@@ -403,7 +406,7 @@ class Phantom:
         pass
 
     def return_projs(self,kernel,spectra,angles,nphoton = None,
-                    mgy = None,return_dose=False,det_on=True,scat_on=True,tigre_works = True):
+                    mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True):
         '''
         The main function for returning the projections
         '''
@@ -413,9 +416,18 @@ class Phantom:
         # Don't want to look for zeros
         useful_phantom = self.phantom != 0
         # These are what I used in the Monte Carlo
-        original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-        # Loading the file from the monte carlo
         deposition = np.load(kernel.deposition_efficiency_file,allow_pickle=True)
+        
+        # csi has two extra kv energies
+        if len(deposition[0]) == 18:
+            original_energies_keV = np.array([10,20,30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+            mu_en_water2 = mu_en_water
+            mu_water2 = mu_water
+        else:
+            original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+            mu_en_water2 = mu_en_water[2:]
+            mu_water2 = mu_water[2:]
+        # Loading the file from the monte carlo
         # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
         deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
         # The index of the different materials
@@ -438,43 +450,58 @@ class Phantom:
         if not tigre_works:
             self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,init=True)
 
-        for jj, energy in enumerate(original_energies_keV):
-            # Change the phantom values
-            for ii in range(0,len(self.phan_map)-1):
-                phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-            
-            if tigre_works: # resort to astra if tigre doesn't work
-                try:
-                    proj.append(np.squeeze(tigre.Ax(phantom2,self.geomet,angles)))
-                except Exception:
-                    print("WARNING: Tigre GPU not working. Switching to Astra CPU")
+        calc_projs = True
 
-                    sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,tile=True)
-                    proj.append(sinogram.transpose([1,0,2]))
-                    tigre_works=False
-            else:
-                if tile:
-                    sin_id, sinogram = astra.create_sino(np.fliplr(phantom2[0,:,:]), self.proj_id)
-                    
-                    proj.append(np.tile(sinogram,[phantom2.shape[0],1,1]).transpose([1,0,2])/(1.6*(geomet.nDetector[1]/256)))
+        # Don't bother double calcing the projs if we already have them from a previous run
+        if hasattr(self, 'proj') and hasattr(self, 'n_energies_old'):
+            if self.angles.shape[0] in self.proj.shape:
+                if len(original_energies_keV) == self.n_energies_old:
+                    calc_projs = False
+
+        self.n_energies_old = len(original_energies_keV)
+
+        if calc_projs:
+            for jj, energy in enumerate(original_energies_keV):
+                # Change the phantom values
+                for ii in range(0,len(self.phan_map)-1):
+                    phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
+                
+                if tigre_works: # resort to astra if tigre doesn't work
+                    try:
+                        proj.append(np.squeeze(tigre.Ax(phantom2,self.geomet,angles)))
+                    except Exception:
+                        print("WARNING: Tigre GPU not working. Switching to Astra CPU")
+
+                        sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,tile=True)
+                        proj.append(sinogram.transpose([1,0,2]))
+                        tigre_works=False
                 else:
-                    sinogram = np.zeros([phantom2.shape[0],len(angles),geomet.nDetector[1]])
-                    
-                    sin_id = None
-                    
-                    for kk in range(tigre_shape[0]):
+                    if tile:
+                        sin_id, sinogram = astra.create_sino(np.fliplr(phantom2[0,:,:]), self.proj_id)
                         
-                        if sin_id is not None:
-                            astra.data2d.delete(sin_id)
+                        proj.append(np.tile(sinogram,[phantom2.shape[0],1,1]).transpose([1,0,2])/(1.6*(geomet.nDetector[1]/256)))
+                    else:
+                        sinogram = np.zeros([phantom2.shape[0],len(angles),geomet.nDetector[1]])
+                        
+                        sin_id = None
+                        
+                        for kk in range(tigre_shape[0]):
                             
-                        sin_id, sinogram[kk,:,:] = astra.create_sino(np.fliplr(phantom2[kk,:,:]), self.proj_id)
-                    
-                    proj.append(sinogram.transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256)))
+                            if sin_id is not None:
+                                astra.data2d.delete(sin_id)
+                                
+                            sin_id, sinogram[kk,:,:] = astra.create_sino(np.fliplr(phantom2[kk,:,:]), self.proj_id)
+                        
+                        proj.append(sinogram.transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256)))
 
-                astra.data2d.delete(sin_id)
-            # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-            doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water[jj]/mu_water[jj])
+                    astra.data2d.delete(sin_id)
+                # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
+                doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water2[jj]/mu_water2[jj])
 
+        if calc_projs:
+            self.raw_proj = proj
+            self.raw_doses = doses
+        
         # --- Factoring in the fluence and the energy deposition ---
         # Binning to get the fluence per energy
         large_energies = np.linspace(0,6000,3001)
@@ -497,7 +524,7 @@ class Phantom:
         weights_small /= np.sum(weights_small)
         # This is the line to uncomment to run the working code for dose_comparison.ipynb
         if return_dose:
-            return np.mean(np.mean(doses,1),1), spectra.y
+            return np.mean(np.mean(self.raw_doses,1),1), spectra.y
         
         # --- Dose calculation ---
         # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
@@ -511,13 +538,13 @@ class Phantom:
         def get_dose_per_photon(doses,fluence_small):
             # linear fit of the data
             pp = np.array([0.88759883, 0.01035186])
-            return ((np.mean(np.mean(doses,1),1)/1000)@((fluence_small)))*pp[0] + pp[1]
+            return ((np.mean(np.mean(doses,1),1)/1000)@(fluence_small))*pp[0] + pp[1]
 
         ratio = None
 
         # Dose in micro grays
         if mgy != 0.0:
-            ratio = get_dose_mgy(mgy,doses,fluence_small)
+            ratio = get_dose_mgy(mgy,self.raw_doses,fluence_small)
         elif nphoton is not None:
             ratio = get_dose_nphoton(nphoton)
         
@@ -540,16 +567,28 @@ class Phantom:
 
         mc_scatter = np.zeros(scatter.shape)
 
-        for jj in range(len(original_energies_keV)):
+        for jj in range(16):
 
-                popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-                mc_scatter[:,jj] = func(dist, *popt)
+            popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+            mc_scatter[:,jj] = func(dist, *popt)
+
+        print(mc_scatter.shape)
+        print((mc_scatter[:,0].shape))
+
+        if len(original_energies_keV) == 18:
+            mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter[:,0].T,mc_scatter.T))
+            # mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter))
+            mc_scatter = mc_scatter.T
+
+            coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
+            # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter))
+            coh_scatter = coh_scatter.T
 
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660 
         scatter = 2.15*(mc_scatter + coh_scatter)
         # log(i/i_0) to get back to intensity
-        raw = (np.exp(-np.array(proj)/10)*(flood_summed)).T
+        raw = (np.exp(-np.array(self.raw_proj)/10)*(flood_summed)).T
 
         # Add the already weighted noise
         if scat_on:
@@ -600,7 +639,7 @@ class Phantom:
             'scroll_event', tracker2.onscroll)
         fig.tight_layout()
 
-    def reconstruct(self,algo,filt):
+    def reconstruct(self,algo,filt='hamming'):
         
         if algo == 'FDK':
             try:
@@ -664,7 +703,7 @@ class Catphan_515(Phantom):
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"] 
 
-    def analyse_515(self,recon_slice,place,run_name):
+    def analyse_515(self,recon_slice,place = None,run_name = ''):
 
         def create_mask(shape):
 
@@ -1687,9 +1726,9 @@ def cli():
     import sys
 
     parser = argparse.ArgumentParser(description='Calculate a bremsstrahlung spectrum.')
-    parser.add_argument('e_0', metavar='E0', type=float,
+    parser.add_argument('--e_0', metavar='E0', type=float, default=100.,
                         help='Electron kinetic energy in keV')
-    parser.add_argument('theta', metavar='theta', type=float, default=12,
+    parser.add_argument('--theta', metavar='theta', type=float, default=12,
                         help="X-ray emission angle in degrees, the anode's normal being at 90º.")
 
     parser.add_argument('--phi', metavar='phi', type=float, default=0,
@@ -1718,9 +1757,23 @@ def cli():
                              "If this argument is not provided, points are written to the standard output and "
                              "calculation monitor is not displayed.")
 
-    parser.add_argument('--overwrite', action="store_true",
-                        help="If this flag is set and the output is a pkl file, overwrite its content instead of "
-                             "appending.")
+    parser.add_argument('-s', metavar='spectrum', type=str,
+                        help="Spectrum to load")
+
+    parser.add_argument('-d', metavar='detector', type=str,
+                        help="Detector to use")
+
+    parser.add_argument('--fs', metavar='fs', type=int, default=0,
+                        help="The size of the focal spot")
+
+    parser.add_argument('-phan', metavar='phantom', type=str,
+                        help="The phantom to select")
+
+    parser.add_argument('--nviews', metavar='nviews', type=int, default=180,
+                        help="The phantom to select")
+
+    # parser.add_argument('-nviews', metavar='nviews', type=int, default=180,
+    #                     help="The phantom to select")
 
     args = parser.parse_args()
 
@@ -1742,25 +1795,44 @@ def cli():
     else:
         mesh = args.mesh
 
-    s = calculate_spectrum_mesh(args.e_0, args.theta, mesh, phi=args.phi, epsrel=args.epsrel, monitor=monitor, z=args.z)
-    x2, y2 = s.get_points()
+    if args.s is None:
+        s = calculate_spectrum_mesh(args.e_0, args.theta, mesh, phi=args.phi, epsrel=args.epsrel, monitor=monitor, z=args.z)
+        x2, y2 = s.get_points()
+    else:
+        s = Spectrum()
+        s.load(args.s)
+        kernel = Kernel(s,args.d)
+        
+        dispatcher={'Catphan_515':Catphan_515,
+                    'Catphan_MTF':Catphan_MTF}
+        try:
+            function=dispatcher[args.phan]
+        except KeyError:
+            raise ValueError('Invalid phantom module name')
+        phantom = function()
 
-    if args.output is None:
-        [print("%.6g, %.6g" % (x, y)) for x, y in zip(x2, y2)]
-    elif ext == "csv":
-        s.export_csv(args.output)
-    elif ext == "xlsx":
-        s.export_xlsx(args.output)
-    elif ext == "pkl":
-        import pickle
-        print(args.overwrite)
-        if args.overwrite:
-            mode = "wb"
-        else:
-            mode = "ab"
+        phantom.return_projs(kernel,s,np.linspace(0,np.pi*2,args.nviews))
 
-        with open(args.output, mode) as output:
-            pickle.dump(s, output, pickle.HIGHEST_PROTOCOL)
+        phantom.reconstruct('FDK')
+
+        np.save(args.output,phantom.img)
+
+    # if args.output is None:
+    #     [print("%.6g, %.6g" % (x, y)) for x, y in zip(x2, y2)]
+    # elif ext == "csv":
+    #     s.export_csv(args.output)
+    # elif ext == "xlsx":
+    #     s.export_xlsx(args.output)
+    # elif ext == "pkl":
+    #     import pickle
+    #     print(args.overwrite)
+    #     if args.overwrite:
+    #         mode = "wb"
+    #     else:
+    #         mode = "ab"
+
+    #     with open(args.output, mode) as output:
+    #         pickle.dump(s, output, pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':
