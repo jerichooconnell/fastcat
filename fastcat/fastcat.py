@@ -500,7 +500,7 @@ class Phantom:
 
                     astra.data2d.delete(sin_id)
                 # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-                doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water2[jj]/mu_water2[jj])
+                doses.append(np.mean((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
 
         if calc_projs:
             self.raw_proj = proj
@@ -529,7 +529,7 @@ class Phantom:
         weights_small /= np.sum(weights_small)
         # This is the line to uncomment to run the working code for dose_comparison.ipynb
         if return_dose:
-            return np.mean(np.mean(self.raw_doses,1),1), spectra.y
+            return self.raw_doses, spectra.y
         
         # --- Dose calculation ---
         # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
@@ -543,7 +543,7 @@ class Phantom:
         def get_dose_per_photon(doses,fluence_small):
             # linear fit of the data
             pp = np.array([0.88759883, 0.01035186])
-            return ((np.mean(np.mean(doses,1),1)/1000)@(fluence_small))*pp[0] + pp[1]
+            return ((doses/1000)@(fluence_small))*pp[0] + pp[1]
 
         ratio = None
 
@@ -589,13 +589,15 @@ class Phantom:
         flood_summed = factor*660 
         # scatter = 2.15*(mc_scatter + coh_scatter)
         # log(i/i_0) to get back to intensity
-        raw = (np.exp(-0.97*np.array(self.raw_proj)/10)*(flood_summed)).T # 0.97 is fudge factor
 
-        # Add the already weighted noise
-        if scat_on:
-            raw_weighted = raw.transpose([2,1,0,3]) + mc_scatter
-        else:
-            raw_weighted = raw.transpose([2,1,0,3])
+        if calc_projs:
+            self.raw_projs = (np.exp(-0.97*np.array(self.raw_proj)/10)*(flood_summed)).T # 0.97 is fudge factor
+
+            # Add the already weighted noise
+            if scat_on:
+                self.raw_projs = self.raw_projs.transpose([2,1,0,3]) + mc_scatter
+            else:
+                raw_weighted = self.raw_projs.transpose([2,1,0,3])
 
         # Normalize the kernel
         kernel_norm = kernel.kernel/np.sum(kernel.kernel)
@@ -608,7 +610,7 @@ class Phantom:
             else:
                 adjusted_ratio = ratio
             
-            raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
+            raw_weighted = np.random.poisson(lam=self.raw_projs*adjusted_ratio)/adjusted_ratio
         
         filtered = raw_weighted.copy()
 
@@ -1022,6 +1024,28 @@ class Catphan_MTF(Phantom):
 
         return [signal/signal[0], standev/signal[0]]
 
+class XCAT(Phantom):
+
+    def __init__(self):
+        self.phantom = np.load(os.path.join(data_path,'phantoms/ct_scan_smaller.npy'))
+        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet.nDetector = np.array([512,512])
+        self.geomet.dDetector = np.array([0.784, 0.784])
+        self.phan_map = ['air','lung','adipose','adipose','water','water','G4_LUNG_ICRP','tissue4','testis','brain','tissue','tissue4','testis','brain',
+            'breast','muscle','G4_MUSCLE_SKELETAL_ICRP','G4_MUSCLE_STRIATED_ICRU','G4_SKIN_ICRP','G4_TISSUE-PROPANE',
+            'G4_TISSUE-METHANE','G4_TISSUE_SOFT_ICRP','G4_TISSUE_SOFT_ICRU-4','G4_BLOOD_ICRP','G4_BODY','G4_BONE_COMPACT_ICRU',
+            'G4_BONE_CORTICAL_ICRP']
+
+        self.geomet.DSD = 1500
+        # I think I can get away with this
+        self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
+
+        self.geomet.sVoxel = np.array((160, 160, 160)) 
+        self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel 
+
+    def analyse_515(self,slc,place,fmt='-'):
+
+        pass
 
 class Spectrum:
     """
