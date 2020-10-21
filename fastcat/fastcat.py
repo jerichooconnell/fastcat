@@ -396,6 +396,9 @@ class Kernel:
         place.legend()
         place.grid(True)
 
+        self.mtf = mtf_final[mm+1:]/mtf_final[mm+1]
+        self.freq = xf/10
+
     def add_focal_spot(self,fs_size_in_pix):
 
         self.kernel = gaussian_filter(self.kernel,sigma=fs_size_in_pix)
@@ -457,6 +460,7 @@ class Phantom:
             if self.angles.shape[0] in self.proj.shape:
                 if len(original_energies_keV) == self.n_energies_old:
                     calc_projs = False
+                    print('Skipping GPU calc to speed up')
 
         self.n_energies_old = len(original_energies_keV)
 
@@ -515,10 +519,11 @@ class Phantom:
         fluence_small /= np.sum(fluence_small)
         fluence_norm = spectra.y/np.sum(spectra.y)
 
-        if det_on:
-            weights_small = fluence_small*deposition_summed
-        else:
-            weights_small = fluence_small
+        #Changed the meaning of det on to be more det convolved
+        # if det_on:
+        weights_small = fluence_small*deposition_summed
+        # else:
+        #     weights_small = fluence_small
         
         # Need to make sure that the attenuations aren't janky for recon
         weights_small /= np.sum(weights_small)
@@ -557,8 +562,8 @@ class Phantom:
         print('ratio is', ratio,'number of photons', nphotons_av)
 
         # -------- Scatter Correction -----------
-        scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
-        coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
+        scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
+        # coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
         dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
 
@@ -567,32 +572,28 @@ class Phantom:
 
         mc_scatter = np.zeros(scatter.shape)
 
-        for jj in range(16):
+        for jj in range(scatter.shape[1]):
 
             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
             mc_scatter[:,jj] = func(dist, *popt)
 
-        print(mc_scatter.shape)
-        print((mc_scatter[:,0].shape))
+        if len(original_energies_keV) == 16:
+            mc_scatter = mc_scatter[:,2:]
 
-        if len(original_energies_keV) == 18:
-            mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter[:,0].T,mc_scatter.T))
-            # mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter))
-            mc_scatter = mc_scatter.T
 
-            coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
+            # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
             # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter))
-            coh_scatter = coh_scatter.T
+            # coh_scatter = coh_scatter.T
 
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660 
-        scatter = 2.15*(mc_scatter + coh_scatter)
+        # scatter = 2.15*(mc_scatter + coh_scatter)
         # log(i/i_0) to get back to intensity
-        raw = (np.exp(-np.array(self.raw_proj)/10)*(flood_summed)).T
+        raw = (np.exp(-0.97*np.array(self.raw_proj)/10)*(flood_summed)).T # 0.97 is fudge factor
 
         # Add the already weighted noise
         if scat_on:
-            raw_weighted = raw.transpose([2,1,0,3]) + scatter
+            raw_weighted = raw.transpose([2,1,0,3]) + mc_scatter
         else:
             raw_weighted = raw.transpose([2,1,0,3])
 
@@ -922,12 +923,10 @@ class Catphan_515(Phantom):
         place[1].set_ylabel('CNR')
         place[1].set_title('Contrast to Noise')
 
-        # return_im = False
+        return_contrast = True
 
-        # if return_im:
-        #     return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr, im
-        # else:
-        #     return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
+        if return_contrast:
+            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
 
 class Catphan_MTF(Phantom):
 
