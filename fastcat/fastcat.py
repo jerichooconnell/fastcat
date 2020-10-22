@@ -460,7 +460,6 @@ class Phantom:
             if self.angles.shape[0] in self.proj.shape:
                 if len(original_energies_keV) == self.n_energies_old:
                     calc_projs = False
-                    print('Skipping GPU calc to speed up')
 
         self.n_energies_old = len(original_energies_keV)
 
@@ -500,7 +499,7 @@ class Phantom:
 
                     astra.data2d.delete(sin_id)
                 # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-                doses.append(np.mean((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
+                doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water2[jj]/mu_water2[jj])
 
         if calc_projs:
             self.raw_proj = proj
@@ -519,17 +518,16 @@ class Phantom:
         fluence_small /= np.sum(fluence_small)
         fluence_norm = spectra.y/np.sum(spectra.y)
 
-        #Changed the meaning of det on to be more det convolved
-        # if det_on:
-        weights_small = fluence_small*deposition_summed
-        # else:
-        #     weights_small = fluence_small
+        if det_on:
+            weights_small = fluence_small*deposition_summed
+        else:
+            weights_small = fluence_small
         
         # Need to make sure that the attenuations aren't janky for recon
         weights_small /= np.sum(weights_small)
         # This is the line to uncomment to run the working code for dose_comparison.ipynb
         if return_dose:
-            return self.raw_doses, spectra.y
+            return np.mean(np.mean(self.raw_doses,1),1), spectra.y
         
         # --- Dose calculation ---
         # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
@@ -543,7 +541,7 @@ class Phantom:
         def get_dose_per_photon(doses,fluence_small):
             # linear fit of the data
             pp = np.array([0.88759883, 0.01035186])
-            return ((doses/1000)@(fluence_small))*pp[0] + pp[1]
+            return ((np.mean(np.mean(doses,1),1)/1000)@(fluence_small))*pp[0] + pp[1]
 
         ratio = None
 
@@ -562,8 +560,8 @@ class Phantom:
         print('ratio is', ratio,'number of photons', nphotons_av)
 
         # -------- Scatter Correction -----------
-        scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
-        # coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
+        scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
+        coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
         dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
 
@@ -572,32 +570,34 @@ class Phantom:
 
         mc_scatter = np.zeros(scatter.shape)
 
-        for jj in range(scatter.shape[1]):
+        for jj in range(16):
 
             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
             mc_scatter[:,jj] = func(dist, *popt)
 
-        if len(original_energies_keV) == 16:
-            mc_scatter = mc_scatter[:,2:]
+        print(mc_scatter.shape)
+        print((mc_scatter[:,0].shape))
 
+        if len(original_energies_keV) == 18:
+            mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter[:,0].T,mc_scatter.T))
+            # mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter))
+            mc_scatter = mc_scatter.T
 
-            # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
+            coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
             # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter))
-            # coh_scatter = coh_scatter.T
+            coh_scatter = coh_scatter.T
 
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660 
-        # scatter = 2.15*(mc_scatter + coh_scatter)
+        scatter = 2.15*(mc_scatter + coh_scatter)
         # log(i/i_0) to get back to intensity
+        raw = (np.exp(-np.array(self.raw_proj)/10)*(flood_summed)).T
 
-        if calc_projs:
-            self.raw_projs = (np.exp(-0.97*np.array(self.raw_proj)/10)*(flood_summed)).T # 0.97 is fudge factor
-
-            # Add the already weighted noise
-            if scat_on:
-                self.raw_projs = self.raw_projs.transpose([2,1,0,3]) + mc_scatter
-            else:
-                raw_weighted = self.raw_projs.transpose([2,1,0,3])
+        # Add the already weighted noise
+        if scat_on:
+            raw_weighted = raw.transpose([2,1,0,3]) + scatter
+        else:
+            raw_weighted = raw.transpose([2,1,0,3])
 
         # Normalize the kernel
         kernel_norm = kernel.kernel/np.sum(kernel.kernel)
@@ -610,7 +610,7 @@ class Phantom:
             else:
                 adjusted_ratio = ratio
             
-            raw_weighted = np.random.poisson(lam=self.raw_projs*adjusted_ratio)/adjusted_ratio
+            raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
         
         filtered = raw_weighted.copy()
 
@@ -1027,7 +1027,7 @@ class Catphan_MTF(Phantom):
 class XCAT(Phantom):
 
     def __init__(self):
-        self.phantom = np.load(os.path.join(data_path,'phantoms/ct_scan_smaller.npy'))
+        self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_smaller.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([512,512])
         self.geomet.dDetector = np.array([0.784, 0.784])

@@ -959,6 +959,171 @@ Go to the documentation of this file.
 00920   AddElementByWeightFraction(19, 0.001);
 00921   AddElementByWeightFraction(20, 0.133);
 
+00911   AddMaterial("RIB_BONE_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.064);
+00913   AddElementByWeightFraction( 6, 0.263);
+00914   AddElementByWeightFraction( 7, 0.039);
+00915   AddElementByWeightFraction( 8, 0.436);
+00916   AddElementByWeightFraction(11, 0.001);
+00916   AddElementByWeightFraction(12, 0.001);
+00917   AddElementByWeightFraction(15, 0.06);
+00918   AddElementByWeightFraction(16, 0.003);
+00919   AddElementByWeightFraction(17, 0.001);
+00920   AddElementByWeightFraction(19, 0.001);
+00921   AddElementByWeightFraction(20, 0.156);
+
+00911   AddMaterial("HEART_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.103);
+00913   AddElementByWeightFraction( 6, 0.121);
+00914   AddElementByWeightFraction( 7, 0.032);
+00915   AddElementByWeightFraction( 8, 0.734);
+00916   AddElementByWeightFraction(11, 0.001);
+00917   AddElementByWeightFraction(15, 0.001);
+00918   AddElementByWeightFraction(16, 0.002);
+00919   AddElementByWeightFraction(17, 0.003);
+00920   AddElementByWeightFraction(19, 0.002);
+00921   AddElementByWeightFraction(26, 0.001);
+
+00911   AddMaterial("KIDNEY_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.103);
+00913   AddElementByWeightFraction( 6, 0.132);
+00914   AddElementByWeightFraction( 7, 0.03);
+00915   AddElementByWeightFraction( 8, 0.724);
+00916   AddElementByWeightFraction(11, 0.002);
+00917   AddElementByWeightFraction(15, 0.002);
+00918   AddElementByWeightFraction(16, 0.003);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.002);
+00921   AddElementByWeightFraction(20, 0.001);
+
+00911   AddMaterial("LIVER_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.102);
+00913   AddElementByWeightFraction( 6, 0.139);
+00914   AddElementByWeightFraction( 7, 0.03);
+00915   AddElementByWeightFraction( 8, 0.716);
+00916   AddElementByWeightFraction(11, 0.002);
+00917   AddElementByWeightFraction(15, 0.003);
+00918   AddElementByWeightFraction(16, 0.003);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.003);
+
+00911   AddMaterial("LYMPH_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.108);
+00913   AddElementByWeightFraction( 6, 0.041);
+00914   AddElementByWeightFraction( 7, 0.011);
+00915   AddElementByWeightFraction( 8, 0.832);
+00916   AddElementByWeightFraction(11, 0.003);
+00918   AddElementByWeightFraction(16, 0.001);
+00919   AddElementByWeightFraction(17, 0.004);
+
+00911   AddMaterial("PANCREAS_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.106);
+00913   AddElementByWeightFraction( 6, 0.169);
+00914   AddElementByWeightFraction( 7, 0.022);
+00915   AddElementByWeightFraction( 8, 0.694);
+00916   AddElementByWeightFraction(11, 0.002);
+00917   AddElementByWeightFraction(15, 0.002);
+00918   AddElementByWeightFraction(16, 0.001);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.002);
+
+00911   AddMaterial("INTESTINE_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.106);
+00913   AddElementByWeightFraction( 6, 0.115);
+00914   AddElementByWeightFraction( 7, 0.022);
+00915   AddElementByWeightFraction( 8, 0.751);
+00916   AddElementByWeightFraction(11, 0.001);
+00917   AddElementByWeightFraction(15, 0.001);
+00918   AddElementByWeightFraction(16, 0.001);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.001);
+
+00911   AddMaterial("SKULL_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.05);
+00913   AddElementByWeightFraction( 6, 0.212);
+00914   AddElementByWeightFraction( 7, 0.04);
+00915   AddElementByWeightFraction( 8, 0.435);
+00916   AddElementByWeightFraction(11, 0.001);
+00916   AddElementByWeightFraction(12, 0.002);
+00917   AddElementByWeightFraction(15, 0.081);
+00918   AddElementByWeightFraction(16, 0.003);
+00921   AddElementByWeightFraction(20, 0.176);
+
+00911   AddMaterial("CARTILAGE_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.096);
+00913   AddElementByWeightFraction( 6, 0.099);
+00914   AddElementByWeightFraction( 7, 0.022);
+00915   AddElementByWeightFraction( 8, 0.744);
+00916   AddElementByWeightFraction(11, 0.005);
+00917   AddElementByWeightFraction(15, 0.022);
+00918   AddElementByWeightFraction(16, 0.009);
+00919   AddElementByWeightFraction(17, 0.003);
+
+00911   AddMaterial("SPLEEN_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.103);
+00913   AddElementByWeightFraction( 6, 0.113);
+00914   AddElementByWeightFraction( 7, 0.032);
+00915   AddElementByWeightFraction( 8, 0.741);
+00916   AddElementByWeightFraction(11, 0.001);
+00917   AddElementByWeightFraction(15, 0.003);
+00918   AddElementByWeightFraction(16, 0.002);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.003);
+
+00911   AddMaterial("OVARY_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.105);
+00913   AddElementByWeightFraction( 6, 0.093);
+00914   AddElementByWeightFraction( 7, 0.024);
+00915   AddElementByWeightFraction( 8, 0.768);
+00916   AddElementByWeightFraction(11, 0.002);
+00917   AddElementByWeightFraction(15, 0.002);
+00918   AddElementByWeightFraction(16, 0.002);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.002);
+
+00911   AddMaterial("RED_MARROW_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.105);
+00913   AddElementByWeightFraction( 6, 0.414);
+00914   AddElementByWeightFraction( 7, 0.034);
+00915   AddElementByWeightFraction( 8, 0.439);
+00917   AddElementByWeightFraction(15, 0.001);
+00918   AddElementByWeightFraction(16, 0.002);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.002);
+00921   AddElementByWeightFraction(26, 0.001);
+
+00911   AddMaterial("YELLOW_MARROW_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.115);
+00913   AddElementByWeightFraction( 6, 0.644);
+00914   AddElementByWeightFraction( 7, 0.007);
+00915   AddElementByWeightFraction( 8, 0.231);
+00916   AddElementByWeightFraction(11, 0.001);
+00917   AddElementByWeightFraction(16, 0.001);
+00919   AddElementByWeightFraction(17, 0.001);
+
+00911   AddMaterial("THYROID_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.104);
+00913   AddElementByWeightFraction( 6, 0.119);
+00914   AddElementByWeightFraction( 7, 0.024);
+00915   AddElementByWeightFraction( 8, 0.745);
+00916   AddElementByWeightFraction(11, 0.002);
+00917   AddElementByWeightFraction(15, 0.001);
+00918   AddElementByWeightFraction(16, 0.001);
+00919   AddElementByWeightFraction(17, 0.002);
+00920   AddElementByWeightFraction(19, 0.001);
+00921   AddElementByWeightFraction(53, 0.001);
+
+00911   AddMaterial("BLADDER_ICRP", 1.42, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.1005);
+00913   AddElementByWeightFraction( 6, 0.096);
+00914   AddElementByWeightFraction( 7, 0.026);
+00915   AddElementByWeightFraction( 8, 0.761);
+00916   AddElementByWeightFraction(11, 0.002);
+00917   AddElementByWeightFraction(15, 0.002);
+00918   AddElementByWeightFraction(16, 0.002);
+00919   AddElementByWeightFraction(17, 0.003);
+00920   AddElementByWeightFraction(19, 0.003);
+
 00911   AddMaterial("Spongiosa_Bone_ICRP", 1.18, 0, 75.2, 10);
 00912   AddElementByWeightFraction( 1, 0.063);
 00913   AddElementByWeightFraction( 6, 0.404);
@@ -972,7 +1137,6 @@ Go to the documentation of this file.
 00921   AddElementByWeightFraction(20, 0.074);
 00921   AddElementByWeightFraction(26, 0.001);
 
-00922 
 00923   AddMaterial("G4_BONE_COMPACT_ICRU", 1.85, 0, 91.9, 8);
 00924   AddElementByWeightFraction( 1, 0.064);
 00925   AddElementByWeightFraction( 6, 0.278);

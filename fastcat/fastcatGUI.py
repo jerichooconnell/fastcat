@@ -6,8 +6,8 @@
 from __future__ import print_function
 
 import tigre
-import fastcat as fc
-# import fastcat.fastcat as fc
+# import fastcat as fc
+import fastcat.fastcat as fc
 import re
 from glob import glob
 import os
