@@ -287,6 +287,7 @@ class Kernel:
         super_kernel = np.zeros([len(fluence),kernels.shape[1],kernels.shape[2]])
 
 
+        print(kernels.shape,len(deposition_summed))
         for ii in range(kernels.shape[1]):
             for jj in range(kernels.shape[2]):
                 
@@ -518,10 +519,10 @@ class Phantom:
         fluence_small /= np.sum(fluence_small)
         fluence_norm = spectra.y/np.sum(spectra.y)
 
-        if det_on:
-            weights_small = fluence_small*deposition_summed
-        else:
-            weights_small = fluence_small
+        # if det_on:
+        weights_small = fluence_small*deposition_summed
+        # else:
+        #     weights_small = fluence_small
         
         # Need to make sure that the attenuations aren't janky for recon
         weights_small /= np.sum(weights_small)
@@ -535,7 +536,7 @@ class Phantom:
             return nphot/2e7
 
         def get_dose_mgy(mgy,doses,fluence_small):
-            nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13))
+            nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13)*1000)
             return get_dose_nphoton(nphoton)
 
         def get_dose_per_photon(doses,fluence_small):
@@ -553,11 +554,11 @@ class Phantom:
         
         # --- Noise and Scatter Calculation ---
         # Now I interpolate deposition and get the average photons reaching the detector
-        deposition_long = np.interp(spectra.x,original_energies_keV/1000,deposition_summed)
+        deposition_long = np.interp(spectra.x,original_energies_keV,deposition_summed) ## !! big change
         nphotons_at_energy = fluence_norm*deposition_long
         nphotons_av = np.sum(nphotons_at_energy)
 
-        print('ratio is', ratio,'number of photons', nphotons_av)
+        print('The ratio compared to the mc', ratio,' number of photons', nphotons_av)
 
         # -------- Scatter Correction -----------
         scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
@@ -605,10 +606,10 @@ class Phantom:
         # add the poisson noise
         if ratio is not None:
             
-            if det_on:
-                adjusted_ratio = ratio*nphotons_av
-            else:
-                adjusted_ratio = ratio
+            # if det_on:
+            adjusted_ratio = ratio*nphotons_av
+            # else:
+            #     adjusted_ratio = ratio
             
             raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
         

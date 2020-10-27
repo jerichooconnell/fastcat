@@ -286,6 +286,7 @@ class XpecgenGUI(Notebook):
         self.current.set(0)#6.200432949299284e-07)
 
         self.noise = None
+        self.nphoton = None
 
         self.NormCriterion = StringVar()
         self.NormCriterion.set("Number")
@@ -825,7 +826,7 @@ class XpecgenGUI(Notebook):
         self.lblNormCriterion2.grid()
         self.cmbNormCriterion2 = Combobox(
             self.frmOperNorm2, textvariable=self.NormCriterion2)
-        self.criteriaList2 = ["Exposure (mAs)", "Dose (mGy)", "Fluence"]
+        self.criteriaList2 = ["None", "Dose per View (mGy)","Dose per CT (mGy)", "Fluence (n photons per view)"]
         self.cmbNormCriterion2["values"] = self.criteriaList2
         self.cmbNormCriterion2.grid(row=0, column=1, sticky=E + W)
         self.ParNormValue2 = ParBox(
@@ -1618,12 +1619,13 @@ class XpecgenGUI(Notebook):
                
 
                 # value = self.current.get()
+                self.normalize2()
 
                 self.phantom.return_projs(self.kernel,
                             self.spectra[self.active_spec],
                             self.angles,
-                            nphoton = self.noise,
-                            mgy =  self.current.get(),
+                            nphoton = self.nphoton,
+                            mgy =  self.noise,
                             scat_on = self.scatter_on.get(),
                             det_on = self.det_on.get())# I think it should be inverse
                 
@@ -1853,7 +1855,7 @@ class XpecgenGUI(Notebook):
         """
         value = self.current.get()
         crit = self.NormCriterion2.get()
-        if value <= 0:
+        if value < 0:
             messagebox.showerror(
                 "Error", "The norm of a spectrum must be a positive number.")
             return
@@ -1863,9 +1865,17 @@ class XpecgenGUI(Notebook):
             return
         s2 = self.spectra[-1].clone()
         if crit == self.criteriaList2[0]:
-            self.noise = fc.update_fluence(self.load.get(),value)
+            self.noise = 0.0
+            self.nphoton = None
         elif crit == self.criteriaList2[1]:
-            pass
+            self.noise = value
+            self.nphoton = None
+        elif crit == self.criteriaList2[2]:
+            self.noise = value/self.HVL32.get()
+            self.nphoton = None
+        elif crit == self.criteriaList2[3]:
+            self.noise = 0.0
+            self.nphoton = value
             # self.noise = self.doseperproj.get()/value
             # print(self.noise,'Scaling of noise')
         else:  # criteriaList[2]
