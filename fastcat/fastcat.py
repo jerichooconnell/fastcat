@@ -304,6 +304,7 @@ class Kernel:
 
 
         weights = fluence*deposition_interpolated
+        self.weights = weights
         weights = weights/sum(weights)
 
         self.kernels = kernels
@@ -929,7 +930,7 @@ class Catphan_515(Phantom):
         return_contrast = True
 
         if return_contrast:
-            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))], cnr
+            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
 
 class Catphan_MTF(Phantom):
 

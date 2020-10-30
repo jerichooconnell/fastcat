@@ -851,6 +851,16 @@ Go to the documentation of this file.
 00837   AddElementByWeightFraction(11, 0.001);
 00838   AddElementByWeightFraction(16, 0.001);
 00839   AddElementByWeightFraction(17, 0.001);
+
+00832   AddMaterial("G4_ADIPOSE_TISSUE_ICRP2", 0.93, 0, 63.2, 7);
+00833   AddElementByWeightFraction( 1, 0.116);
+00834   AddElementByWeightFraction( 6, 0.681);
+00835   AddElementByWeightFraction( 7, 0.002);
+00836   AddElementByWeightFraction( 8, 0.198);
+00837   AddElementByWeightFraction(11, 0.001);
+00838   AddElementByWeightFraction(16, 0.001);
+00839   AddElementByWeightFraction(17, 0.001);
+
 00840 
 00841   AddMaterial("G4_AIR", 0.00120479, 0, 85.7, 4, kStateGas);
 00842   AddElementByWeightFraction( 6, 0.000124);
