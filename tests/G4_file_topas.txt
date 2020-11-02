@@ -1,0 +1,76 @@
+sv:Ma/ADIPOSE_TISSUE_ICRP/Components = 7 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Chlorine" "Argon"
+sv:Ma/ADIPOSE_TISSUE_ICRP/Fractions = 7 0.116 0.681 0.002 0.198 0.001 0.001 0.001
+d:Ma/ADIPOSE_TISSUE_ICRP/Density = 0.93 g/cm3 
+
+sv:Ma/D6_Vertebra_ICRP/Components = 11 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium" "Scandium" "Cobalt"
+sv:Ma/D6_Vertebra_ICRP/Fractions = 11 0.07 0.287 0.038 0.437 0.001 0.051 0.002 0.001 0.001 0.111 0.001
+d:Ma/D6_Vertebra_ICRP/Density = 1.33 g/cm3 
+
+sv:Ma/C4_Vertebra_ICRP/Components = 10 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium" "Scandium"
+sv:Ma/C4_Vertebra_ICRP/Fractions = 10 0.085 0.261 0.039 0.436 0.002 0.061 0.003 0.001 0.001 0.133
+d:Ma/C4_Vertebra_ICRP/Density = 1.42 g/cm3 
+
+sv:Ma/RIB_BONE_ICRP/Components = 11 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Aluminum" "Sulfur" "Chlorine" "Argon" "Calcium" "Scandium"
+sv:Ma/RIB_BONE_ICRP/Fractions = 11 0.064 0.263 0.039 0.436 0.001 0.001 0.06 0.003 0.001 0.001 0.156
+d:Ma/RIB_BONE_ICRP/Density = 1.41 g/cm3 
+
+sv:Ma/HEART_ICRP/Components = 10 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium" "Cobalt"
+sv:Ma/HEART_ICRP/Fractions = 10 0.103 0.121 0.032 0.734 0.001 0.001 0.002 0.003 0.002 0.001
+d:Ma/HEART_ICRP/Density = 1.05 g/cm3 
+
+sv:Ma/KIDNEY_ICRP/Components = 10 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium" "Scandium"
+sv:Ma/KIDNEY_ICRP/Fractions = 10 0.103 0.132 0.03 0.724 0.002 0.002 0.003 0.002 0.002 0.001
+d:Ma/KIDNEY_ICRP/Density = 1.05 g/cm3 
+
+sv:Ma/LIVER_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium"
+sv:Ma/LIVER_ICRP/Fractions = 9 0.102 0.139 0.03 0.716 0.002 0.003 0.003 0.002 0.003
+d:Ma/LIVER_ICRP/Density = 1.06 g/cm3 
+
+sv:Ma/LYMPH_ICRP/Components = 7 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Chlorine" "Argon"
+sv:Ma/LYMPH_ICRP/Fractions = 7 0.108 0.041 0.011 0.832 0.003 0.001 0.004
+d:Ma/LYMPH_ICRP/Density = 1.03 g/cm3 
+
+sv:Ma/PANCREAS_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium"
+sv:Ma/PANCREAS_ICRP/Fractions = 9 0.106 0.169 0.022 0.694 0.002 0.002 0.001 0.002 0.002
+d:Ma/PANCREAS_ICRP/Density = 1.04 g/cm3 
+
+sv:Ma/INTESTINE_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium"
+sv:Ma/INTESTINE_ICRP/Fractions = 9 0.106 0.115 0.022 0.751 0.001 0.001 0.001 0.002 0.001
+d:Ma/INTESTINE_ICRP/Density = 1.03 g/cm3 
+
+sv:Ma/SKULL_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Aluminum" "Sulfur" "Chlorine" "Scandium"
+sv:Ma/SKULL_ICRP/Fractions = 9 0.05 0.212 0.04 0.435 0.001 0.002 0.081 0.003 0.176
+d:Ma/SKULL_ICRP/Density = 1.61 g/cm3 
+
+sv:Ma/CARTILAGE_ICRP/Components = 8 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon"
+sv:Ma/CARTILAGE_ICRP/Fractions = 8 0.096 0.099 0.022 0.744 0.005 0.022 0.009 0.003
+d:Ma/CARTILAGE_ICRP/Density = 1.1 g/cm3 
+
+sv:Ma/SPLEEN_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium"
+sv:Ma/SPLEEN_ICRP/Fractions = 9 0.103 0.113 0.032 0.741 0.001 0.003 0.002 0.002 0.003
+d:Ma/SPLEEN_ICRP/Density = 1.06 g/cm3 
+
+sv:Ma/OVARY_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium"
+sv:Ma/OVARY_ICRP/Fractions = 9 0.105 0.093 0.024 0.768 0.002 0.002 0.002 0.002 0.002
+d:Ma/OVARY_ICRP/Density = 1.05 g/cm3 
+
+sv:Ma/RED_MARROW_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Sulfur" "Chlorine" "Argon" "Calcium" "Cobalt"
+sv:Ma/RED_MARROW_ICRP/Fractions = 9 0.105 0.414 0.034 0.439 0.001 0.002 0.002 0.002 0.001
+d:Ma/RED_MARROW_ICRP/Density = 1.03 g/cm3 
+
+sv:Ma/YELLOW_MARROW_ICRP/Components = 7 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Chlorine" "Argon"
+sv:Ma/YELLOW_MARROW_ICRP/Fractions = 7 0.115 0.644 0.007 0.231 0.001 0.001 0.001
+d:Ma/YELLOW_MARROW_ICRP/Density = 0.98 g/cm3 
+
+sv:Ma/THYROID_ICRP/Components = 10 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium" "Xenon"
+sv:Ma/THYROID_ICRP/Fractions = 10 0.104 0.119 0.024 0.745 0.002 0.001 0.001 0.002 0.001 0.001
+d:Ma/THYROID_ICRP/Density = 1.42 g/cm3 
+
+sv:Ma/BLADDER_ICRP/Components = 9 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium"
+sv:Ma/BLADDER_ICRP/Fractions = 9 0.1005 0.096 0.026 0.761 0.002 0.002 0.002 0.003 0.003
+d:Ma/BLADDER_ICRP/Density = 1.42 g/cm3 
+
+sv:Ma/Spongiosa_Bone_ICRP/Components = 11 "Helium" "Nitrogen" "Oxygen" "Fluorine" "Magnesium" "Sulfur" "Chlorine" "Argon" "Calcium" "Scandium" "Cobalt"
+sv:Ma/Spongiosa_Bone_ICRP/Fractions = 11 0.063 0.404 0.028 0.367 0.002 0.034 0.002 0.002 0.001 0.074 0.001
+d:Ma/Spongiosa_Bone_ICRP/Density = 1.18 g/cm3 
+

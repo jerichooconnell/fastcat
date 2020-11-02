@@ -861,7 +861,15 @@ Go to the documentation of this file.
 00838   AddElementByWeightFraction(16, 0.001);
 00839   AddElementByWeightFraction(17, 0.001);
 
-00840 
+00832   AddMaterial("ADIPOSE_TISSUE_ICRP", 0.93, 0, 63.2, 7);
+00833   AddElementByWeightFraction( 1, 0.116);
+00834   AddElementByWeightFraction( 6, 0.681);
+00835   AddElementByWeightFraction( 7, 0.002);
+00836   AddElementByWeightFraction( 8, 0.198);
+00837   AddElementByWeightFraction(11, 0.001);
+00838   AddElementByWeightFraction(16, 0.001);
+00839   AddElementByWeightFraction(17, 0.001);
+
 00841   AddMaterial("G4_AIR", 0.00120479, 0, 85.7, 4, kStateGas);
 00842   AddElementByWeightFraction( 6, 0.000124);
 00843   AddElementByWeightFraction( 7, 0.755267);
@@ -1966,15 +1974,15 @@ Go to the documentation of this file.
 01739   AddElementByWeightFraction( 9, 0.382723);
 01740   AddElementByWeightFraction(74, 0.617277);
 01741 
-01742   AddMaterial("G4_URANIUM_DICARBIDE", 11.28, 0, 752., 2);
+AddMaterial("G4_URANIUM_DICARBIDE", 11.28, 0, 752., 2);
 01743   AddElementByWeightFraction( 6, 0.091669);
 01744   AddElementByWeightFraction(92, 0.908331);
 01745 
-01746   AddMaterial("G4_URANIUM_MONOCARBIDE", 13.63, 0, 862., 2);
+AddMaterial("G4_URANIUM_MONOCARBIDE", 13.63, 0, 862., 2);
 01747   AddElementByWeightFraction( 6, 0.048036);
 01748   AddElementByWeightFraction(92, 0.951964);
 01749 
-01750   AddMaterial("G4_URANIUM_OXIDE", 10.96, 0, 720.6, 2);
+AddMaterial("G4_URANIUM_OXIDE", 10.96, 0, 720.6, 2);
 01751   AddElementByWeightFraction( 8, 0.118502);
 01752   AddElementByWeightFraction(92, 0.881498);
 01753 
