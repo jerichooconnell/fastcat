@@ -1522,8 +1522,7 @@ class Phantom2:
         # ----------------------------------------------
         
         tile = True
-        intensity = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
-
+        # import ipdb; ipdb.set_trace()
         # The index of the different materials
         masks = np.zeros([len(self.phan_map)-1,self.phantom.shape[0],self.phantom.shape[1],self.phantom.shape[2]])
         mapping_functions = []
@@ -1535,6 +1534,8 @@ class Phantom2:
         
         phantom2 = self.phantom.copy().astype(np.float32)
         doses = []
+
+        intensity = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
         
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
@@ -1552,7 +1553,7 @@ class Phantom2:
             doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
 
             ## Maybe I should add the exponentially weighted and not the attenuation coefficients, could test this with the other phantom
-            intensity += (np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj]
+            intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj])
 
         intensity = intensity.T # 0.97 is fudge factor
 
@@ -1651,14 +1652,15 @@ class XCAT2(Phantom2):
 
         head = True
         if head:
-            self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_head.npy'))
+            self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_head_small.npy'))
         else:
             self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_smaller.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
-        self.geomet.nDetector = np.array([512,512])
+        self.geomet.nDetector = np.array([124,512])
         self.geomet.dDetector = np.array([0.784, 0.784])
+
         if head:
-            self.phan_map = ['air','air','G4_LUNG_LD_ICRP','G4_ADIPOSE_TISSUE_ICRP2',
+            self.phan_map = ['air','G4_LUNG_LD_ICRP','G4_ADIPOSE_TISSUE_ICRP2','water','RED_MARROW_ICRP',
                  'G4_BRAIN_ICRP','G4_MUSCLE_SKELETAL_ICRP','THYROID_ICRP','blood','G4_EYE_LENS_ICRP',
                  'CARTILAGE_ICRP','C4_Vertebra_ICRP','SKULL_ICRP']
         else:
@@ -1672,7 +1674,10 @@ class XCAT2(Phantom2):
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
 
-        self.geomet.sVoxel = np.array((self.phantom.shape[0]*3.125, self.phantom.shape[1], self.phantom.shape[2])) 
+        if head:
+            self.geomet.sVoxel = np.array((self.phantom.shape[0]*3.125, self.phantom.shape[1]/2, self.phantom.shape[2]/2))
+        else:
+            self.geomet.sVoxel = np.array((self.phantom.shape[0]*3.125, self.phantom.shape[1], self.phantom.shape[2]))  
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel 
 
     def analyse_515(self,slc,place,fmt='-'):

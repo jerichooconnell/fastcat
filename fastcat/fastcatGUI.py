@@ -1489,7 +1489,7 @@ class XpecgenGUI(Notebook):
             try:
 
                 self.kernel = fc.Kernel(
-                    self.spectra[0], self.det.get())
+                    self.spectra[-1], self.det.get())
 
                 self.queue_calculation.put(True)
 
@@ -1726,10 +1726,10 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
             if self.queue_calculation.get_nowait():  # Calculation ended successfully
-                self.lstHistory.delete(0, END)
-                self.lstHistory.insert(END, "Calculated")
+                # self.lstHistory.delete(0, END)
+                # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
-                self.active_spec = 0
+                # self.active_spec = 0
                 self.update_plot_recon()
                 self.select(5)  # Open analyse tab
             else:
@@ -1748,10 +1748,10 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
             if self.queue_calculation.get_nowait():  # Calculation ended successfully
-                self.lstHistory.delete(0, END)
-                self.lstHistory.insert(END, "Calculated")
+                # self.lstHistory.delete(0, END)
+                # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
-                self.active_spec = 0
+                # self.active_spec = 0
                 self.update_plot_proj()
                 self.select(4)  # Open analyse tab
             else:
@@ -1770,10 +1770,10 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
             if self.queue_calculation.get_nowait():  # Calculation ended successfully
-                self.lstHistory.delete(0, END)
-                self.lstHistory.insert(END, "Calculated")
+                # self.lstHistory.delete(0, END)
+                # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
-                self.active_spec = 0
+                # self.active_spec = 0
                 self.update_plot_kern()
                 self.select(2)  # Open analyse tab
             else:
@@ -1792,10 +1792,10 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
             if self.queue_calculation.get_nowait():  # Calculation ended successfully
-                self.lstHistory.delete(0, END)
-                self.lstHistory.insert(END, "Calculated")
+                # self.lstHistory.delete(0, END)
+                # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
-                self.active_spec = 0
+                # self.active_spec = 0
                 self.update_plot_geo()
                 self.select(3)  # Open analyse tab
             else:
