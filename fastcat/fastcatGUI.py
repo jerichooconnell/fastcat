@@ -704,7 +704,7 @@ class XpecgenGUI(Notebook):
                                     "Choose a geometry")
         self.lblgeo.grid(row=0, column=0, sticky=W)
         self.cmbgeo = Combobox(self.frmGeo, textvariable=self.geo)
-        self.cmbgeo["values"] = ['Catphan_515','Catphan_MTF','XCAT']#geo_list # these names correspond to xpecgen classes
+        self.cmbgeo["values"] = ['Catphan_515','Catphan_MTF','XCAT','Catphan_404']#geo_list # these names correspond to xpecgen classes
         self.cmbgeo.grid(row=0, column=1, sticky=W + E)
         self.cmbgeoTT = CreateToolTip(self.cmbgeo,
                                     "Choose a geometry")
@@ -1662,7 +1662,8 @@ class XpecgenGUI(Notebook):
             try:
                 dispatcher={'Catphan_515':fc.Catphan_515,
                             'XCAT':fc.XCAT,
-                            'Catphan_MTF':fc.Catphan_MTF}
+                            'Catphan_MTF':fc.Catphan_MTF,
+                            'Catphan_404':fc.Catphan_404}
                 try:
                     function=dispatcher[self.geo.get()]
                 except KeyError:

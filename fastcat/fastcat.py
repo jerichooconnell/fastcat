@@ -653,6 +653,13 @@ class Phantom:
                 print('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
 
+        if algo == 'CGLS':
+            try:
+                self.img = tigre.algorithms.cgls(self.proj.astype(np.float32), self.geomet, self.angles,niter=20)
+            except Exception:
+                print('WARNING: Tigre failed during recon using Astra')
+                self.img = self.astra_recon(self.proj.transpose([1,0,2]))
+
     def astra_recon(self,projs,algo ='CGLS',niter=10):
 
         sinogram, sin_id, proj_id, vol_geom = tigre2astra(self.phantom,self.geomet,self.angles,tile=True)
@@ -715,12 +722,12 @@ class Catphan_515(Phantom):
             im = np.zeros(shape)
             ii = 1
             
-            offset = 0.1
+            offset = 0 #0.1
             
             first_radius = 5 - offset
             second_radius = 2.5 - offset
             
-            correction = -2*np.pi/180
+            correction = 0 #-2*np.pi/180
             # CTMAT(x) formel=H2O dichte=x
             LEN = 100
 
@@ -931,6 +938,277 @@ class Catphan_515(Phantom):
 
         if return_contrast:
             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
+
+class Catphan_404(Phantom):
+
+    def __init__(self): #,det):
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))
+        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet.DSD = 1520 #1500 + 20 for det casing
+        self.geomet.nDetector = np.array([64,512])
+        self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
+
+        # I think I can get away with this
+        self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
+        self.geomet.sVoxel = np.array((160, 160, 160)) 
+        self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
+        self.phan_map = ['air','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
+
+    def analyse_515(self,recon_slice,place = None,run_name = ''):
+
+        def create_mask(shape):
+
+            im = np.zeros(shape)
+            ii = 1
+            
+            offset = 0.1
+            
+            first_radius = 5
+
+            A0  = 90.0*np.pi/180
+
+            # Phantom 
+            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
+            create_circular_mask(x= 6*cos(A0+1/4*np.pi),  y= 6*sin(A0+1/4*np.pi),  r=0.5, index = ii, image = im)
+
+            ii += 1
+
+            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+
+            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 6*cos(A0),  y= 6*sin(A0),  r=0.5, index = ii, image = im)
+
+            ii += 1
+
+            # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 6*cos(A0+1/2*np.pi),  y= 6*sin(A0+1/2*np.pi),  r=0.5, index = ii, image = im)
+
+
+            ii += 1
+
+            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 6*cos(A0+np.pi),  y= 6*sin(A0+np.pi),  r=0.5, index = ii, image = im)
+
+            ii += 1
+
+            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+            create_circular_mask(x= 6*cos(A0+3/2*np.pi),  y= 6*sin(A0+3/2*np.pi),  r=0.5, index = ii, image = im)
+
+
+            return im
+
+        def create_circular_mask(x, y, r, index, image):
+        
+            h,w = image.shape
+            
+            center = [x*int(w/2)/8 + int(w/2),y*int(h/2)/8 + int(h/2)]
+
+            if center is None: # use the middle of the image
+                center = (int(w/2), int(h/2))
+            if r is None: # use the smallest distance between the center and image walls
+                radius = min(center[0], center[1], w-center[0], h-center[1])
+
+            Y, X = np.ogrid[:h, :w]
+            dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
+
+            mask = dist_from_center <= r*int(w/2)/8
+            
+            
+            image[mask] = index
+
+        im = create_mask(recon_slice.shape)
+
+        contrast = []
+        noise = []
+        cnr = []
+        ci = []
+
+        ii = 1
+
+        ref_mean = np.mean(recon_slice[im == ii])
+        ref_std = np.std(recon_slice[im == ii])
+
+        for ii in range(2,int(np.max(im)+1)):
+            
+            nsample = len(recon_slice[im == ii])
+            
+            if nsample > 2:
+                
+                noise.append(np.std(recon_slice[im == ii]))
+                
+                booted = np.abs(stats.bootstrap(recon_slice[im == ii],100,samples=int(nsample/5),bootfunc=np.mean) - ref_mean)
+
+                ci.append(np.std(booted))
+                contrast.append(np.mean(booted))
+
+                cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
+                      
+        ci_v = [2*(ci[ii]/ref_mean)*100 for ii in range(len(ci))]
+            
+        rs = np.linspace(0.1,0.45,8)
+
+        inds_i_want = [0,1,2,3]
+        ww = 0.085
+
+        shorts = ['Lung','Compact Bone','Cortical Bone','Adipose']
+
+        contrasts_i_want = np.array([(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))])[inds_i_want]
+
+        place[0].errorbar(np.arange(len(inds_i_want)),contrasts_i_want
+                                ,capsize = ww+1.5, yerr=np.array(ci_v)[inds_i_want],fmt='x',label=run_name)
+        place[0].set_xticks(range(len(inds_i_want))) 
+        place[0].set_xticklabels(shorts, fontsize=12, rotation = 75)
+        place[0].set_ylabel('% Contrast')
+        place[0].set_title('Contrast')
+        place[0].legend()
+
+        place[1].errorbar(np.arange(len(inds_i_want)),np.array(cnr)[inds_i_want],capsize = ww+1.5,
+                            yerr=np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want),fmt='x')
+        place[1].set_xticks(range(len(inds_i_want))) 
+        place[1].set_xticklabels(shorts[:len(inds_i_want)], fontsize=12, rotation = 75)
+        place[1].set_ylabel('CNR')
+        place[1].set_title('Contrast to Noise')
+
+        return_contrast = True
+
+        if return_contrast:
+            return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
+
+# class Catphan_404(Phantom):
+
+#     def __init__(self): #,det):
+#         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_8cm.npy'))
+#         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+#         self.geomet.DSD = 1520 #1500 + 20 for det casing
+#         self.geomet.nDetector = np.array([64,512])
+#         self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
+
+#         # I think I can get away with this
+#         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
+
+#         self.geomet.sVoxel = np.array((160, 160, 160)) 
+#         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
+#         self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"] 
+
+#     def analyse_515(self,recon_slice,place = None,run_name = ''):
+
+#         def create_mask(shape):
+
+#             im = np.zeros(shape)
+#             ii = 1
+            
+#             offset = 0.1
+            
+#             first_radius = 5
+
+#             A0  = 90.0*np.pi/180
+
+#             # Phantom 
+#             # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
+#             create_circular_mask(x= 6*cos(A0+1/4*np.pi),  y= 6*sin(A0+1/4*np.pi),  r=0.5, index = ii, image = im)
+
+#             ii += 1
+
+#             # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+
+#             # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+#             create_circular_mask(x= 6*cos(A0),  y= 6*sin(A0),  r=0.5, index = ii, image = im)
+
+#             ii += 1
+
+#             # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
+#             create_circular_mask(x= 6*cos(A0+1/2*np.pi),  y= 6*sin(A0+1/2*np.pi),  r=0.5, index = ii, image = im)
+
+
+#             ii += 1
+
+#             # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+#             create_circular_mask(x= 6*cos(A0+np.pi),  y= 6*sin(A0+np.pi),  r=0.5, index = ii, image = im)
+
+#             ii += 1
+
+#             # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+#             create_circular_mask(x= 6*cos(A0+3/2*np.pi),  y= 6*sin(A0+3/2*np.pi),  r=0.5, index = ii, image = im)
+
+
+#             return im
+
+#         def create_circular_mask(x, y, r, index, image):
+        
+#             h,w = image.shape
+            
+#             center = [x*int(w/2)/8 + int(w/2),y*int(h/2)/8 + int(h/2)]
+
+#             if center is None: # use the middle of the image
+#                 center = (int(w/2), int(h/2))
+#             if r is None: # use the smallest distance between the center and image walls
+#                 radius = min(center[0], center[1], w-center[0], h-center[1])
+
+#             Y, X = np.ogrid[:h, :w]
+#             dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
+
+#             mask = dist_from_center <= r*int(w/2)/8
+            
+            
+#             image[mask] = index
+
+#         im = create_mask(recon_slice.shape)
+
+#         contrast = []
+#         noise = []
+#         cnr = []
+#         ci = []
+
+#         ii = 1
+
+#         ref_mean = np.mean(recon_slice[im == ii])
+#         ref_std = np.std(recon_slice[im == ii])
+
+#         for ii in range(2,int(np.max(im)+1)):
+            
+#             nsample = len(recon_slice[im == ii])
+            
+#             if nsample > 2:
+                
+#                 noise.append(np.std(recon_slice[im == ii]))
+                
+#                 booted = np.abs(stats.bootstrap(recon_slice[im == ii],100,samples=int(nsample/5),bootfunc=np.mean) - ref_mean)
+
+#                 ci.append(np.std(booted))
+#                 contrast.append(np.mean(booted))
+
+#                 cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
+                      
+#         ci_v = [2*(ci[ii]/ref_mean)*100 for ii in range(len(ci))]
+            
+#         rs = np.linspace(0.1,0.45,8)
+
+#         inds_i_want = [0,1,2,3]
+#         ww = 0.085
+
+#         shorts = ['Lung','Compact Bone','Cortical Bone','Adipose']
+
+#         contrasts_i_want = np.array([(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))])[inds_i_want]
+
+#         place[0].errorbar(np.arange(len(inds_i_want)),contrasts_i_want
+#                                 ,capsize = ww+1.5, yerr=np.array(ci_v)[inds_i_want],fmt='x',label=run_name)
+#         place[0].set_xticks(range(len(inds_i_want))) 
+#         place[0].set_xticklabels(shorts, fontsize=12, rotation = 75)
+#         place[0].set_ylabel('% Contrast')
+#         place[0].set_title('Contrast')
+#         place[0].legend()
+
+#         place[1].errorbar(np.arange(len(inds_i_want)),np.array(cnr)[inds_i_want],capsize = ww+1.5,
+#                             yerr=np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want),fmt='x')
+#         place[1].set_xticks(range(len(inds_i_want))) 
+#         place[1].set_xticklabels(shorts[:len(inds_i_want)], fontsize=12, rotation = 75)
+#         place[1].set_ylabel('CNR')
+#         place[1].set_title('Contrast to Noise')
+
+#         return_contrast = True
+
+#         if return_contrast:
+#             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
 
 class Catphan_MTF(Phantom):
 
@@ -1550,16 +1828,17 @@ class Phantom2:
                     projection[ii,:,:] = fftconvolve(projection[ii,:,:],kernel.kernels[jj+1], mode = 'same')
 
             # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-            doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
+            doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj],))
 
             ## Maybe I should add the exponentially weighted and not the attenuation coefficients, could test this with the other phantom
             intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj])
 
         intensity = intensity.T # 0.97 is fudge factor
 
+        # import ipdb; ipdb.set_trace()
         # Add the already weighted scatter
         if scat_on:
-            intensity = intensity.transpose([2,1,0]) + mc_scatter@weights_small
+            intensity = intensity.transpose([2,1,0]) + (mc_scatter@weights_small)
         else:
             intensity = intensity.transpose([2,1,0])
         
@@ -1689,6 +1968,13 @@ class XCAT2(Phantom2):
         if algo == 'FDK':
             try:
                 self.img = tigre.algorithms.FDK(self.proj, self.geomet, self.angles,filter=filt)
+            except Exception:
+                print('WARNING: Tigre failed during recon using Astra')
+                self.img = self.astra_recon(self.proj.transpose([1,0,2]))
+
+        if algo == 'CGLS':
+            try:
+                self.img = tigre.algorithms.cgls(self.proj.astype(np.float32), self.geomet, self.angles,niter=20)
             except Exception:
                 print('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
