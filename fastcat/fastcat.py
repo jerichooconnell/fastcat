@@ -520,10 +520,10 @@ class Phantom:
         fluence_small /= np.sum(fluence_small)
         fluence_norm = spectra.y/np.sum(spectra.y)
 
-        # if det_on:
-        weights_small = fluence_small*deposition_summed
-        # else:
-        #     weights_small = fluence_small
+        if det_on:
+            weights_small = fluence_small*deposition_summed
+        else:
+            weights_small = fluence_small
         
         # Need to make sure that the attenuations aren't janky for recon
         weights_small /= np.sum(weights_small)
@@ -577,9 +577,6 @@ class Phantom:
             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
             mc_scatter[:,jj] = func(dist, *popt)
 
-        print(mc_scatter.shape)
-        print((mc_scatter[:,0].shape))
-
         if len(original_energies_keV) == 18:
             mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter[:,0].T,mc_scatter.T))
             # mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter))
@@ -600,6 +597,9 @@ class Phantom:
             raw_weighted = raw.transpose([2,1,0,3]) + scatter
         else:
             raw_weighted = raw.transpose([2,1,0,3])
+
+        if det_on == False:
+            return raw_weighted @ weights_small
 
         # Normalize the kernel
         kernel_norm = kernel.kernel/np.sum(kernel.kernel)
