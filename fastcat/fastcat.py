@@ -268,7 +268,7 @@ class Kernel:
                 
             kernels[ii+1] = np.load(file)
                 
-        fluence = spectrum.y/sum(spectrum.y)
+        fluence = spectrum.y/np.sum(spectrum.y)
         
         deposition_summed = np.load(self.deposition_efficiency_file,allow_pickle=True)
         deposition_summed = np.insert(deposition_summed[0],0,0)
@@ -293,22 +293,15 @@ class Kernel:
                 
                 super_kernel[:,ii,jj] = np.interp(np.array(spectrum.x), original_energies_keV, kernels[:,ii,jj])
         
-        # normalized_kernel = super_kernel.copy()
 
-        # for ii in range(0,normalized_kernel.shape[0]):
-            
-        #     sum_kern = np.sum(super_kernel[ii,:,:])
-            
-        #     if sum_kern > 0:
-        #         normalized_kernel[ii,:,:] = super_kernel[ii,:,:]/sum_kern
-
-
+        # import ipdb;ipdb.set_trace()
         weights = fluence*deposition_interpolated
-        self.weights = weights
-        weights = weights/sum(weights)
+        self.weights = weights/np.sum(weights)
+        self.fluence = fluence
+        self.deposition_interpolated = deposition_interpolated
 
         self.kernels = kernels
-        self.kernel = super_kernel.T@weights
+        self.kernel = super_kernel.T@self.weights
         self.pitch = int(detector[-14:-11])/1000  #mm
 
     def get_plot(self, place, show_mesh=True, prepare_format=True):
@@ -405,6 +398,243 @@ class Kernel:
 
         self.kernel = gaussian_filter(self.kernel,sigma=fs_size_in_pix)
 
+class Phantom2:
+
+    def __init__(self):
+        pass
+
+    def return_projs(self,kernel,spectra,angles,nphoton = None,
+                    mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True,convolve_on=True,**kwargs):
+        '''
+        The main function for returning the projections
+        '''
+        if 'test' in kwargs.keys():
+            if kwargs['test'] == 1:
+                det_on = False
+            if kwargs['test'] == 2:
+                return_intensity = True
+        
+        self.tigre_works = tigre_works
+        self.angles = angles
+        
+        # ----------------------------------------------------------
+        # --- Making the weights for the different energies --------
+        # ----------------------------------------------------------
+        
+        # These are what I used in the Monte Carlo
+        deposition = np.load(kernel.deposition_efficiency_file,allow_pickle=True)
+
+        deposition[0][1:] = deposition[0][:-1]
+        
+        # csi has two extra kv energies
+        if len(deposition[0]) == 18:
+            original_energies_keV = np.array([10,20,30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+            mu_en_water2 = mu_en_water
+            mu_water2 = mu_water
+        else:
+            original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
+            mu_en_water2 = mu_en_water[2:]
+            mu_water2 = mu_water[2:]
+            
+        # Loading the file from the monte carlo
+        # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
+        # deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
+
+        deposition_summed = np.array([0.00000000e+00, 0.00000000e+00, 5.15545239e-05, 5.18685522e-03,
+       2.38861906e-02, 8.97132881e-02, 1.20043736e-01, 1.26651194e-01,
+       1.21869948e-01, 1.09267663e-01, 1.43347866e-02, 7.05874469e-03,
+       4.87240916e-03, 4.19830717e-03, 3.99630288e-03, 2.81835246e-03,
+       2.42879524e-03, 2.10660415e-03])
+        
+        # Binning to get the fluence per energy
+        large_energies = np.linspace(0,6000,3001)
+        fluence_large = np.interp(large_energies,np.array(spectra.x), spectra.y)
+        deposition_large = np.interp(large_energies, original_energies_keV, deposition_summed)
+
+        weights_small = np.zeros(len(original_energies_keV))
+
+        if det_on:
+            weights_large = fluence_large*deposition_large
+        else:
+            weights_large = fluence_large
+        
+        # Still binning
+        for ii, val in enumerate(large_energies):   
+            index = np.argmin(np.abs(original_energies_keV-val))
+            weights_small[index] += weights_large[ii]       
+        # Normalize
+        weights_small /= np.sum(weights_small)
+        fluence_norm = spectra.y/np.sum(spectra.y)
+
+        #Changed the meaning of det on to be more det convolved
+        # if det_on:
+        #     weights_small = fluence_small*deposition_summed
+        # else:
+        #     weights_small = fluence_small
+        
+        # Need to make sure that the attenuations aren't janky for recon
+        # weights_small /= np.sum(weights_small)
+        
+        self.weights_small = weights_small
+        
+        # ----------------------------------------------
+        # -------- Scatter Correction ------------------
+        # ----------------------------------------------
+        
+        scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
+
+        dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
+
+        def func(x, a, b):
+            return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
+
+        mc_scatter = np.zeros(scatter.shape)
+
+        for jj in range(scatter.shape[1]):
+
+            popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+            mc_scatter[:,jj] = func(dist, *popt)
+
+        if len(original_energies_keV) == 16:
+            mc_scatter = mc_scatter[:,2:]
+
+        factor = (152/(np.sqrt(dist**2 + 152**2)))**3
+        flood_summed = factor*660 
+        
+        # ----------------------------------------------
+        # -------- Ray Tracing -------------------------
+        # ----------------------------------------------
+        
+        tile = True
+        # import ipdb; ipdb.set_trace()
+        # The index of the different materials
+        masks = np.zeros([len(self.phan_map)-1,self.phantom.shape[0],self.phantom.shape[1],self.phantom.shape[2]])
+        mapping_functions = []
+
+        # Get the mapping functions for the different tissues to reconstruct the phantom by energy
+        for ii in range(1,len(self.phan_map)):       
+            mapping_functions.append(get_mu(self.phan_map[ii].split(':')[0]))
+            masks[ii-1] = self.phantom == ii
+        
+        phantom2 = self.phantom.copy().astype(np.float32)
+        doses = []
+
+        intensity = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
+        
+        for jj, energy in enumerate(original_energies_keV):
+            # Change the phantom values
+            for ii in range(0,len(self.phan_map)-1):
+                phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
+
+            projection = self.ray_trace(phantom2,tile)
+            kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
+
+            if det_on and convolve_on:
+                for ii in range(len(self.angles)):
+                    projection[ii,:,:] = fftconvolve(projection[ii,:,:],kernel.kernels[jj+1], mode = 'same')
+
+            # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
+            doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj],))
+
+            ## Maybe I should add the exponentially weighted and not the attenuation coefficients, could test this with the other phantom
+            intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj])
+
+        intensity = intensity.T # 0.97 is fudge factor
+
+        # Add the already weighted scatter
+        if scat_on:
+            intensity = intensity.transpose([2,1,0]) + (mc_scatter@weights_small)
+        else:
+            intensity = intensity.transpose([2,1,0])
+
+        if det_on == False:
+            return intensity 
+        
+        # ----------------------------------------------
+        # ----------- Dose calculation -----------------
+        # ----------------------------------------------
+        
+        # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
+        def get_dose_nphoton(nphot):
+            return nphot/2e7
+
+        def get_dose_mgy(mgy,doses,fluence_small):
+            nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13)*1000)
+            return get_dose_nphoton(nphoton)
+
+        def get_dose_per_photon(doses,fluence_small):
+            # linear fit of the data
+            pp = np.array([0.88759883, 0.01035186])
+            return ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
+
+        ratio = None
+
+        # Dose in micro grays
+        if mgy != 0.0:
+            ratio = get_dose_mgy(mgy,np.array(doses),fluence_small)
+        elif nphoton is not None:
+            ratio = get_dose_nphoton(nphoton)
+        
+        # --- Noise and Scatter Calculation ---
+        # Now I interpolate deposition and get the average photons reaching the detector
+        deposition_long = np.interp(spectra.x,original_energies_keV,deposition_summed)
+        nphotons_at_energy = fluence_norm*deposition_long
+        nphotons_av = np.sum(nphotons_at_energy)
+
+        print('ratio is', ratio,'number of photons', nphotons_av)
+
+        # ----------------------------------------------
+        # ----------- Add Noise ------------------------
+        # ----------------------------------------------
+
+        if ratio is not None:
+            
+#             if det_on:
+            adjusted_ratio = ratio*nphotons_av
+#             else:
+#                 adjusted_ratio = ratio
+    
+            intensity = np.random.poisson(intensity*adjusted_ratio)/adjusted_ratio
+            # intensity[intensity < 0.0000001] = 0.0000001
+        # import ipdb; ipdb.set_trace()        
+        
+        if return_intensity:
+            return intensity
+        
+        self.proj = -10*np.log(intensity/(flood_summed))
+        
+    def ray_trace(self,phantom2,tile):
+
+        if self.tigre_works: # resort to astra if tigre doesn't work
+            try:
+                return np.squeeze(tigre.Ax(phantom2,self.geomet,self.angles))
+            except Exception:
+                print("WARNING: Tigre GPU not working. Switching to Astra CPU")
+
+                sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,self.angles,tile=True)
+                self.tigre_works = False
+                return sinogram.transpose([1,0,2])
+        else:
+            if tile:
+                sin_id, sinogram = astra.create_sino(np.fliplr(phantom2[0,:,:]), self.proj_id)
+
+                return np.tile(sinogram,[phantom2.shape[0],1,1]).transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256))
+            else:
+                sinogram = np.zeros([phantom2.shape[0],len(angles),self.geomet.nDetector[1]])
+
+                sin_id = None
+
+                ##??
+                for kk in range(tigre_shape[0]):
+
+                    if sin_id is not None:
+                        astra.data2d.delete(sin_id)
+
+                    sin_id, sinogram[kk,:,:] = astra.create_sino(np.fliplr(phantom2[kk,:,:]), self.proj_id)
+
+                astra.data2d.delete(sin_id)
+
+                return sinogram.transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256))
 class Phantom:
 
     def __init__(self):
@@ -562,8 +792,8 @@ class Phantom:
         print('The ratio compared to the mc', ratio,' number of photons', nphotons_av)
 
         # -------- Scatter Correction -----------
-        scatter = np.load(os.path.join(data_path,'scatter','scatter.npy'))
-        coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
+        scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
+        # coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
 
         dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
 
@@ -582,13 +812,13 @@ class Phantom:
             # mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter))
             mc_scatter = mc_scatter.T
 
-            coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
+            # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
             # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter))
-            coh_scatter = coh_scatter.T
+            # coh_catter = coh_scatter.T
 
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660 
-        scatter = 2.15*(mc_scatter + coh_scatter)
+        scatter = mc_scatter
         # log(i/i_0) to get back to intensity
         raw = (np.exp(-np.array(self.raw_proj)/10)*(flood_summed)).T
 
@@ -699,7 +929,7 @@ class Phantom:
             
         return np.array(recon)
         
-class Catphan_515(Phantom):
+class Catphan_515(Phantom2):
 
     def __init__(self): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy'))
@@ -939,7 +1169,7 @@ class Catphan_515(Phantom):
         if return_contrast:
             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
 
-class Catphan_404(Phantom):
+class Catphan_404(Phantom2):
 
     def __init__(self): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))
@@ -950,7 +1180,7 @@ class Catphan_404(Phantom):
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
-        self.geomet.sVoxel = np.array((160, 160, 160)) 
+        self.geomet.sVoxel = np.array((200, 200, 200)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
 
@@ -1713,217 +1943,6 @@ def get_fluence(e_0=100.0):
     return f
     # return lambda x,u:f(x,u)[0]
 
-class Phantom2:
-
-    def __init__(self):
-        pass
-
-    def return_projs(self,kernel,spectra,angles,nphoton = None,
-                    mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True,convolve_on=True):
-        '''
-        The main function for returning the projections
-        '''
-        
-        self.tigre_works = tigre_works
-        self.angles = angles
-        
-        # ----------------------------------------------------------
-        # --- Making the weights for the different energies --------
-        # ----------------------------------------------------------
-        
-        # These are what I used in the Monte Carlo
-        deposition = np.load(kernel.deposition_efficiency_file,allow_pickle=True)
-        
-        # csi has two extra kv energies
-        if len(deposition[0]) == 18:
-            original_energies_keV = np.array([10,20,30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-            mu_en_water2 = mu_en_water
-            mu_water2 = mu_water
-        else:
-            original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-            mu_en_water2 = mu_en_water[2:]
-            mu_water2 = mu_water[2:]
-            
-        # Loading the file from the monte carlo
-        # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-        deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
-        
-        # Binning to get the fluence per energy
-        large_energies = np.linspace(0,6000,3001)
-        fluence_large = np.interp(large_energies,np.array(spectra.x), spectra.y)
-        fluence_small = np.zeros(len(original_energies_keV))
-        # Still binning
-        for ii, val in enumerate(large_energies):   
-            index = np.argmin(np.abs(original_energies_keV-val))
-            fluence_small[index] += fluence_large[ii]       
-        # Normalize
-        fluence_small /= np.sum(fluence_small)
-        fluence_norm = spectra.y/np.sum(spectra.y)
-
-        #Changed the meaning of det on to be more det convolved
-        if det_on:
-            weights_small = fluence_small*deposition_summed
-        else:
-            weights_small = fluence_small
-        
-        # Need to make sure that the attenuations aren't janky for recon
-        weights_small /= np.sum(weights_small)
-        
-        self.weights_small = weights_small
-        
-        # ----------------------------------------------
-        # -------- Scatter Correction ------------------
-        # ----------------------------------------------
-        
-        scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
-
-        dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
-
-        def func(x, a, b):
-            return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
-
-        mc_scatter = np.zeros(scatter.shape)
-
-        for jj in range(scatter.shape[1]):
-
-            popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-            mc_scatter[:,jj] = func(dist, *popt)
-
-        if len(original_energies_keV) == 16:
-            mc_scatter = mc_scatter[:,2:]
-
-        factor = (152/(np.sqrt(dist**2 + 152**2)))**3
-        flood_summed = factor*660 
-        
-        # ----------------------------------------------
-        # -------- Ray Tracing -------------------------
-        # ----------------------------------------------
-        
-        tile = True
-        # import ipdb; ipdb.set_trace()
-        # The index of the different materials
-        masks = np.zeros([len(self.phan_map)-1,self.phantom.shape[0],self.phantom.shape[1],self.phantom.shape[2]])
-        mapping_functions = []
-
-        # Get the mapping functions for the different tissues to reconstruct the phantom by energy
-        for ii in range(1,len(self.phan_map)):       
-            mapping_functions.append(get_mu(self.phan_map[ii].split(':')[0]))
-            masks[ii-1] = self.phantom == ii
-        
-        phantom2 = self.phantom.copy().astype(np.float32)
-        doses = []
-
-        intensity = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
-        
-        for jj, energy in enumerate(original_energies_keV):
-            # Change the phantom values
-            for ii in range(0,len(self.phan_map)-1):
-                phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-
-            projection = self.ray_trace(phantom2,tile)
-            kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
-
-            if det_on and convolve_on:
-                for ii in range(len(self.angles)):
-                    projection[ii,:,:] = fftconvolve(projection[ii,:,:],kernel.kernels[jj+1], mode = 'same')
-
-            # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-            doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj],))
-
-            ## Maybe I should add the exponentially weighted and not the attenuation coefficients, could test this with the other phantom
-            intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj])
-
-        intensity = intensity.T # 0.97 is fudge factor
-
-        # import ipdb; ipdb.set_trace()
-        # Add the already weighted scatter
-        if scat_on:
-            intensity = intensity.transpose([2,1,0]) + (mc_scatter@weights_small)
-        else:
-            intensity = intensity.transpose([2,1,0])
-        
-        # ----------------------------------------------
-        # ----------- Dose calculation -----------------
-        # ----------------------------------------------
-        
-        # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
-        def get_dose_nphoton(nphot):
-            return nphot/2e7
-
-        def get_dose_mgy(mgy,doses,fluence_small):
-            nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13)*1000)
-            return get_dose_nphoton(nphoton)
-
-        def get_dose_per_photon(doses,fluence_small):
-            # linear fit of the data
-            pp = np.array([0.88759883, 0.01035186])
-            return ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
-
-        ratio = None
-
-        # Dose in micro grays
-        if mgy != 0.0:
-            ratio = get_dose_mgy(mgy,np.array(doses),fluence_small)
-        elif nphoton is not None:
-            ratio = get_dose_nphoton(nphoton)
-        
-        # --- Noise and Scatter Calculation ---
-        # Now I interpolate deposition and get the average photons reaching the detector
-        deposition_long = np.interp(spectra.x,original_energies_keV,deposition_summed)
-        nphotons_at_energy = fluence_norm*deposition_long
-        nphotons_av = np.sum(nphotons_at_energy)
-
-        print('ratio is', ratio,'number of photons', nphotons_av)
-
-        # ----------------------------------------------
-        # ----------- Add Noise ------------------------
-        # ----------------------------------------------
-
-        if ratio is not None:
-            
-#             if det_on:
-            adjusted_ratio = ratio*nphotons_av
-#             else:
-#                 adjusted_ratio = ratio
-    
-            intensity = np.random.poisson(intensity*adjusted_ratio)/adjusted_ratio
-            # intensity[intensity < 0.0000001] = 0.0000001
-        # import ipdb; ipdb.set_trace()
-        
-        self.proj = -10*np.log(intensity/(flood_summed))
-        
-    def ray_trace(self,phantom2,tile):
-
-        if self.tigre_works: # resort to astra if tigre doesn't work
-            try:
-                return np.squeeze(tigre.Ax(phantom2,self.geomet,self.angles))
-            except Exception:
-                print("WARNING: Tigre GPU not working. Switching to Astra CPU")
-
-                sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,self.angles,tile=True)
-                self.tigre_works = False
-                return sinogram.transpose([1,0,2])
-        else:
-            if tile:
-                sin_id, sinogram = astra.create_sino(np.fliplr(phantom2[0,:,:]), self.proj_id)
-
-                return np.tile(sinogram,[phantom2.shape[0],1,1]).transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256))
-            else:
-                sinogram = np.zeros([phantom2.shape[0],len(angles),self.geomet.nDetector[1]])
-
-                sin_id = None
-
-                ##??
-                for kk in range(tigre_shape[0]):
-
-                    if sin_id is not None:
-                        astra.data2d.delete(sin_id)
-
-                    sin_id, sinogram[kk,:,:] = astra.create_sino(np.fliplr(phantom2[kk,:,:]), self.proj_id)
-
-                astra.data2d.delete(sin_id)
-
-                return sinogram.transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256))
         
 class XCAT2(Phantom2):
 
