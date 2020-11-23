@@ -238,7 +238,7 @@ class XpecgenGUI(Notebook):
         self.Z.set(_add_element_name("74"))
 
         self.load = StringVar()
-        self.load.set("W_spectrum_25")
+        self.load.set("W_spectrum_6")
 
         self.det = StringVar()
         self.det.set("CuGOS-784-micrometer")
@@ -248,7 +248,7 @@ class XpecgenGUI(Notebook):
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
-        self.geo.set("Catphan_515")#"catphan_low_contrast_512_8cm")
+        self.geo.set("Catphan_404")#"catphan_low_contrast_512_8cm")
 
         self.EMin = DoubleVar()
         self.EMin.set(3.0)

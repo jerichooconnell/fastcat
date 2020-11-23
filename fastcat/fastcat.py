@@ -408,6 +408,8 @@ class Phantom2:
         '''
         The main function for returning the projections
         '''
+        return_intensity = False
+
         if 'test' in kwargs.keys():
             if kwargs['test'] == 1:
                 det_on = False
@@ -424,7 +426,7 @@ class Phantom2:
         # These are what I used in the Monte Carlo
         deposition = np.load(kernel.deposition_efficiency_file,allow_pickle=True)
 
-        deposition[0][1:] = deposition[0][:-1]
+        # deposition[0][1:] = deposition[0][:-1]
         
         # csi has two extra kv energies
         if len(deposition[0]) == 18:
@@ -438,42 +440,49 @@ class Phantom2:
             
         # Loading the file from the monte carlo
         # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-        # deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
+        deposition_summed = deposition[0] #/(original_energies_keV/1000)/1000000
 
-        deposition_summed = np.array([0.00000000e+00, 0.00000000e+00, 5.15545239e-05, 5.18685522e-03,
-       2.38861906e-02, 8.97132881e-02, 1.20043736e-01, 1.26651194e-01,
-       1.21869948e-01, 1.09267663e-01, 1.43347866e-02, 7.05874469e-03,
-       4.87240916e-03, 4.19830717e-03, 3.99630288e-03, 2.81835246e-03,
-       2.42879524e-03, 2.10660415e-03])
-        
+    #     deposition_summed = np.array([0,0, 5.15545239e-05, 5.18685522e-03,
+    #    2.38861906e-02, 8.97132881e-02, 1.20043736e-01, 1.26651194e-01,
+    #    1.21869948e-01, 1.09267663e-01, 1.43347866e-02, 7.05874469e-03,
+    #    4.87240916e-03, 4.19830717e-03, 3.99630288e-03, 2.81835246e-03,
+    #    2.42879524e-03, 2.10660415e-03])
+
+        self.deposition_summed = deposition_summed
+
+
         # Binning to get the fluence per energy
         large_energies = np.linspace(0,6000,3001)
-        fluence_large = np.interp(large_energies,np.array(spectra.x), spectra.y)
-        deposition_large = np.interp(large_energies, original_energies_keV, deposition_summed)
+        f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])),kind='cubic')
+        f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0),kind='cubic')
 
         weights_small = np.zeros(len(original_energies_keV))
+        fluence_small = np.zeros(len(original_energies_keV))
 
         if det_on:
-            weights_large = fluence_large*deposition_large
+            weights_large = f_flu(large_energies)*f_dep(large_energies)
         else:
-            weights_large = fluence_large
-        
+            weights_large = f_flu(large_energies)
+
+        fluence_large = f_flu(large_energies)
+
         # Still binning
         for ii, val in enumerate(large_energies):   
             index = np.argmin(np.abs(original_energies_keV-val))
-            weights_small[index] += weights_large[ii]       
-        # Normalize
-        weights_small /= np.sum(weights_small)
-        fluence_norm = spectra.y/np.sum(spectra.y)
+            weights_small[index] += weights_large[ii]  
+            fluence_small[index] += fluence_large[ii]
 
-        #Changed the meaning of det on to be more det convolved
-        # if det_on:
-        #     weights_small = fluence_small*deposition_summed
-        # else:
-        #     weights_small = fluence_small
+        # Normalize
+        fluence_small /= np.sum(fluence_small)
+        if det_on:
+            weights_small = weights_small #*self.deposition_summed*original_energies_keV#/(self.deposition_summed*original_energies_keV)
+            print('really doing it!') 
+        # Normalize
         
-        # Need to make sure that the attenuations aren't janky for recon
-        # weights_small /= np.sum(weights_small)
+        # weights_small[:-1] = weights_small[1:]
+        weights_small /= np.sum(weights_small)
+
+        fluence_norm = spectra.y/np.sum(spectra.y)
         
         self.weights_small = weights_small
         
@@ -535,7 +544,6 @@ class Phantom2:
 
             # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
             doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj],))
-
             ## Maybe I should add the exponentially weighted and not the attenuation coefficients, could test this with the other phantom
             intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj])
 
@@ -588,15 +596,9 @@ class Phantom2:
         # ----------------------------------------------
 
         if ratio is not None:
-            
-#             if det_on:
+
             adjusted_ratio = ratio*nphotons_av
-#             else:
-#                 adjusted_ratio = ratio
-    
             intensity = np.random.poisson(intensity*adjusted_ratio)/adjusted_ratio
-            # intensity[intensity < 0.0000001] = 0.0000001
-        # import ipdb; ipdb.set_trace()        
         
         if return_intensity:
             return intensity
@@ -635,6 +637,23 @@ class Phantom2:
                 astra.data2d.delete(sin_id)
 
                 return sinogram.transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256))
+
+    def reconstruct(self,algo,filt='hamming'):
+        
+        if algo == 'FDK':
+            try:
+                self.img = tigre.algorithms.FDK(self.proj, self.geomet, self.angles,filter=filt)
+            except Exception:
+                print('WARNING: Tigre failed during recon using Astra')
+                self.img = self.astra_recon(self.proj.transpose([1,0,2]))
+
+        if algo == 'CGLS':
+            try:
+                self.img = tigre.algorithms.cgls(self.proj.astype(np.float32), self.geomet, self.angles,niter=20)
+            except Exception:
+                print('WARNING: Tigre failed during recon using Astra')
+                self.img = self.astra_recon(self.proj.transpose([1,0,2]))
+
 class Phantom:
 
     def __init__(self):
@@ -754,7 +773,7 @@ class Phantom:
             weights_small = fluence_small*deposition_summed
         else:
             weights_small = fluence_small
-        
+
         # Need to make sure that the attenuations aren't janky for recon
         weights_small /= np.sum(weights_small)
         # This is the line to uncomment to run the working code for dose_comparison.ipynb
@@ -1172,7 +1191,7 @@ class Catphan_515(Phantom2):
 class Catphan_404(Phantom2):
 
     def __init__(self): #,det):
-        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_8cm.npy'))#10cm.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSD = 1520 #1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])

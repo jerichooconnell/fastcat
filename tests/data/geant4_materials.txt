@@ -1595,7 +1595,18 @@ Go to the documentation of this file.
 01318   AddElementByWeightFraction(17, 0.003);
 01319   AddElementByWeightFraction(19, 0.002);
 
-01310   AddMaterial("G4_LUNG_LD_ICRP", 0.24, 0, 75.3, 9);
+01310   AddMaterial("G4_LUNG_LD_ICRP", 0.26, 0, 75.3, 9);
+01311   AddElementByWeightFraction( 1, 0.103);
+01312   AddElementByWeightFraction( 6, 0.105);
+01313   AddElementByWeightFraction( 7, 0.031);
+01314   AddElementByWeightFraction( 8, 0.749);
+01315   AddElementByWeightFraction(11, 0.002);
+01316   AddElementByWeightFraction(15, 0.002);
+01317   AddElementByWeightFraction(16, 0.003);
+01318   AddElementByWeightFraction(17, 0.003);
+01319   AddElementByWeightFraction(19, 0.002);
+
+01310   AddMaterial("G4_LUNG_MD_ICRP", 0.57, 0, 75.3, 9);
 01311   AddElementByWeightFraction( 1, 0.105);
 01312   AddElementByWeightFraction( 6, 0.083);
 01313   AddElementByWeightFraction( 7, 0.023);
