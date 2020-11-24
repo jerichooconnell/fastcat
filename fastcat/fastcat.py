@@ -440,51 +440,46 @@ class Phantom2:
             
         # Loading the file from the monte carlo
         # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-        deposition_summed = deposition[0] #/(original_energies_keV/1000)/1000000
-
-    #     deposition_summed = np.array([0,0, 5.15545239e-05, 5.18685522e-03,
-    #    2.38861906e-02, 8.97132881e-02, 1.20043736e-01, 1.26651194e-01,
-    #    1.21869948e-01, 1.09267663e-01, 1.43347866e-02, 7.05874469e-03,
-    #    4.87240916e-03, 4.19830717e-03, 3.99630288e-03, 2.81835246e-03,
-    #    2.42879524e-03, 2.10660415e-03])
-
-        self.deposition_summed = deposition_summed
-
+        deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
 
         # Binning to get the fluence per energy
         large_energies = np.linspace(0,6000,3001)
         f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])),kind='cubic')
         f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0),kind='cubic')
+        f_e = interpolate.interp1d(np.insert(original_energies_keV,0,0),
+                                          np.insert((deposition[0]),0,0),kind='cubic')
 
-        weights_small = np.zeros(len(original_energies_keV))
+        weights_xray_small = np.zeros(len(original_energies_keV))
+        weights_energies = np.zeros(len(original_energies_keV))
         fluence_small = np.zeros(len(original_energies_keV))
 
         if det_on:
-            weights_large = f_flu(large_energies)*f_dep(large_energies)
+            weights_xray = f_flu(large_energies)*f_dep(large_energies)
+            weights_e_long = f_flu(large_energies)*f_e(large_energies)
         else:
-            weights_large = f_flu(large_energies)
+            weights_xray = f_flu(large_energies)
+            weights_e_long = f_flu(large_energies)
 
         fluence_large = f_flu(large_energies)
 
         # Still binning
         for ii, val in enumerate(large_energies):   
             index = np.argmin(np.abs(original_energies_keV-val))
-            weights_small[index] += weights_large[ii]  
+            weights_xray_small[index] += weights_xray[ii]  
+            weights_energies[index] += weights_e_long[ii]  
             fluence_small[index] += fluence_large[ii]
 
         # Normalize
         if det_on:
-            weights_small = weights_small #*self.deposition_summed*original_energies_keV#/(self.deposition_summed*original_energies_keV)
+            weights_xray_small = weights_xray_small 
             print('really doing it!') 
         # Normalize
         
-        # weights_small[:-1] = weights_small[1:]
-        fluence_small /= np.sum(fluence_small)
-        weights_small /= np.sum(weights_small)
+        fluence_small /= np.sum(fluence_small)                                                    
+        weights_xray_small /= np.sum(weights_xray_small)
+        weights_energies /= np.sum(weights_energies)
 
         fluence_norm = spectra.y/np.sum(spectra.y)
-        
-        self.weights_small = weights_small
         
         # ----------------------------------------------
         # -------- Scatter Correction ------------------
@@ -492,7 +487,7 @@ class Phantom2:
         
         scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
 
-        dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
+        dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
 
         def func(x, a, b):
             return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
@@ -515,7 +510,6 @@ class Phantom2:
         # ----------------------------------------------
         
         tile = True
-        # import ipdb; ipdb.set_trace()
         # The index of the different materials
         masks = np.zeros([len(self.phan_map)-1,self.phantom.shape[0],self.phantom.shape[1],self.phantom.shape[2]])
         mapping_functions = []
@@ -529,31 +523,44 @@ class Phantom2:
         doses = []
 
         intensity = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
+        noise = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
         
+        load_proj = True
+
+        if load_proj:
+            print('Loading projections is on')
+            projections = np.load(os.path.join(data_path,'raw_proj','projections.npy'))
+
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
             for ii in range(0,len(self.phan_map)-1):
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
 
-            projection = self.ray_trace(phantom2,tile)
+            if load_proj:
+                projection = projections[jj]
+            else:
+                projection = self.ray_trace(phantom2,tile)
+            
             kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
-
-            if det_on and convolve_on:
-                for ii in range(len(self.angles)):
-                    projection[ii,:,:] = fftconvolve(projection[ii,:,:],kernel.kernels[jj+1], mode = 'same')
 
             # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
             doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj],))
-            ## Maybe I should add the exponentially weighted and not the attenuation coefficients, could test this with the other phantom
-            intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj]) # could add the noise here before weighting by energy
+            
+            # Get the scale of the noise
+            int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj]
+            noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
 
-        intensity = intensity.T # 0.97 is fudge factor
+            if det_on and convolve_on:
+                for ii in range(len(self.angles)):
+                    int_temp[ii,:,:] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
+                    noise_temp[ii,:,:] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
 
-        # Add the already weighted scatter
-        if scat_on:
-            intensity = intensity.transpose([2,1,0]) + (mc_scatter@weights_small)
-        else:
-            intensity = intensity.transpose([2,1,0])
+            intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
+            noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
+
+        # self.noise2 = np.random.poisson(intensity) - intensity
+        # self.noise = noise
+        # np.save('projections',projections)
 
         if det_on == False:
             return intensity 
@@ -585,7 +592,7 @@ class Phantom2:
         
         # --- Noise and Scatter Calculation ---
         # Now I interpolate deposition and get the average photons reaching the detector
-        deposition_long = np.interp(spectra.x,original_energies_keV,deposition_summed/(original_energies_keV/1000)/1000000)
+        deposition_long = np.interp(spectra.x,original_energies_keV,deposition[0]/(original_energies_keV/1000)/1000000)
         nphotons_at_energy = fluence_norm*deposition_long
 
         nphotons_av = np.sum(nphotons_at_energy)
@@ -602,7 +609,8 @@ class Phantom2:
         if ratio is not None:
 
             adjusted_ratio = ratio*nphotons_av
-            intensity = np.random.poisson(intensity*adjusted_ratio)/adjusted_ratio
+            # This is a moderately iffy approximation, but probably not too bad except in the large and small limit cases
+            intensity = (intensity*adjusted_ratio + noise*(adjusted_ratio**(1/2)))/adjusted_ratio
         
         if return_intensity:
             return intensity
