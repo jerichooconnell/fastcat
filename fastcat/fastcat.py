@@ -473,13 +473,13 @@ class Phantom2:
             fluence_small[index] += fluence_large[ii]
 
         # Normalize
-        fluence_small /= np.sum(fluence_small)
         if det_on:
             weights_small = weights_small #*self.deposition_summed*original_energies_keV#/(self.deposition_summed*original_energies_keV)
             print('really doing it!') 
         # Normalize
         
         # weights_small[:-1] = weights_small[1:]
+        fluence_small /= np.sum(fluence_small)
         weights_small /= np.sum(weights_small)
 
         fluence_norm = spectra.y/np.sum(spectra.y)
@@ -545,7 +545,7 @@ class Phantom2:
             # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
             doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj],))
             ## Maybe I should add the exponentially weighted and not the attenuation coefficients, could test this with the other phantom
-            intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj])
+            intensity += ((np.exp(-0.97*np.array(projection)/10)*(flood_summed))*weights_small[jj]) # could add the noise here before weighting by energy
 
         intensity = intensity.T # 0.97 is fudge factor
 
@@ -585,12 +585,16 @@ class Phantom2:
         
         # --- Noise and Scatter Calculation ---
         # Now I interpolate deposition and get the average photons reaching the detector
-        deposition_long = np.interp(spectra.x,original_energies_keV,deposition_summed)
+        deposition_long = np.interp(spectra.x,original_energies_keV,deposition_summed/(original_energies_keV/1000)/1000000)
         nphotons_at_energy = fluence_norm*deposition_long
+
         nphotons_av = np.sum(nphotons_at_energy)
 
         print('ratio is', ratio,'number of photons', nphotons_av)
 
+
+        if return_dose:
+            return np.array(doses), spectra.y
         # ----------------------------------------------
         # ----------- Add Noise ------------------------
         # ----------------------------------------------
@@ -777,9 +781,6 @@ class Phantom:
         # Need to make sure that the attenuations aren't janky for recon
         weights_small /= np.sum(weights_small)
         # This is the line to uncomment to run the working code for dose_comparison.ipynb
-        if return_dose:
-            return np.mean(np.mean(self.raw_doses,1),1), spectra.y
-        
         # --- Dose calculation ---
         # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
         def get_dose_nphoton(nphot):
@@ -810,6 +811,9 @@ class Phantom:
 
         print('The ratio compared to the mc', ratio,' number of photons', nphotons_av)
 
+        if return_dose:
+            return np.mean(np.mean(self.raw_doses,1),1), spectra.y
+        
         # -------- Scatter Correction -----------
         scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
         # coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
