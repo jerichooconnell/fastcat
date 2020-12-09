@@ -282,7 +282,7 @@ class Kernel:
             original_energies_keV = np.array([0, 30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
 
         # Divide by the energy to get the photon count plus a factor 355000 for the original number of photons
-        deposition_summed[1:] /= (original_energies_keV[1:]/355)
+        deposition_summed[1:] /= (original_energies_keV[1:]/355) # I took this out and put it back in again
         deposition_interpolated = np.interp(spectrum.x, original_energies_keV, deposition_summed)
         super_kernel = np.zeros([len(fluence),kernels.shape[1],kernels.shape[2]])
 
@@ -327,8 +327,8 @@ class Kernel:
 
     def get_plot_mtf_real(self, place, show_mesh=True, prepare_format=True,label=''):
 
-        h,w = 1024*4,1024 #Wouldn't change tbh for building lsf
-        step = 16*2 #Wouldn't change tbh for building lsf
+        h,w = 1024*4*2,1024 #Wouldn't change tbh for building lsf # used to be 4
+        step = 16*2*2 #Wouldn't change tbh for building lsf
         pitch = self.pitch #mm 
         angle = 2.3 #deg
         lsf_width = 0.3 #mm Wouldn't change tbh
@@ -525,7 +525,7 @@ class Phantom2:
         intensity = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
         noise = np.zeros([len(angles),self.geomet.nDetector[0],self.geomet.nDetector[1]])
         
-        load_proj = True
+        load_proj = False
 
         if load_proj:
             print('Loading projections is on')
@@ -670,6 +670,25 @@ class Phantom:
 
     def __init__(self):
         pass
+
+    def create_circular_mask(x, y, r, index, image, size):
+    
+        h,w = image.shape
+        
+        center = [x*int(w/2)/size + int(w/2),y*int(h/2)/size + int(h/2)]
+
+        if center is None: # use the middle of the image
+            center = (int(w/2), int(h/2))
+        if r is None: # use the smallest distance between the center and image walls
+            radius = min(center[0], center[1], w-center[0], h-center[1])
+
+        Y, X = np.ogrid[:h, :w]
+        dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
+
+        mask = dist_from_center <= r*int(w/2)/size
+        
+        
+        image[mask] = index
 
     def return_projs(self,kernel,spectra,angles,nphoton = None,
                     mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True):
@@ -1471,10 +1490,10 @@ class Catphan_404(Phantom2):
 #         if return_contrast:
 #             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
 
-class Catphan_MTF(Phantom):
+class Catphan_MTF(Phantom2):
 
     def __init__(self):
-        self.phantom = np.load(os.path.join(data_path,'phantoms/MTF_phantom_1024.npy'))
+        self.phantom = np.load(os.path.join(data_path,'phantoms','MTF_phantom_1024.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([64,512])
         self.geomet.dDetector = np.array([0.784, 0.784])
@@ -1494,15 +1513,18 @@ class Catphan_MTF(Phantom):
         signal = []
         standev = []
 
-        def get_diff(smoothed_slice):
+        def get_diff(smoothed_slice,h0,d0):
             
 
-                peak_info = find_peaks(smoothed_slice,height=0.07,prominence=0.005)
+                peak_info = find_peaks(smoothed_slice,height=h0/3,prominence=d0/5)
                 
                 peaks = peak_info[0]
                 valleys = np.unique(np.hstack([peak_info[1]['right_bases'],peak_info[1]['left_bases']]))
                 
-                inds = np.array(valleys < np.max(peaks)) * np.array(valleys > np.min(peaks))
+                if len(valleys) > 0:
+                    inds = np.array(valleys < np.max(peaks)) * np.array(valleys > np.min(peaks))
+                else:
+                    return
                 
                 valleys = valleys[inds]
                 peaks = peaks[:-1]
@@ -1522,9 +1544,12 @@ class Catphan_MTF(Phantom):
 
         b, a = butter(3, 1/7, btype='low', analog=False)
 
-        smoothed_slice = filtfilt(b, a, np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)) #np.convolve(np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
+        # smoothed_slice = filtfilt(b, a, np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)) #np.convolve(np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
 
-        signal.append(np.mean(get_diff(smoothed_slice)))
+        high = np.max(np.mean(slc[270:290,330:340],1))
+        low = np.min(np.mean(slc[270:290,360:370],1))
+
+        signal.append(high-low)
         standev.append(0)
 
         b, a = butter(3, 1/5, btype='low', analog=False)
@@ -1541,7 +1566,12 @@ class Catphan_MTF(Phantom):
                 # else:
                 #     smoothed_slice = np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)
                 
-                diffs = get_diff(smoothed_slice)
+                diffs = get_diff(smoothed_slice,high,signal[0])
+
+                if diffs == None:
+                    signal.append(0)
+                    standev.append(0)
+                    break 
                 
                 if len(diffs) != 0:
                     signal.append(np.mean(diffs))
@@ -1565,7 +1595,32 @@ class Catphan_MTF(Phantom):
 
         return [signal/signal[0], standev/signal[0]]
 
-class XCAT(Phantom):
+class Catphan_projections(Phantom2):
+
+    def __init__(self):
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_projection_512_10cm.npy')).T
+        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet.nDetector = np.array([512,512])
+        self.geomet.dDetector = np.array([0.784, 0.784])
+        self.phan_map = ['air','water','CB2-30','adipose','water','water','G4_LUNG_ICRP','tissue4','testis','brain','tissue','tissue4','testis','brain',
+            'breast','muscle','G4_MUSCLE_SKELETAL_ICRP','G4_MUSCLE_STRIATED_ICRU','G4_SKIN_ICRP','G4_TISSUE-PROPANE',
+            'G4_TISSUE-METHANE','G4_TISSUE_SOFT_ICRP','G4_TISSUE_SOFT_ICRU-4','G4_BLOOD_ICRP','G4_BODY','G4_BONE_COMPACT_ICRU',
+            'G4_BONE_CORTICAL_ICRP']
+
+        self.geomet.DSD = 1500
+        # I think I can get away with this
+        self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
+
+        self.geomet.sVoxel = np.array((160, 160, 150)) 
+        self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel 
+
+    def analyse_515(self,slc,place=None,fmt='-'):
+
+        CNR = (np.abs(np.mean(slc[250:260,250:260]) - np.mean(slc[310:320,250:260]))
+              /np.sqrt(np.std(slc[250:260,250:260])**2 + np.std(slc[310:320,250:260])**2))
+
+        return CNR
+class XCAT(Phantom2):
 
     def __init__(self):
         self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_smaller.npy'))

@@ -1007,6 +1007,14 @@ Go to the documentation of this file.
 00921   AddElementByWeightFraction(20, 0.111);
 00921   AddElementByWeightFraction(26, 0.001);
 
+00911   AddMaterial("CB2-30", 1.33, 0, 75.2, 10);
+00912   AddElementByWeightFraction( 1, 0.067);
+00913   AddElementByWeightFraction( 6, 0.535);
+00914   AddElementByWeightFraction( 7, 0.021);
+00915   AddElementByWeightFraction( 8, 0.256);
+00919   AddElementByWeightFraction(17, 0.001);
+00921   AddElementByWeightFraction(20, 0.120);
+
 00911   AddMaterial("C4_Vertebra_ICRP", 1.42, 0, 75.2, 10);
 00912   AddElementByWeightFraction( 1, 0.063);
 00913   AddElementByWeightFraction( 6, 0.261);
