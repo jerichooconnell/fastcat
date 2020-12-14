@@ -1448,6 +1448,7 @@ class XpecgenGUI(Notebook):
 
                 with open(os.path.join(fc.data_path, "MV_spectra", f'{self.load.get()}.txt')) as f:
                     for line in f:
+                        # import pdb; pdb.set_trace()
                         energies.append(float(line.split()[0]))
                         fluence.append(float(line.split()[1]))
 

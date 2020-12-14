@@ -982,7 +982,7 @@ class Phantom:
 class Catphan_515(Phantom2):
 
     def __init__(self): #,det):
-        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy'))
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy')) # Paper 2 uses the 8cm btw
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSD = 1520 #1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
@@ -1222,9 +1222,10 @@ class Catphan_515(Phantom2):
 class Catphan_404(Phantom2):
 
     def __init__(self): #,det):
-        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_8cm.npy'))#10cm.npy'))
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))#8cm.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
-        self.geomet.DSD = 1520 #1500 + 20 for det casing
+        self.geomet.DSO = 1050
+        self.geomet.DSD = 1600 #1520 JO dec 2020 1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
         self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
 
@@ -1232,7 +1233,7 @@ class Catphan_404(Phantom2):
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
         self.geomet.sVoxel = np.array((200, 200, 200)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
-        self.phan_map = ['air','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
+        self.phan_map = ['air','water','CATPHAN_Polystyrene','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
 
     def analyse_515(self,recon_slice,place = None,run_name = ''):
 
