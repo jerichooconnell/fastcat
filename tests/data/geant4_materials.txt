@@ -869,6 +869,10 @@ Go to the documentation of this file.
 00833   AddElementByWeightFraction( 1, 0.1437);
 00834   AddElementByWeightFraction( 6, 0.8563);
 
+00832   AddMaterial("CATPHAN_LDPE", 0.92, 0, 63.2, 7);
+00833   AddElementByWeightFraction( 1, 0.1437);
+00834   AddElementByWeightFraction( 6, 0.8563);
+
 00832   AddMaterial("CATPHAN_Polystyrene", 1.03, 0, 63.2, 7);
 00833   AddElementByWeightFraction( 1, 0.0774);
 00834   AddElementByWeightFraction( 6, 0.9226);
@@ -878,10 +882,11 @@ Go to the documentation of this file.
 00834   AddElementByWeightFraction( 6, 0.5998);
 00836   AddElementByWeightFraction( 8, 0.3196);
 
-00832   AddMaterial("CATPHAN_Delrin", 1.42, 0, 63.2, 7);
-00833   AddElementByWeightFraction( 1, 0.5172);
-00834   AddElementByWeightFraction( 6, 0.0695);
-00836   AddElementByWeightFraction( 8, 0.4133);
+00832   AddMaterial("CATPHAN_Delrin_revised", 1.42, 0, 63.2, 7);
+00833   AddElementByWeightFraction( 1, 0.0634);
+00834   AddElementByWeightFraction( 6, 0.6156);
+00836   AddElementByWeightFraction( 8, 0.1993);
+00836   AddElementByWeightFraction( 17, 0.1217);
 
 00832   AddMaterial("CATPHAN_B20", 1.14, 0, 63.2, 7);
 00833   AddElementByWeightFraction( 1, 0.06);

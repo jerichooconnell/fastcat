@@ -444,8 +444,9 @@ class Phantom2:
 
         # Binning to get the fluence per energy
         large_energies = np.linspace(0,6000,3001)
-        f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])),kind='cubic')
-        f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0),kind='cubic')
+        f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])),kind='linear')
+        # import ipdb; ipdb.set_trace()
+        f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0),kind='linear')
         f_e = interpolate.interp1d(np.insert(original_energies_keV,0,0),
                                           np.insert((deposition[0]),0,0),kind='cubic')
 
@@ -538,6 +539,10 @@ class Phantom2:
 
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
+            if weights_xray_small[jj] == 0:
+                doses.append(0)
+                continue
+
             for ii in range(0,len(self.phan_map)-1):
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
 
@@ -549,10 +554,10 @@ class Phantom2:
             kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
 
             # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
-            doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj],))
+            doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
             
             # Get the scale of the noise
-            int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj]
+            int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
 
             if det_on and convolve_on:
@@ -560,12 +565,13 @@ class Phantom2:
                     int_temp[ii,:,:] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
                     noise_temp[ii,:,:] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
 
+            # I need to add the bowtie attenuation to this
             intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
 
-        # self.noise2 = np.random.poisson(intensity) - intensity
-        # self.noise = noise
-        # np.save('projections',projections)
+        self.weights_small = weights_energies
+        # self.weights_small2 = weights_xray
+        # self.weights_small3 = weights_xray_small
 
         if det_on == False:
             return intensity 
@@ -604,7 +610,7 @@ class Phantom2:
 
         print('ratio is', ratio,'number of photons', nphotons_av)
 
-
+        # import ipdb; ipdb.set_trace()
         if return_dose:
             return np.array(doses), spectra.y
         # ----------------------------------------------
@@ -620,6 +626,13 @@ class Phantom2:
         if return_intensity:
             return intensity
         
+#         flat_filt = False
+        
+#         bowtie = np.load(os.path.join(data_path,'filters','bowtie.npy'))
+        
+#         if flat_filt:
+#             self.proj = -10*np.log((intensity*bowtie)/(bowtie*flood_summed))
+#         else:
         self.proj = -10*np.log(intensity/(flood_summed))
         
     def ray_trace(self,phantom2,tile):
