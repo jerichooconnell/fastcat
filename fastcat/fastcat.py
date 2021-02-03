@@ -416,6 +416,12 @@ class Phantom2:
             if kwargs['test'] == 2:
                 return_intensity = True
         
+        bowtie_on = False
+        print('bowtie is off',bowtie_on)
+        if 'bowtie' in kwargs.keys():
+            if kwargs['bowtie'] == True:
+                bowtie_on = True
+                print('Using the bowtie filter',bowtie_on)
         self.tigre_works = tigre_works
         self.angles = angles
         
@@ -505,11 +511,11 @@ class Phantom2:
 
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660
-
-        # flood_summed1 = factor*660
-        # flood_summed = np.load('../../tests/paper_3/real_air_scan.npy') 
-
-        # mc_scatter = mc_scatter/flood_summed1.reshape([512,1])*flood_summed.reshape([512,1])
+        
+        if bowtie_on:
+        
+            bowtie_coef = np.load(os.path.join(data_path,'filters','bowtie.npy'))
+            flood_summed = flood_summed*bowtie_coef.T
         
         # ----------------------------------------------
         # -------- Ray Tracing -------------------------
@@ -545,11 +551,17 @@ class Phantom2:
 
             for ii in range(0,len(self.phan_map)-1):
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-
+            
+            if bowtie_on:
+                bowtie = np.load(os.path.join(data_path,'filters','bowtie_lengths.npy')) # The bowtie additional attenuation
+            
             if load_proj:
                 projection = projections[jj]
             else:
-                projection = self.ray_trace(phantom2,tile)
+                if bowtie_on:
+                    projection = self.ray_trace(phantom2,tile) + bowtie[:,jj] # Adding the bowtie
+                else:
+                    projection = self.ray_trace(phantom2,tile) 
             
             kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
 
@@ -557,7 +569,7 @@ class Phantom2:
             doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
             
             # Get the scale of the noise
-            int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+            int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
 
             if det_on and convolve_on:
@@ -565,7 +577,6 @@ class Phantom2:
                     int_temp[ii,:,:] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
                     noise_temp[ii,:,:] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
 
-            # I need to add the bowtie attenuation to this
             intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
 
@@ -614,7 +625,7 @@ class Phantom2:
         if return_dose:
             return np.array(doses), spectra.y
         # ----------------------------------------------
-        # ----------- Add Noise ------------------------
+        # ----------- Add Noise ------------------------ # Delete? -Emily
         # ----------------------------------------------
 
         if ratio is not None:
@@ -626,13 +637,10 @@ class Phantom2:
         if return_intensity:
             return intensity
         
-#         flat_filt = False
+        # if the bowtie is on the flood summed is multi dimensional rather that one dimensional
+        if bowtie_on: 
+            flood_summed = weights_energies@flood_summed
         
-#         bowtie = np.load(os.path.join(data_path,'filters','bowtie.npy'))
-        
-#         if flat_filt:
-#             self.proj = -10*np.log((intensity*bowtie)/(bowtie*flood_summed))
-#         else:
         self.proj = -10*np.log(intensity/(flood_summed))
         
     def ray_trace(self,phantom2,tile):
@@ -886,6 +894,7 @@ class Phantom:
 
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660 
+        
         scatter = mc_scatter
         # log(i/i_0) to get back to intensity
         raw = (np.exp(-np.array(self.raw_proj)/10)*(flood_summed)).T
@@ -1240,7 +1249,7 @@ class Catphan_515(Phantom2):
 class Catphan_404(Phantom2):
 
     def __init__(self): #,det):
-        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))#8cm.npy'))
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))#10cm.npy'))
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
         self.geomet.DSD = 1520 #1520 JO dec 2020 1500 + 20 for det casing
@@ -1249,7 +1258,7 @@ class Catphan_404(Phantom2):
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
-        self.geomet.sVoxel = np.array((200, 200, 200)) 
+        self.geomet.sVoxel = np.array((160, 160, 160)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
 
