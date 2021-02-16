@@ -888,6 +888,11 @@ Go to the documentation of this file.
 00836   AddElementByWeightFraction( 8, 0.1993);
 00836   AddElementByWeightFraction( 17, 0.1217);
 
+00832   AddMaterial("CATPHAN_Delrin", 1.42, 0, 63.2, 7);
+00833   AddElementByWeightFraction( 1, 0.0671);
+00834   AddElementByWeightFraction( 6, 0.4000);
+00836   AddElementByWeightFraction( 8, 0.5329);
+
 00832   AddMaterial("CATPHAN_B20", 1.14, 0, 63.2, 7);
 00833   AddElementByWeightFraction( 1, 0.06);
 00834   AddElementByWeightFraction( 6, 0.49);

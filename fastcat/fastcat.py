@@ -569,7 +569,11 @@ class Phantom2:
             doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
             
             # Get the scale of the noise
-            int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+            if bowtie_on:
+                int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+            else:
+                int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
 
             if det_on and convolve_on:
@@ -1009,7 +1013,7 @@ class Phantom:
 class Catphan_515(Phantom2):
 
     def __init__(self): #,det):
-        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy')) # Paper 2 uses the 8cm btw
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy')) #'catphan_low_contrast_512_8cm.npy')) # Paper 2 uses the 8cm btw
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSD = 1520 #1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
@@ -1021,7 +1025,8 @@ class Catphan_515(Phantom2):
         self.geomet.sVoxel = np.array((160, 160, 160)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"] 
-
+        
+#         self.phan_map = ['air','CATPHAN_Acrylic','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE",'air','air','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','air','air','air','air','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU"]
     def analyse_515(self,recon_slice,place = None,run_name = ''):
 
         def create_mask(shape):
