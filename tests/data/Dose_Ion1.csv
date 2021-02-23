@@ -1,0 +1,6 @@
+# TOPAS Version: 3.3.p1
+# Parameter File: /home/xcite/scintillators/dose_MU_conversion/kV_CTDI_flatfilt.txt
+# Results for scorer Dose_Ion1
+# Scored in component: IonChamber1
+# DoseToMedium ( Gy ) : Sum   
+4.769697969919662e-10
