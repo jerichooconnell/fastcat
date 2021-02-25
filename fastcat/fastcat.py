@@ -27,7 +27,7 @@ except ImportError as error:
     print(error.__class__.__name__ + ": " + error.message)
 
 import tigre.algorithms as algs
-from scipy.signal import fftconvolve, find_peaks, butter,filtfilt
+from scipy.signal import fftconvolve, find_peaks, butter, filtfilt, convolve
 from scipy.optimize import minimize, curve_fit
 from scipy.ndimage import gaussian_filter
 from numpy import cos, sin
@@ -515,7 +515,7 @@ class Phantom2:
         
         if bowtie_on:
         
-            bowtie_coef = np.load(os.path.join(data_path,'filters','bowtie.npy'))
+            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))
             flood_summed = flood_summed*bowtie_coef.T
         
         # ----------------------------------------------
@@ -554,7 +554,7 @@ class Phantom2:
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
             
             if bowtie_on:
-                bowtie = np.load(os.path.join(data_path,'filters','bowtie_lengths.npy')) # The bowtie additional attenuation
+                bowtie = np.load(os.path.join(data_path,'filters',kwargs['filter'] + '_lengths.npy')) # The bowtie additional attenuation
             
             if load_proj:
                 projection = projections[jj]
@@ -643,10 +643,15 @@ class Phantom2:
         if return_intensity:
             return intensity
         
+#         kernel.kernel = weights_energies@kernel.kernels
         # if the bowtie is on the flood summed is multi dimensional rather that one dimensional
         if bowtie_on: 
             flood_summed = weights_energies@flood_summed
-        
+
+#         kernel_1d = kernel.kernel[:,kernel.kernel.shape[0]//2]
+#         kernel_1d /= np.sum(kernel_1d)
+#         flood_summed = convolve(flood_summed,kernel_1d, mode = 'same')
+
         self.proj = -10*np.log(intensity/(flood_summed))
         
     def ray_trace(self,phantom2,tile):
