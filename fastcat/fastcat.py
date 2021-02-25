@@ -468,7 +468,8 @@ class Phantom2:
             weights_e_long = f_flu(large_energies)
 
         fluence_large = f_flu(large_energies)
-
+        
+#         import ipdb;ipdb.set_trace()
         # Still binning
         for ii, val in enumerate(large_energies):   
             index = np.argmin(np.abs(original_energies_keV-val))
@@ -572,6 +573,7 @@ class Phantom2:
             if bowtie_on:
                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
             else:
+#                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] # !!This took out the scatter for test 
                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
                 
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
@@ -585,8 +587,8 @@ class Phantom2:
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
 
         self.weights_small = weights_energies
-        # self.weights_small2 = weights_xray
-        # self.weights_small3 = weights_xray_small
+        self.weights_small2 = weights_xray
+        self.weights_small3 = weights_xray_small
 
         if det_on == False:
             return intensity 
@@ -1255,6 +1257,7 @@ class Catphan_404(Phantom2):
 
     def __init__(self): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))#10cm.npy'))
+        # The 10cm is really the 8cm equivalent
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
         self.geomet.DSD = 1520 #1520 JO dec 2020 1500 + 20 for det casing
@@ -1263,7 +1266,7 @@ class Catphan_404(Phantom2):
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
-        self.geomet.sVoxel = np.array((160, 160, 160)) 
+        self.geomet.sVoxel = np.array((200, 200, 200)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
 
