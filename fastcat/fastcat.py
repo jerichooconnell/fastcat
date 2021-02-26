@@ -577,12 +577,21 @@ class Phantom2:
                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
                 
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
-
+            
+            (bx, by) = self.geomet.nDetector
+            
+            bx //= 16 # These are the boundaries for the convolution
+            by //= 16 # This avoids some artifacts that creep in from
+            # bounday effects
+            
             if det_on and convolve_on:
                 for ii in range(len(self.angles)):
-                    int_temp[ii,:,:] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
-                    noise_temp[ii,:,:] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')
+#                     valid = kernel.kernels[jj + 1].shape[0]//2
+#                     int_temp[ii,valid:-valid,valid:-valid] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'valid')
+#                     noise_temp[ii,valid:-valid,valid:-valid] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'valid')
 
+                    int_temp[ii,bx:-bx,by:-by] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
+                    noise_temp[ii,bx:-bx,by:-by] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
             intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
 
