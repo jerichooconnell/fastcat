@@ -517,7 +517,7 @@ class Phantom2:
         
         if bowtie_on:
         
-            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))
+            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))**(0.6)*3
             flood_summed = (bowtie_coef.T)*flood_summed.squeeze()
         
         self.fs = flood_summed
@@ -556,15 +556,15 @@ class Phantom2:
             for ii in range(0,len(self.phan_map)-1):
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
             
-            if bowtie_on:
-                bowtie = np.load(os.path.join(data_path,'filters',kwargs['filter'] + '_lengths.npy')) # The bowtie additional attenuation
+#             if bowtie_on:
+#                 bowtie = np.load(os.path.join(data_path,'filters',kwargs['filter'] + '_lengths.npy')) # The bowtie additional attenuation
             
             if load_proj:
                 projection = projections[jj]
             else:
                 if bowtie_on:
                     # Do I actually have to do this? Shouldn't the relative scaling of the I/I_o do the trick?
-                    projection = self.ray_trace(phantom2,tile)# + bowtie[:,jj] # Adding the bowtie
+                    projection = self.ray_trace(phantom2,tile) #+ bowtie[:,jj]*10/.97 # Adding the bowtie
                 else:
                     projection = self.ray_trace(phantom2,tile) 
             
@@ -586,7 +586,7 @@ class Phantom2:
                 else:
                     int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] #0.97 J
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
-            
+                    
             (bx, by) = self.geomet.nDetector
             
             bx //= 16 # These are the boundaries for the convolution
@@ -600,11 +600,13 @@ class Phantom2:
                     noise_temp[ii,bx:-bx,by:-by] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
             intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
-
+            
+#             print(int_temp[0,32,256])
+            
         self.weights_small = weights_energies
         self.weights_small2 = weights_xray
         self.weights_small3 = weights_xray_small
-
+        
         if det_on == False:
             return intensity 
         
@@ -645,6 +647,7 @@ class Phantom2:
         # import ipdb; ipdb.set_trace()
         if return_dose:
             return np.array(doses), spectra.y
+        
         # ----------------------------------------------
         # ----------- Add Noise ------------------------ # Delete? -Emily
         # ----------------------------------------------
@@ -662,8 +665,12 @@ class Phantom2:
 #         self.flood_summed1 = flood_summed
 #         kernel.kernel = weights_energies@kernel.kernels
         # if the bowtie is on the flood summed is multi dimensional rather that one dimensional
+#         if bowtie_on:
+        
+#             bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))
+#             flood_summed = (bowtie_coef.T)*flood_summed.squeeze()   
         if bowtie_on:
-            print(flood_summed.shape)
+#             print(flood_summed.shape)
             flood_summed = (weights_energies)@flood_summed
 
 #         kernel_1d = kernel.kernel[:,kernel.kernel.shape[0]//2]
