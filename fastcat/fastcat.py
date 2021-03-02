@@ -443,6 +443,8 @@ class Phantom2:
             original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
             mu_en_water2 = mu_en_water[2:]
             mu_water2 = mu_water[2:]
+        
+        spectra.x, spectra.y = spectra.get_points()
             
         # Loading the file from the monte carlo
         # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
@@ -516,8 +518,9 @@ class Phantom2:
         if bowtie_on:
         
             bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))
-            flood_summed = flood_summed*bowtie_coef.T
+            flood_summed = (bowtie_coef.T)*flood_summed.squeeze()
         
+        self.fs = flood_summed
         # ----------------------------------------------
         # -------- Ray Tracing -------------------------
         # ----------------------------------------------
@@ -560,7 +563,8 @@ class Phantom2:
                 projection = projections[jj]
             else:
                 if bowtie_on:
-                    projection = self.ray_trace(phantom2,tile) + bowtie[:,jj] # Adding the bowtie
+                    # Do I actually have to do this? Shouldn't the relative scaling of the I/I_o do the trick?
+                    projection = self.ray_trace(phantom2,tile)# + bowtie[:,jj] # Adding the bowtie
                 else:
                     projection = self.ray_trace(phantom2,tile) 
             
@@ -571,11 +575,16 @@ class Phantom2:
             
             # Get the scale of the noise
             if bowtie_on:
-                int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                if scat_on:
+                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                else:
+                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])))*weights_xray_small[jj] #0.97 JO
             else:
 #                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] # !!This took out the scatter for test 
-                int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
-                
+                if scat_on:
+                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                else:
+                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] #0.97 J
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
             
             (bx, by) = self.geomet.nDetector
@@ -586,9 +595,6 @@ class Phantom2:
             
             if det_on and convolve_on:
                 for ii in range(len(self.angles)):
-#                     valid = kernel.kernels[jj + 1].shape[0]//2
-#                     int_temp[ii,valid:-valid,valid:-valid] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'valid')
-#                     noise_temp[ii,valid:-valid,valid:-valid] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'valid')
 
                     int_temp[ii,bx:-bx,by:-by] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
                     noise_temp[ii,bx:-bx,by:-by] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
@@ -648,19 +654,35 @@ class Phantom2:
             adjusted_ratio = ratio*nphotons_av
             # This is a moderately iffy approximation, but probably not too bad except in the large and small limit cases
             intensity = (intensity*adjusted_ratio + noise*(adjusted_ratio**(1/2)))/adjusted_ratio
+            # Why did I do this again? 2021
         
         if return_intensity:
             return intensity
         
+#         self.flood_summed1 = flood_summed
 #         kernel.kernel = weights_energies@kernel.kernels
         # if the bowtie is on the flood summed is multi dimensional rather that one dimensional
-        if bowtie_on: 
-            flood_summed = weights_energies@flood_summed
+        if bowtie_on:
+            print(flood_summed.shape)
+            flood_summed = (weights_energies)@flood_summed
 
 #         kernel_1d = kernel.kernel[:,kernel.kernel.shape[0]//2]
 #         kernel_1d /= np.sum(kernel_1d)
 #         flood_summed = convolve(flood_summed,kernel_1d, mode = 'same')
-
+#         first = True
+#         if bowtie_on:
+#             for jj in range(len(original_energies_keV)):
+#                 if weights_xray_small[jj] == 0:
+#                     continue
+#                 if first:
+#                     self.proj = -10*np.log(intensity[jj]/(flood_summed[jj]))
+#                     first = False
+#                     print('this')
+#                 else:
+#                     self.proj += -10*np.log(intensity[jj]/(flood_summed[jj]))
+#                     print('here')
+                    
+#         else:
         self.proj = -10*np.log(intensity/(flood_summed))
         
     def ray_trace(self,phantom2,tile):
@@ -1270,11 +1292,11 @@ class Catphan_515(Phantom2):
 class Catphan_404(Phantom2):
 
     def __init__(self): #,det):
-        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))#10cm.npy'))
+        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm_mod.npy'))#10cm.npy'))
         # The 10cm is really the 8cm equivalent
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
-        self.geomet.DSD = 1520 #1520 JO dec 2020 1500 + 20 for det casing
+        self.geomet.DSD = 1500 #1520 JO dec 2020 1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
         self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
 

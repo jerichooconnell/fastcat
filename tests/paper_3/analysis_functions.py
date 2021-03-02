@@ -20,7 +20,7 @@ star_data_cwo = [0.0041972717733472775, -864.2384105960264,
 1.359916054564533, 364.23841059602637,
 1.869884575026233, 837.7483443708609]
 
-def create_mask(shape, off = [0,0], r = 6, radius = 0.4):
+def create_mask(shape, off = [0,0], r = 6, radius = 0.4, rot = 0):
 
     im = np.zeros([512,512])
     #im = np.zeros([256,256])
@@ -29,7 +29,7 @@ def create_mask(shape, off = [0,0], r = 6, radius = 0.4):
     # CTMAT(x) formel=H2O dichte=x
     LEN = 100
 
-    A0  = 90.0*np.pi/180
+    A0  = (90.0+ rot)*np.pi/180
 
     # Phantom 
     # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */
