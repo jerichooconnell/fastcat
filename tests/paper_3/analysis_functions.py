@@ -38,7 +38,7 @@ def create_mask(shape, off = [0,0], r = 6, radius = 0.4, rot = 0):
 
     rad = r 
 
-    for ii,jj in enumerate([2,3,4,6,8,9,10,12]):
+    for ii,jj in enumerate([2,4,6,8,10,12]):
 
         # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
         create_circular_mask(x= rad*cos(A0+jj/6*np.pi) - off[0],  y= rad*sin(A0+jj/6*np.pi) - off[1],  r=radius, index = ii +2, image = im)
@@ -62,3 +62,23 @@ def create_circular_mask(x, y, r, index, image):
     mask = dist_from_center <= r*int(w/2)/10
 
     image[mask] = index
+
+def return_CNR(recon_slice,im,show_map=False):
+    '''
+    Returns: contrast, CNR, noise
+    '''
+    contrast = []
+    CNR = []
+    noise = []
+
+    for ii in range(2,int(np.max(im)+1)):
+
+        contrast.append(np.mean(recon_slice[im == ii]))
+        CNR.append(contrast[-1]/np.sqrt(np.std(recon_slice[im == ii])**2 + np.std(recon_slice[im == 6])**2))
+        noise.append(np.std(recon_slice[im == ii]))
+        
+    if show_map:
+        plt.figure()
+        plt.imshow(np.where(im==0,recon_slice,np.zeros_like(recon_slice)))
+
+    return np.array(sorted(contrast)), np.array(CNR)[np.argsort(contrast)], np.array(noise)[np.argsort(contrast)]
