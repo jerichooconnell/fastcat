@@ -517,7 +517,7 @@ class Phantom2:
         
         if bowtie_on:
         
-            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))**(0.6)*3
+            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))#**(0.6)*3
             flood_summed = (bowtie_coef.T)*flood_summed.squeeze()
         
         self.fs = flood_summed
@@ -662,34 +662,9 @@ class Phantom2:
         if return_intensity:
             return intensity
         
-#         self.flood_summed1 = flood_summed
-#         kernel.kernel = weights_energies@kernel.kernels
-        # if the bowtie is on the flood summed is multi dimensional rather that one dimensional
-#         if bowtie_on:
-        
-#             bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))
-#             flood_summed = (bowtie_coef.T)*flood_summed.squeeze()   
         if bowtie_on:
-#             print(flood_summed.shape)
             flood_summed = (weights_energies)@flood_summed
 
-#         kernel_1d = kernel.kernel[:,kernel.kernel.shape[0]//2]
-#         kernel_1d /= np.sum(kernel_1d)
-#         flood_summed = convolve(flood_summed,kernel_1d, mode = 'same')
-#         first = True
-#         if bowtie_on:
-#             for jj in range(len(original_energies_keV)):
-#                 if weights_xray_small[jj] == 0:
-#                     continue
-#                 if first:
-#                     self.proj = -10*np.log(intensity[jj]/(flood_summed[jj]))
-#                     first = False
-#                     print('this')
-#                 else:
-#                     self.proj += -10*np.log(intensity[jj]/(flood_summed[jj]))
-#                     print('here')
-                    
-#         else:
         self.proj = -10*np.log(intensity/(flood_summed))
         
     def ray_trace(self,phantom2,tile):
@@ -740,6 +715,35 @@ class Phantom2:
             except Exception:
                 print('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
+
+    def plot_projs(self,fig):
+
+        subfig1 = fig.add_subplot(121)
+        subfig2 = fig.add_subplot(122)
+
+        tracker = IndexTracker(
+            subfig1, self.proj.transpose([1,2,0]))
+        fig.canvas.mpl_connect(
+            'scroll_event', tracker.onscroll)
+        tracker2 = IndexTracker(
+            subfig2, self.proj.transpose([0,2,1]))
+        fig.canvas.mpl_connect(
+            'scroll_event', tracker2.onscroll)
+        fig.tight_layout()
+
+    def plot_recon(self,ind,vmin_max=None):
+        '''
+        vmax_min; tuple, boundaries of cmap
+        '''
+        plt.figure()
+        
+        if vmin_max == None:
+            plt.imshow(self.img[ind],cmap='gray')
+        else:
+            plt.imshow(self.img[ind],cmap='gray',vmax = vmin_max[1], vmin = vmin_max[0])
+        
+        plt.axis('equal')
+        plt.axis('off')
 
 class Phantom:
 

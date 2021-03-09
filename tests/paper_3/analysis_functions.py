@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import cos, sin
 from astropy import stats
+import matplotlib.pyplot as plt
 
 star_data_gos = [0, -745.8193979933105,
 0, -709.0301003344478,
