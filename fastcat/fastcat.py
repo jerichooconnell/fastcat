@@ -519,8 +519,31 @@ class Phantom2:
         
             bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))#**(0.6)*3
             flood_summed = (bowtie_coef.T)*flood_summed.squeeze()
+
+        def interpolate_pixel(series):
+            # The scatter is 512 with 0.78 mm pixels
+            no = 0.784
+            npt = 512
+            np2 = self.geomet.nDetector[1]
+            no2 = self.geomet.dDetector[0]
+
+            pts2 = np.linspace(0,np2*no2,np2) - np2/2*no2
+            pts = np.linspace(0,npt*no,npt) - npt/2*no
+            
+#             import ipdb;ipdb.set_trace()
+            if len(series.shape) > 1:
+                for ii in range(series.shape[0]):
+                    series[ii] = np.interp(pts2,pts,series[ii])
+            else:
+                series = np.interp(pts2,pts,series)
+            
+            return series           
         
-        self.fs = flood_summed
+        if self.geomet.dDetector[0] != 0.784 or self.geomet.dDetector[1] != 512:
+            
+            flood_summed = interpolate_pixel(flood_summed)
+            mc_scatter = interpolate_pixel(mc_scatter.T).T
+
         # ----------------------------------------------
         # -------- Ray Tracing -------------------------
         # ----------------------------------------------
@@ -584,7 +607,8 @@ class Phantom2:
                 if scat_on:
                     int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
                 else:
-                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] #0.97 J
+                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] #0.97 J078
+                    
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
                     
             (bx, by) = self.geomet.nDetector
@@ -598,6 +622,7 @@ class Phantom2:
 
                     int_temp[ii,bx:-bx,by:-by] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
                     noise_temp[ii,bx:-bx,by:-by] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
+                    
             intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
             
@@ -1302,14 +1327,14 @@ class Catphan_515(Phantom2):
 
 class Catphan_404(Phantom2):
 
-    def __init__(self): #,det):
+    def __init__(self,pitch=0.784): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm_mod.npy'))#10cm.npy'))
         # The 10cm is really the 8cm equivalent
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
         self.geomet.DSD = 1500 #1520 JO dec 2020 1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
-        self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
+        self.geomet.dDetector = np.array([pitch, pitch])#det.pitch, det.pitch]) #TODO: Change this to get phantom
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
