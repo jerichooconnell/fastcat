@@ -505,7 +505,6 @@ class Phantom2:
         mc_scatter = np.zeros(scatter.shape)
 
         for jj in range(scatter.shape[1]):
-
             popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
             mc_scatter[:,jj] = func(dist, *popt)
 
@@ -540,7 +539,6 @@ class Phantom2:
             return series           
         
         if self.geomet.dDetector[0] != 0.784 or self.geomet.dDetector[1] != 512:
-            
             flood_summed = interpolate_pixel(flood_summed)
             mc_scatter = interpolate_pixel(mc_scatter.T).T
 
@@ -631,6 +629,7 @@ class Phantom2:
         self.weights_small = weights_energies
         self.weights_small2 = weights_xray
         self.weights_small3 = weights_xray_small
+        self.mc_scatter = mc_scatter
         
         if det_on == False:
             return intensity 
