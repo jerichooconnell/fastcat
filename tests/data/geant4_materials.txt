@@ -913,6 +913,10 @@ Go to the documentation of this file.
 00833   AddElementByWeightFraction( 1, 0.2402);
 00834   AddElementByWeightFraction( 9, 0.7598);
 
+00832   AddMaterial("CATPHAN_Teflon_206", 2.06, 0, 63.2, 7);
+00833   AddElementByWeightFraction( 1, 0.2402);
+00834   AddElementByWeightFraction( 9, 0.7598);
+
 00832   AddMaterial("ADIPOSE_TISSUE_ICRP", 0.93, 0, 63.2, 7);
 00833   AddElementByWeightFraction( 1, 0.116);
 00834   AddElementByWeightFraction( 6, 0.681);

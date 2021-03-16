@@ -495,28 +495,32 @@ class Phantom2:
         # -------- Scatter Correction ------------------
         # ----------------------------------------------
         
-        scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
+        if bowtie_on and kwargs['filter'][:3] == 'bow':
+            mc_scatter = np.load(os.path.join(data_path,'scatter','scatter_bowtie.npy'))
+            dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
+            print('bowtie scatter')
+        else:
+            scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
+            dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
 
-        dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
+            def func(x, a, b):
+                return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
 
-        def func(x, a, b):
-            return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
+            mc_scatter = np.zeros(scatter.shape)
 
-        mc_scatter = np.zeros(scatter.shape)
+            for jj in range(scatter.shape[1]):
+                popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+                mc_scatter[:,jj] = func(dist, *popt)
 
-        for jj in range(scatter.shape[1]):
-            popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-            mc_scatter[:,jj] = func(dist, *popt)
-
-        if len(original_energies_keV) == 16:
-            mc_scatter = mc_scatter[:,2:]
+#         if len(original_energies_keV) == 16:
+#             mc_scatter = mc_scatter[:,2:]
 
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660
         
         if bowtie_on:
         
-            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))#**(0.6)*3
+            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))#**(2)*3
             flood_summed = (bowtie_coef.T)*flood_summed.squeeze()
 
         def interpolate_pixel(series):
