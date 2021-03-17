@@ -57,7 +57,7 @@ class Catphan_404_kV(fc.Catphan_404):
     def return_CNR(self,return_contrast = False):
         
         im = create_mask(self.img[64].shape,r=5.75,radius=0.2)
-        contrast_fc, CNR_fc, noise_fc = return_CNR(self.img[64],im,show_map=True)
+        contrast_fc, CNR_fc, noise_fc = return_CNR(self.img[64],im)
 #         print(contrast_fc ,'fastcat')
         if return_contrast:
             return contrast_fc
@@ -68,10 +68,31 @@ class Catphan_404_kV(fc.Catphan_404):
         
         recon_slice = np.rot90(self.img[64],-1)
         im = create_mask(recon_slice.shape,radius=0.2,r=5.85,off = [-0.15,-0.02],rot = 0.7)
-        contrast_fc, CNR_fc, noise_fc = return_CNR(recon_slice,im,show_map=True)
+        contrast_fc, CNR_fc, noise_fc = return_CNR(recon_slice,im)
 #         print(contrast_fc, 'exp')
         if return_contrast:
             return contrast_fc
         else:
             return CNR_fc
+        
+def return_CNR_fc2(img,return_contrast = False):
+
+    im = create_mask(img.shape,r=5.75,radius=0.2)
+    contrast_fc, CNR_fc, noise_fc = return_CNR(img,im)
+#         print(contrast_fc ,'fastcat')
+    if return_contrast:
+        return contrast_fc
+    else:
+        return CNR_fc
+
+def return_CNR_exp2(img,return_contrast = False):
+
+    recon_slice = np.rot90(img,-1)
+    im = create_mask(recon_slice.shape,radius=0.2,r=5.85,off = [-0.15,-0.02],rot = 0.7)
+    contrast_fc, CNR_fc, noise_fc = return_CNR(recon_slice,im)
+#         print(contrast_fc, 'exp')
+    if return_contrast:
+        return contrast_fc
+    else:
+        return CNR_fc
         
