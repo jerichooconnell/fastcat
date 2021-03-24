@@ -422,6 +422,7 @@ class Phantom2:
             if kwargs['bowtie'] == True:
                 bowtie_on = True
                 print('Using the bowtie filter',bowtie_on)
+                
         self.tigre_works = tigre_works
         self.angles = angles
         
@@ -508,13 +509,24 @@ class Phantom2:
 
             mc_scatter = np.zeros(scatter.shape)
 
-            for jj in range(scatter.shape[1]):
-                popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-                mc_scatter[:,jj] = func(dist, *popt)
+            if ASG is not None:
+                
+                tunsten = get_mu()
+                for jj in range(scatter.shape[1]):
+                    popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+                    mc_scatter[:,jj] = func(dist, *popt)
+                    # quarter will be let through well 0.75 will be filtered should be 39 microns but made it bigger for the angle
+                    mc_scatter[:,jj] = (0.25*mc_scatter[:,jj] 
+                                      + 0.75*mc_scatter[:,jj]*
+                                        np.exp(-0.005*
+                                               tungsten(original_energies_keV[jj]))
+            else:
+                for jj in range(scatter.shape[1]):
+                    popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+                    mc_scatter[:,jj] = func(dist, *popt)
 
-#         if len(original_energies_keV) == 16:
-#             mc_scatter = mc_scatter[:,2:]
-
+            
+            
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
         flood_summed = factor*660
         
@@ -587,30 +599,31 @@ class Phantom2:
             if load_proj:
                 projection = projections[jj]
             else:
-                if bowtie_on:
-                    # Do I actually have to do this? Shouldn't the relative scaling of the I/I_o do the trick?
-                    projection = self.ray_trace(phantom2,tile) #+ bowtie[:,jj]*10/.97 # Adding the bowtie
-                else:
-                    projection = self.ray_trace(phantom2,tile) 
+                projection = self.ray_trace(phantom2,tile) 
             
             kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
 
             # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
             doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
             
+            w1 = 1
+            if ASG is not None:
+                w1 = 0.85 # Adding a weight to the primary to account for the scatter
+                          # filter
+            
             # Get the scale of the noise
             if bowtie_on:
                 if scat_on:
-                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                    int_temp = (w1*(np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
                 else:
                     int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])))*weights_xray_small[jj] #0.97 JO
             else:
 #                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] # !!This took out the scatter for test 
                 if scat_on:
-                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                    int_temp = (w1*(np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
                 else:
                     int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] #0.97 J078
-                    
+            
             noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
                     
             (bx, by) = self.geomet.nDetector
@@ -651,7 +664,7 @@ class Phantom2:
             return get_dose_nphoton(nphoton)
 
         def get_dose_per_photon(doses,fluence_small):
-            # linear fit of the data
+            # linear fit of the data mod Mar 2021
             pp = np.array([0.88759883, 0.01035186])
             return ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
 
@@ -674,7 +687,8 @@ class Phantom2:
 
         # import ipdb; ipdb.set_trace()
         if return_dose:
-            return np.array(doses), spectra.y
+            pp = np.array([0.88759883, 0.01035186])
+            return np.array(doses), spectra.y,((np.array(doses)/1000)@(fluence_small)), ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
         
         # ----------------------------------------------
         # ----------- Add Noise ------------------------ # Delete? -Emily
