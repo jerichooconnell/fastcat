@@ -404,7 +404,7 @@ class Phantom2:
         pass
 
     def return_projs(self,kernel,spectra,angles,nphoton = None,
-                    mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True,convolve_on=True,**kwargs):
+                    mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True,convolve_on=True,ASG=False,**kwargs):
         '''
         The main function for returning the projections
         '''
@@ -417,6 +417,7 @@ class Phantom2:
                 return_intensity = True
         
         bowtie_on = False
+        
         print('bowtie is off',bowtie_on)
         if 'bowtie' in kwargs.keys():
             if kwargs['bowtie'] == True:
@@ -441,11 +442,15 @@ class Phantom2:
             mu_en_water2 = mu_en_water
             mu_water2 = mu_water
         else:
+            print('This is a small edep file starting at 30')
             original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
             mu_en_water2 = mu_en_water[2:]
             mu_water2 = mu_water[2:]
         
         spectra.x, spectra.y = spectra.get_points()
+        
+        # Set the last value to zero so that the linear interpolation doesn't mess up
+        spectra.y[-1] = 0
             
         # Loading the file from the monte carlo
         # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
@@ -508,27 +513,27 @@ class Phantom2:
                 return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
 
             mc_scatter = np.zeros(scatter.shape)
-
-            if ASG is not None:
-                
-                tunsten = get_mu()
-                for jj in range(scatter.shape[1]):
-                    popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-                    mc_scatter[:,jj] = func(dist, *popt)
-                    # quarter will be let through well 0.75 will be filtered should be 39 microns but made it bigger for the angle
-                    mc_scatter[:,jj] = (0.25*mc_scatter[:,jj] 
-                                      + 0.75*mc_scatter[:,jj]*
-                                        np.exp(-0.005*
-                                               tungsten(original_energies_keV[jj]))
-            else:
-                for jj in range(scatter.shape[1]):
-                    popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-                    mc_scatter[:,jj] = func(dist, *popt)
-
             
+            for jj in range(mc_scatter.shape[1]):
+                popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
+                mc_scatter[:,jj] = func(dist, *popt)
+
             
         factor = (152/(np.sqrt(dist**2 + 152**2)))**3
-        flood_summed = factor*660
+            
+        if ASG:
+            # Modify the primary
+            flood_summed = factor*660*0.72#0.76 # This is the 0.85 efficiency for the ASG
+            
+            lead = get_mu(82)
+            for jj in range(mc_scatter.shape[1]):
+                # quarter will be let through well 0.75 will be filtered should be 39 microns but made it bigger for the angle
+                mc_scatter[:,jj] = (0.2*mc_scatter[:,jj] 
+                                  + 0.8*mc_scatter[:,jj]*
+                                    np.exp(-0.007*
+                                           lead(original_energies_keV[jj])))
+        else:
+            flood_summed = factor*660
         
         if bowtie_on:
         
@@ -587,6 +592,7 @@ class Phantom2:
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
             if weights_xray_small[jj] == 0:
+#                 print('pass')
                 doses.append(0)
                 continue
 
@@ -602,25 +608,24 @@ class Phantom2:
                 projection = self.ray_trace(phantom2,tile) 
             
             kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
-
-            # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
-            doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
             
-            w1 = 1
-            if ASG is not None:
-                w1 = 0.85 # Adding a weight to the primary to account for the scatter
-                          # filter
-            
+            if bowtie_on:
+                # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
+                # The bowtie is used to modify the dose absorbed by the filter
+                doses.append(np.mean((energy)*(-np.exp(-(projection*.997)/10) + bowtie_coef[:,jj])*mu_en_water2[jj]/mu_water2[jj]))
+            else:
+#             print('bowtie off')
+                doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
             # Get the scale of the noise
             if bowtie_on:
                 if scat_on:
-                    int_temp = (w1*(np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
                 else:
                     int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed[jj])))*weights_xray_small[jj] #0.97 JO
             else:
 #                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] # !!This took out the scatter for test 
                 if scat_on:
-                    int_temp = (w1*(np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
+                    int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)) + mc_scatter[:,jj])*weights_xray_small[jj] #0.97 JO
                 else:
                     int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] #0.97 J078
             
@@ -665,7 +670,9 @@ class Phantom2:
 
         def get_dose_per_photon(doses,fluence_small):
             # linear fit of the data mod Mar 2021
-            pp = np.array([0.88759883, 0.01035186])
+#             pp = np.array([0.88759883, 0.01035186])
+            pp = np.array([0.87810143, 0.01136471])
+#             pp = np.array([1,0])
             return ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
 
         ratio = None
@@ -687,7 +694,9 @@ class Phantom2:
 
         # import ipdb; ipdb.set_trace()
         if return_dose:
-            pp = np.array([0.88759883, 0.01035186])
+#             pp = np.array([0.88759883, 0.01035186])
+            pp = np.array([0.87810143, 0.01136471])
+#             pp = np.array([1,0])
             return np.array(doses), spectra.y,((np.array(doses)/1000)@(fluence_small)), ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
         
         # ----------------------------------------------
@@ -1355,7 +1364,7 @@ class Catphan_404(Phantom2):
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
-        self.geomet.sVoxel = np.array((200, 200, 200)) 
+        self.geomet.sVoxel = np.array((160, 200, 200)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
 

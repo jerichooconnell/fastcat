@@ -25,12 +25,15 @@ class Catphan_404_kV(fc.Catphan_404):
 #         self.geomet.nVoxel = np.array([10,512,512])
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         
-    def get_proj(self,angles,fudge=0.3):
+    def get_proj(self,angles,fudge=0.3,ASG=False,return_dose = False,nphoton=None,bowtie=True):
         
         self.angles = angles
-        self.return_projs(self.kernel,self.s,
-                          angles,mgy = fudge*21.1/1000,
-                          scat_on=True,bowtie=True,filter='bowtie3')
+        self.res = self.return_projs(self.kernel,self.s,
+                          angles,mgy = fudge*21.9/917,
+                          scat_on=True,bowtie=bowtie,
+                          filter='bowtie3',ASG=ASG,
+                          return_dose = return_dose,
+                                    nphoton=nphoton)
         
 #         if recon:
 #             self.reconstruct('FDK',filt='ram_lak')
@@ -85,6 +88,8 @@ class Catphan_404_6x(fc.Catphan_404):
         s = fc.Spectrum()
         s.load('Varian_truebeam')
         s.x[0] = 1; s.x[1] = 2
+#         s.attenuate(0.4,fc.get_mu(z=74)) # 4 mm al
+#         s.load('Varian_truebeam_phasespace')
         self.s = s
         # Define phantom map the two base materials are ad libbed since
         # Phantom Lab doesn't give compositions e density in Star-Lack paper
@@ -95,12 +100,14 @@ class Catphan_404_6x(fc.Catphan_404):
 #         self.geomet.nVoxel = np.array([10,512,512])
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         
-    def get_proj(self,angles,fudge=0.3):
+    def get_proj(self,angles,fudge=0.3,return_dose = False, nphoton=None,bowtie=True):
         
         self.angles = angles
-        self.return_projs(self.kernel,self.s,
-                          angles,mgy = fudge*3000*1.3907/(600),
-                          scat_on=True,bowtie=True,filter='FF0')
+        self.res = self.return_projs(self.kernel,self.s,
+                          angles,mgy = fudge*3000/(505),
+                          scat_on=True,bowtie=bowtie,filter='FF0',
+                                    return_dose = return_dose,
+                                    nphoton = nphoton)
             
     def plot_one_proj(self,ref,images=False):
         
