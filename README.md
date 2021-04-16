@@ -1,6 +1,6 @@
 # Fastcat
 
-![anim](https://user-images.githubusercontent.com/31938913/115056014-269ce980-9e97-11eb-9e86-4f5c4517bef2.gif)
+![anim](anim.gif)
 
 A rapid, highly-realistic, scanner specific CBCT simulator.
 
