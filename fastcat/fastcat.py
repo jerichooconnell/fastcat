@@ -321,9 +321,10 @@ class Kernel:
 
         place.imshow(self.kernel, cmap=cm.jet, norm=LogNorm())
         # place.colorbar()
-        place.set_title('Point Source Kernel')
+        place.set_title('Optical Spread Function')
         place.set_xlabel('X [pix]')
         place.set_ylabel('Y [pix]')
+#         place.colorbar()
 
     def get_plot_mtf_real(self, place, show_mesh=True, prepare_format=True,label=''):
 
@@ -418,11 +419,10 @@ class Phantom2:
         
         bowtie_on = False
         
-        print('bowtie is off',bowtie_on)
         if 'bowtie' in kwargs.keys():
             if kwargs['bowtie'] == True:
                 bowtie_on = True
-                print('Using the bowtie filter',bowtie_on)
+                print('Initializing filter',kwargs['filter'])
                 
         self.tigre_works = tigre_works
         self.angles = angles
@@ -488,7 +488,7 @@ class Phantom2:
         # Normalize
         if det_on:
             weights_xray_small = weights_xray_small 
-            print('really doing it!') 
+#             print('really doing it!') 
         # Normalize
         
         fluence_small /= np.sum(fluence_small)                                                    
@@ -504,7 +504,7 @@ class Phantom2:
         if bowtie_on and kwargs['filter'][:3] == 'bow':
             mc_scatter = np.load(os.path.join(data_path,'scatter','scatter_bowtie.npy'))
             dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
-            print('bowtie scatter')
+            print('   Scatter is filtered by bowtie')
         else:
             scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
             dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
@@ -523,6 +523,7 @@ class Phantom2:
             
         if ASG:
             # Modify the primary
+            print('Initializing ASG')
             flood_summed = factor*660*0.72#0.76 # This is the 0.85 efficiency for the ASG
             
             lead = get_mu(82)
@@ -588,7 +589,8 @@ class Phantom2:
         if load_proj:
             print('Loading projections is on')
             projections = np.load(os.path.join(data_path,'raw_proj','projections.npy'))
-
+        
+        print('Running Simulations')
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
             if weights_xray_small[jj] == 0:
@@ -596,6 +598,8 @@ class Phantom2:
                 doses.append(0)
                 continue
 
+            print('    Simulating', energy, 'keV')
+            
             for ii in range(0,len(self.phan_map)-1):
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
             
@@ -653,6 +657,7 @@ class Phantom2:
         self.weights_small3 = weights_xray_small
         self.mc_scatter = mc_scatter
         
+        print('Weighting simulations')
         if det_on == False:
             return intensity 
         
@@ -690,7 +695,7 @@ class Phantom2:
 
         nphotons_av = np.sum(nphotons_at_energy)
 
-        print('ratio is', ratio,'number of photons', nphotons_av)
+#         print('ratio is', ratio,'number of photons', nphotons_av)
 
         # import ipdb; ipdb.set_trace()
         if return_dose:
@@ -1366,7 +1371,9 @@ class Catphan_404(Phantom2):
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
         self.geomet.sVoxel = np.array((160, 200, 200)) 
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
-        self.phan_map = ['air','water','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
+        
+        self.phan_map = ['air','G4_POLYSTYRENE','G4_POLYVINYL_BUTYRAL','G4_POLYVINYL_BUTYRAL','CATPHAN_Delrin','G4_POLYVINYL_BUTYRAL','CATPHAN_Teflon_revised','air','CATPHAN_PMP','G4_POLYVINYL_BUTYRAL','CATPHAN_LDPE','G4_POLYVINYL_BUTYRAL','CATPHAN_Polystyrene','air','CATPHAN_Acrylic','air','CATPHAN_Teflon','air','air','air','air'] 
+#         self.phan_map = ['air','water','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
 
     def analyse_515(self,recon_slice,place = None,run_name = ''):
 
