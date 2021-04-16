@@ -2,20 +2,17 @@
 
 ![anim](https://user-images.githubusercontent.com/31938913/115056014-269ce980-9e97-11eb-9e86-4f5c4517bef2.gif)
 
-A fast, accurate CBCT simulator with a GUI to calculate xray spectra in tungsten anodes, as well as the
-bremsstrahlung component in other media. Detector optical spread in a few detectors and high resolution phantoms
+A rapid, highly-realistic, scanner specific CBCT simulator.
 
 * [Features](#features)
 * [Installation](#installation)
 
 ## Features
-* X-ray spectra calculation using the models from [\[1\]](#Ref1).
-* Detector response based on fastEPID
+* X-ray spectra calculation using the models from xpecgen
+* Detector response based on MC optical simulation of Scintillators
+* High resolution Catphan phantoms
 * Bowtie filters, flattening filters, ant-scatter grid models
-* HVL calculation.
-* Python library and Graphical User Interface.
-* Export to xlsx files (Excel Spreadsheet).
-* Python API.
+* Python library and Graphical User Interface
 
 ## Installation
 
