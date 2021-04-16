@@ -1,6 +1,6 @@
 # Fastcat
 
-![](demo_mp4.mp4)
+<img src="demo_mp4.mp4">
 
 A fast, accurate CBCT simulator with a GUI to calculate xray spectra in tungsten anodes, as well as the
 bremsstrahlung component in other media. Detector optical spread in a few detectors and high resolution phantoms
