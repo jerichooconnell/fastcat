@@ -1,15 +1,12 @@
 # Fastcat
 
+![](demo_mp4.mp4)
+
 A fast, accurate CBCT simulator with a GUI to calculate xray spectra in tungsten anodes, as well as the
 bremsstrahlung component in other media. Detector optical spread in a few detectors and high resolution phantoms
 
 * [Features](#features)
-* [Usage example](#usage-example)
 * [Installation](#installation)
-* [Documentation](#documentation)
-* [Model details](#model-details)
-* [Citation](#citation)
-* [References](#references)
 
 ## Features
 * X-ray spectra calculation using the models from [\[1\]](#Ref1).
@@ -19,13 +16,6 @@ bremsstrahlung component in other media. Detector optical spread in a few detect
 * Python library and Graphical User Interface.
 * Export to xlsx files (Excel Spreadsheet).
 * Python API.
-
-## Usage example
-### GUI
-![alt tag](https://raw.github.com/dih5/xpecgen/master/img/DemoPar.png)
-![alt tag](https://raw.github.com/dih5/xpecgen/master/img/DemoPlot.png)
-### Python interpreter
-![alt tag](https://raw.github.com/dih5/xpecgen/master/img/DemoConsole.png)
 
 ## Installation
 
