@@ -1,31 +1,18 @@
 # Fastcat
 
-A fast, accurate CBCT simulator with a GUI to calculate xray spectra in tungsten anodes, as well as the
-bremsstrahlung component in other media. Detector optical spread in a few detectors and high resolution phantoms
+![anim](anim.gif)
+
+A rapid, highly-realistic, scanner specific CBCT simulator.
 
 * [Features](#features)
-* [Usage example](#usage-example)
 * [Installation](#installation)
-* [Documentation](#documentation)
-* [Model details](#model-details)
-* [Citation](#citation)
-* [References](#references)
 
 ## Features
-* X-ray spectra calculation using the models from [\[1\]](#Ref1).
-* Detector response based on fastEPID
+* X-ray spectra calculation using the models from xpecgen
+* Detector response based on MC optical simulation of Scintillators
+* High resolution Catphan phantoms
 * Bowtie filters, flattening filters, ant-scatter grid models
-* HVL calculation.
-* Python library and Graphical User Interface.
-* Export to xlsx files (Excel Spreadsheet).
-* Python API.
-
-## Usage example
-### GUI
-![alt tag](https://raw.github.com/dih5/xpecgen/master/img/DemoPar.png)
-![alt tag](https://raw.github.com/dih5/xpecgen/master/img/DemoPlot.png)
-### Python interpreter
-![alt tag](https://raw.github.com/dih5/xpecgen/master/img/DemoConsole.png)
+* Python library and Graphical User Interface
 
 ## Installation
 
