@@ -1358,8 +1358,11 @@ class Catphan_515(Phantom2):
 
 class Catphan_404(Phantom2):
 
-    def __init__(self,pitch=0.784): #,det):
-        self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm_mod.npy'))#10cm.npy'))
+    def __init__(self,pitch=0.784,hi_res=True): #,det):
+        if hi_res:
+            self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm_mod.npy'))#10cm.npy'))
+        else:
+            self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))#10cm.npy'))
         # The 10cm is really the 8cm equivalent
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
