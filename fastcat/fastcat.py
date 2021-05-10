@@ -447,7 +447,7 @@ class Phantom2:
             mu_en_water2 = mu_en_water[2:]
             mu_water2 = mu_water[2:]
         
-        spectra.x, spectra.y = spectra.get_points()
+#         spectra.x, spectra.y = spectra.get_points()
         
         # Set the last value to zero so that the linear interpolation doesn't mess up
         spectra.y[-1] = 0
@@ -458,9 +458,9 @@ class Phantom2:
 
         # Binning to get the fluence per energy
         large_energies = np.linspace(0,6000,3001)
-        f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])),kind='linear')
+        f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])),kind='cubic')
         # import ipdb; ipdb.set_trace()
-        f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0),kind='linear')
+        f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0),kind='cubic')
         f_e = interpolate.interp1d(np.insert(original_energies_keV,0,0),
                                           np.insert((deposition[0]),0,0),kind='cubic')
 
@@ -508,7 +508,6 @@ class Phantom2:
         else:
             scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
             dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
-
             def func(x, a, b):
                 return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
 
@@ -543,6 +542,7 @@ class Phantom2:
 
         def interpolate_pixel(series):
             # The scatter is 512 with 0.78 mm pixels
+            print('Interpolating from 512 scatter')
             no = 0.784
             npt = 512
             np2 = self.geomet.nDetector[1]
@@ -593,10 +593,10 @@ class Phantom2:
         print('Running Simulations')
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
-            if weights_xray_small[jj] == 0:
-#                 print('pass')
-                doses.append(0)
-                continue
+#             if weights_xray_small[jj] == 0:
+# #                 print('pass')
+#                 doses.append(0)
+#                 continue
 
             print('    Simulating', energy, 'keV')
             
@@ -654,7 +654,7 @@ class Phantom2:
             
         self.weights_small = weights_energies
         self.weights_small2 = weights_xray
-        self.weights_small3 = weights_xray_small
+        self.weights_small3 = weights_energies[jj]/weights_xray_small[jj]
         self.mc_scatter = mc_scatter
         
         print('Weighting simulations')
@@ -692,7 +692,8 @@ class Phantom2:
         # Now I interpolate deposition and get the average photons reaching the detector
         deposition_long = np.interp(spectra.x,original_energies_keV,deposition[0]/(original_energies_keV/1000)/1000000)
         nphotons_at_energy = fluence_norm*deposition_long
-
+        
+        self.nphotons_at = deposition_long
         nphotons_av = np.sum(nphotons_at_energy)
 
 #         print('ratio is', ratio,'number of photons', nphotons_av)
@@ -707,10 +708,11 @@ class Phantom2:
         # ----------------------------------------------
         # ----------- Add Noise ------------------------ # Delete? -Emily
         # ----------------------------------------------
-
+        
         if ratio is not None:
 
             adjusted_ratio = ratio*nphotons_av
+            print(adjusted_ratio)
             # This is a moderately iffy approximation, but probably not too bad except in the large and small limit cases
             intensity = (intensity*adjusted_ratio + noise*(adjusted_ratio**(1/2)))/adjusted_ratio
             # Why did I do this again? 2021
@@ -1362,7 +1364,8 @@ class Catphan_404(Phantom2):
         if hi_res:
             self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm_mod.npy'))#10cm.npy'))
         else:
-            self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm.npy'))#10cm.npy'))
+            self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_8cm.npy'))#10cm.npy'))
+            print('Phantom is low resolution')
         # The 10cm is really the 8cm equivalent
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
