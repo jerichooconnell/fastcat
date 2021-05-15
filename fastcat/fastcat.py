@@ -22,11 +22,11 @@ from matplotlib.colors import LogNorm
 import astropy.stats as stats
 
 import tigre
-try:
-    import astra
-except ImportError as error:
-    # Output expected ImportErrors.
-    print(error.__class__.__name__ + ": " + error.message)
+# try:
+#     import astra
+# except ImportError as error:
+#     # Output expected ImportErrors.
+#     print(error.__class__.__name__ + ": " + error.message)
 
 import tigre.algorithms as algs
 from scipy.signal import fftconvolve, find_peaks, butter, filtfilt, convolve
