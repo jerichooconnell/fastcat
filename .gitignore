@@ -1,5 +1,5 @@
 # Large files for now
-*.npy
+ct_*.npy
 tests/*.npy
 *.mp4
 

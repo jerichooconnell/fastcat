@@ -11,6 +11,8 @@ import os
 from glob import glob
 import warnings
 import csv
+import logging
+import sys
 
 import numpy as np
 from scipy import interpolate, integrate, optimize
@@ -33,6 +35,22 @@ from scipy.ndimage import gaussian_filter
 from numpy import cos, sin
 from builtins import map
 
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(
+    stream=sys.stdout, 
+    format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
+    level=logging.DEBUG
+)
+# root = logging.getLogger()
+# root.setLevel(logging.DEBUG)
+
+# handler = logging.StreamHandler(sys.stdout)
+# handler.setLevel(logging.DEBUG)
+# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+# handler.setFormatter(formatter)
+# root.addHandler(handler)
+
 try:
     import matplotlib.pyplot as plt
 
@@ -42,8 +60,8 @@ except ImportError:
     warnings.warn("Unable to import matplotlib. Plotting will be disabled.")
     plot_available = False
 
-__author__ = 'Dih5'
-__version__ = "1.3.0"
+__author__ = 'JOConnell'
+__version__ = "0.0.1"
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -210,7 +228,7 @@ class IndexTracker(object):
         self.update()
 
     def onscroll(self, event):
-        #print("%s %s" % (event.button, event.step))
+        #logging.info("%s %s" % (event.button, event.step))
         if event.button == 'up':
             self.ind = (self.ind + 1) % self.slices
         else:
@@ -235,7 +253,7 @@ class IndexTracker2(object):
         self.update()
 
     def onscroll(self, event):
-        #print("%s %s" % (event.button, event.step))
+        #logging.info("%s %s" % (event.button, event.step))
         if event.button == 'up':
             self.ind = (self.ind + 1) % self.slices
         else:
@@ -287,7 +305,7 @@ class Kernel:
         super_kernel = np.zeros([len(fluence),kernels.shape[1],kernels.shape[2]])
 
 
-        print(kernels.shape,len(deposition_summed))
+#         logging.info(f'{kernels.shape} ,{len(deposition_summed)}')
         for ii in range(kernels.shape[1]):
             for jj in range(kernels.shape[2]):
                 
@@ -302,6 +320,7 @@ class Kernel:
 
         self.kernels = kernels
         self.kernel = super_kernel.T@self.weights
+        self.kernel_show = self.kernel.copy()
         self.pitch = int(detector[-14:-11])/1000  #mm
 
     def get_plot(self, place, show_mesh=True, prepare_format=True):
@@ -319,7 +338,7 @@ class Kernel:
             place.tick_params(axis='both', which='major', labelsize=10)
             place.tick_params(axis='both', which='minor', labelsize=8)
 
-        place.imshow(self.kernel, cmap=cm.jet, norm=LogNorm())
+        place.imshow(self.kernel_show, cmap=cm.jet, norm=LogNorm())
         # place.colorbar()
         place.set_title('Optical Spread Function')
         place.set_xlabel('X [pix]')
@@ -327,12 +346,13 @@ class Kernel:
 #         place.colorbar()
 
     def get_plot_mtf_real(self, place, show_mesh=True, prepare_format=True,label=''):
-
-        h,w = 1024*4*2,1024 #Wouldn't change tbh for building lsf # used to be 4
-        step = 16*2*2 #Wouldn't change tbh for building lsf
+        
+        h,w = 1024*4,2*1024 #Wouldn't change tbh for building lsf # used to be 4
+        step = 16*2 #Wouldn't change tbh for building lsf
         pitch = self.pitch #mm 
         angle = 2.3 #deg
         lsf_width = 0.3 #mm Wouldn't change tbh
+        nbins = 818
 
         # --- Make a high res line ---
 
@@ -349,7 +369,7 @@ class Kernel:
                             for ii in range(0,h,step)] for jj in range(0,w,step)]).T
 
         # --- Convlolve with the kernel ---
-        lsf_image = fftconvolve(low_res,self.kernel/np.sum(self.kernel),mode='same')
+        lsf_image = fftconvolve(low_res,self.kernel_show/np.sum(self.kernel_show),mode='same')
 
         # --- Pad and presample ---
         pad_len = int((512 - lsf_image.shape[1])/2)
@@ -363,7 +383,7 @@ class Kernel:
         inds = np.argsort(dist_from_line[10:-10,:].flatten())
         line = dist_from_line[10:-10,:].flatten()[inds]
         lsf = lsf_image[10:-10,:].flatten()[inds]
-        n,bins = np.histogram(line,818,weights=lsf,density=True)
+        n,bins = np.histogram(line,nbins,weights=lsf,density=True)
 
         # if plot_stuff:
         #     plt.figure()
@@ -376,7 +396,10 @@ class Kernel:
         #     plt.savefig('LSF_good')
 
         # --- fft to get mtf ---
-        n,bins = np.histogram(line,818,weights=lsf,density=True)
+#         n,bins = np.histogram(line,818,weights=lsf,density=True)
+        xnew = np.linspace(bins[1:].min(), bins[1:].max(), 5000) 
+        spl = interpolate.make_interp_spline(bins[1:], n/(np.sum(n)), k=3)  # type: BSpline
+        power_smooth = spl(xnew)       
         mtf = np.absolute(np.fft.fft(n))
         mtf_final = np.fft.fftshift(mtf)
         N = len(mtf)
@@ -384,21 +407,28 @@ class Kernel:
         xf = np.linspace(0.0, 1.0/(2.0*T), int((N-1)/2))
         mm = np.argmax(mtf_final)
 
+        if place is not None:
+            place.plot(xf/10,mtf_final[mm+1:]/mtf_final[mm+1],'--',linewidth= 1.1,markersize=2,label=label)
+            place.set_xlim((0,1/(2*pitch)))
+            place.set_xlabel('Spatial Frequency [1/mm]')
+            place.set_ylabel('MTF')
+            place.legend()
+            place.grid(True)
 
-        place.plot(xf/10,mtf_final[mm+1:]/mtf_final[mm+1],'--',linewidth= 1.1,markersize=2,label=label)
-        place.set_xlim((0,1/(2*pitch)))
-        place.set_xlabel('Spatial Frequency [1/mm]')
-        place.set_ylabel('MTF')
-        place.legend()
-        place.grid(True)
-
+        print('I got here')
         self.mtf = mtf_final[mm+1:]/mtf_final[mm+1]
         self.freq = xf/10
 
-    def add_focal_spot(self,fs_size_in_pix):
-
-        self.kernel = gaussian_filter(self.kernel,sigma=fs_size_in_pix)
-
+    def add_focal_spot(self,fs_size_in_mm):
+        
+        self.fs_size = fs_size_in_mm/self.pitch
+        
+        if self.kernel.shape[0] < 30:
+            self.kernel_show = gaussian_filter(np.pad(self.kernel,((15,15),(15,15))),sigma=self.fs_size)
+        else:
+            self.kernel_show = gaussian_filter(self.kernel,sigma=self.fs_size)
+#         self.kernel = gaussian_filter(self.kernel,sigma=fs_size_in_pix)
+                                               
 class Phantom2:
 
     def __init__(self):
@@ -416,13 +446,22 @@ class Phantom2:
                 det_on = False
             if kwargs['test'] == 2:
                 return_intensity = True
-        
+                
+        if 'verbose' in kwargs.keys():
+            if kwargs['verbose'] == 0:
+                level = logging.WARNING
+                logger = logging.getLogger()
+                logger.setLevel(level)
+                for handler in logger.handlers:
+                    handler.setLevel(level)
+#                 logging.getLogger().setLevel(logging.WARNING)
+
         bowtie_on = False
-        
+
         if 'bowtie' in kwargs.keys():
             if kwargs['bowtie'] == True:
                 bowtie_on = True
-                print('Initializing filter',kwargs['filter'])
+                logging.info(f'Initializing filter {kwargs["filter"]}')
                 
         self.tigre_works = tigre_works
         self.angles = angles
@@ -442,7 +481,7 @@ class Phantom2:
             mu_en_water2 = mu_en_water
             mu_water2 = mu_water
         else:
-            print('This is a small edep file starting at 30')
+            logging.info('This is a small edep file starting at 30')
             original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
             mu_en_water2 = mu_en_water[2:]
             mu_water2 = mu_water[2:]
@@ -458,11 +497,11 @@ class Phantom2:
 
         # Binning to get the fluence per energy
         large_energies = np.linspace(0,6000,3001)
-        f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])),kind='cubic')
+        f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])))
         # import ipdb; ipdb.set_trace()
-        f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0),kind='cubic')
+        f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0))
         f_e = interpolate.interp1d(np.insert(original_energies_keV,0,0),
-                                          np.insert((deposition[0]),0,0),kind='cubic')
+                                          np.insert((deposition[0]),0,0))
 
         weights_xray_small = np.zeros(len(original_energies_keV))
         weights_energies = np.zeros(len(original_energies_keV))
@@ -488,7 +527,7 @@ class Phantom2:
         # Normalize
         if det_on:
             weights_xray_small = weights_xray_small 
-#             print('really doing it!') 
+#             logging.info('really doing it!') 
         # Normalize
         
         fluence_small /= np.sum(fluence_small)                                                    
@@ -504,7 +543,7 @@ class Phantom2:
         if bowtie_on and kwargs['filter'][:3] == 'bow':
             mc_scatter = np.load(os.path.join(data_path,'scatter','scatter_bowtie.npy'))
             dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
-            print('   Scatter is filtered by bowtie')
+            logging.info('   Scatter is filtered by bowtie')
         else:
             scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
             dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512) # TODO: fix this gore!!
@@ -522,8 +561,8 @@ class Phantom2:
             
         if ASG:
             # Modify the primary
-            print('Initializing ASG')
-            flood_summed = factor*660*0.72#0.76 # This is the 0.85 efficiency for the ASG
+            logging.info('Initializing ASG')
+            flood_summed = factor*660*0.72 #0.76 # This is the 0.85 efficiency for the ASG
             
             lead = get_mu(82)
             for jj in range(mc_scatter.shape[1]):
@@ -537,12 +576,14 @@ class Phantom2:
         
         if bowtie_on:
         
-            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))#**(2)*3
+            bowtie_coef = np.load(os.path.join(data_path,'filters',kwargs['filter']+'.npy'))#**1.1#**(2)*3
             flood_summed = (bowtie_coef.T)*flood_summed.squeeze()
-
+        
+        self.flood_summed = flood_summed
+        
         def interpolate_pixel(series):
             # The scatter is 512 with 0.78 mm pixels
-            print('Interpolating from 512 scatter')
+            logging.info(f'    Interpolating scatter from 512 to {self.geomet.nDetector[1]} pixels')
             no = 0.784
             npt = 512
             np2 = self.geomet.nDetector[1]
@@ -587,18 +628,18 @@ class Phantom2:
         load_proj = False
 
         if load_proj:
-            print('Loading projections is on')
+            logging.info('Loading projections is on')
             projections = np.load(os.path.join(data_path,'raw_proj','projections.npy'))
         
-        print('Running Simulations')
+        logging.info('Running Simulations')
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
-#             if weights_xray_small[jj] == 0:
-# #                 print('pass')
-#                 doses.append(0)
-#                 continue
+            if weights_xray_small[jj] == 0:
+#                 logging.info('pass')
+                doses.append(0)
+                continue
 
-            print('    Simulating', energy, 'keV')
+            logging.info(f'    Simulating {energy} keV')
             
             for ii in range(0,len(self.phan_map)-1):
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
@@ -618,7 +659,7 @@ class Phantom2:
                 # The bowtie is used to modify the dose absorbed by the filter
                 doses.append(np.mean((energy)*(-np.exp(-(projection*.997)/10) + bowtie_coef[:,jj])*mu_en_water2[jj]/mu_water2[jj]))
             else:
-#             print('bowtie off')
+#             logging.info('bowtie off')
                 doses.append(np.mean((energy)*(1-np.exp(-(projection*.997)/10))*mu_en_water2[jj]/mu_water2[jj]))
             # Get the scale of the noise
             if bowtie_on:
@@ -637,27 +678,40 @@ class Phantom2:
                     
             (bx, by) = self.geomet.nDetector
             
-            bx //= 16 # These are the boundaries for the convolution
-            by //= 16 # This avoids some artifacts that creep in from
+            bx //= 1 #16 # These are the boundaries for the convolution
+            by //= 1 #16 # This avoids some artifacts that creep in from
             # bounday effects
             
             if det_on and convolve_on:
                 for ii in range(len(self.angles)):
-
-                    int_temp[ii,bx:-bx,by:-by] = fftconvolve(int_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
-                    noise_temp[ii,bx:-bx,by:-by] = fftconvolve(noise_temp[ii,:,:],kernel.kernels[jj+1], mode = 'same')[bx:-bx,by:-by]
+                    
+                    if kernel.fs_size is not None:
+                        
+                        # foical spot with geometrical factor
+                        fs_real = kernel.fs_size * self.geomet.DSO/self.geomet.DSD
+                        if ii == 10:
+                            logging.info(f'   {kernel.fs_size} focal spot added')
+                        mod_filter = gaussian_filter(np.pad(kernel.kernels[jj+1],((10,10),(10,10))),fs_real)
+                    else:
+                        mod_filter = kernel.kernels[jj+1]
+#                     int_temp[ii,:,:] = gaussian_filter(int_temp[ii,:,:],5)
+#                     noise_temp[ii,:,:] = gaussian_filter(noise_temp[ii,:,:],5)
+                        
+                    kernel.kernels[jj+1] 
+                    int_temp[ii,bx:-bx,by:-by] = fftconvolve(int_temp[ii,:,:],mod_filter, mode = 'same')[bx:-bx,by:-by]
+                    noise_temp[ii,bx:-bx,by:-by] = fftconvolve(noise_temp[ii,:,:],kernel.kernel[jj+1], mode = 'same')[bx:-bx,by:-by]
                     
             intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
             
-#             print(int_temp[0,32,256])
+#             logging.info(int_temp[0,32,256])
             
         self.weights_small = weights_energies
-        self.weights_small2 = weights_xray
+        self.weights_small2 = weights_xray_small
         self.weights_small3 = weights_energies[jj]/weights_xray_small[jj]
         self.mc_scatter = mc_scatter
         
-        print('Weighting simulations')
+        logging.info('Weighting simulations')
         if det_on == False:
             return intensity 
         
@@ -696,7 +750,7 @@ class Phantom2:
         self.nphotons_at = deposition_long
         nphotons_av = np.sum(nphotons_at_energy)
 
-#         print('ratio is', ratio,'number of photons', nphotons_av)
+#         logging.info('ratio is', ratio,'number of photons', nphotons_av)
 
         # import ipdb; ipdb.set_trace()
         if return_dose:
@@ -712,10 +766,12 @@ class Phantom2:
         if ratio is not None:
 
             adjusted_ratio = ratio*nphotons_av
-            print(adjusted_ratio)
+            logging.info(f'    Added noise {adjusted_ratio} times ref')
             # This is a moderately iffy approximation, but probably not too bad except in the large and small limit cases
             intensity = (intensity*adjusted_ratio + noise*(adjusted_ratio**(1/2)))/adjusted_ratio
             # Why did I do this again? 2021
+        else:
+            logging.info('    No noise was added')
         
         if return_intensity:
             return intensity
@@ -731,7 +787,7 @@ class Phantom2:
             try:
                 return np.squeeze(tigre.Ax(phantom2,self.geomet,self.angles))
             except Exception:
-                print("WARNING: Tigre GPU not working. Switching to Astra CPU")
+                logging.info("WARNING: Tigre GPU not working. Switching to Astra CPU")
 
                 sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,self.angles,tile=True)
                 self.tigre_works = False
@@ -764,14 +820,14 @@ class Phantom2:
             try:
                 self.img = tigre.algorithms.FDK(self.proj, self.geomet, self.angles,filter=filt)
             except Exception:
-                print('WARNING: Tigre failed during recon using Astra')
+                logging.info('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
 
         if algo == 'CGLS':
             try:
                 self.img = tigre.algorithms.cgls(self.proj.astype(np.float32), self.geomet, self.angles,niter=20)
             except Exception:
-                print('WARNING: Tigre failed during recon using Astra')
+                logging.info('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
 
     def plot_projs(self,fig):
@@ -892,7 +948,7 @@ class Phantom:
                     try:
                         proj.append(np.squeeze(tigre.Ax(phantom2,self.geomet,angles)))
                     except Exception:
-                        print("WARNING: Tigre GPU not working. Switching to Astra CPU")
+                        logging.info("WARNING: Tigre GPU not working. Switching to Astra CPU")
 
                         sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,tile=True)
                         proj.append(sinogram.transpose([1,0,2]))
@@ -973,7 +1029,7 @@ class Phantom:
         nphotons_at_energy = fluence_norm*deposition_long
         nphotons_av = np.sum(nphotons_at_energy)
 
-        print('The ratio compared to the mc', ratio,' number of photons', nphotons_av)
+        logging.info(f'The ratio compared to the mc {ratio} number of photons {nphotons_av}')
 
         if return_dose:
             return np.mean(np.mean(self.raw_doses,1),1), spectra.y
@@ -1039,7 +1095,6 @@ class Phantom:
             for ii in range(len(angles)):
                 for jj in range(len(original_energies_keV)):
 
-                    kernel.kernels[jj+1] /= np.sum(kernel.kernels[jj+1])
 
                     filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
 
@@ -1068,14 +1123,14 @@ class Phantom:
             try:
                 self.img = tigre.algorithms.FDK(self.proj, self.geomet, self.angles,filter=filt)
             except Exception:
-                print('WARNING: Tigre failed during recon using Astra')
+                logging.info('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
 
         if algo == 'CGLS':
             try:
                 self.img = tigre.algorithms.cgls(self.proj.astype(np.float32), self.geomet, self.angles,niter=20)
             except Exception:
-                print('WARNING: Tigre failed during recon using Astra')
+                logging.info('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
 
     def astra_recon(self,projs,algo ='CGLS',niter=10):
@@ -1365,7 +1420,7 @@ class Catphan_404(Phantom2):
             self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_10cm_mod.npy'))#10cm.npy'))
         else:
             self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_8cm.npy'))#10cm.npy'))
-            print('Phantom is low resolution')
+            logging.info('Phantom is low resolution')
         # The 10cm is really the 8cm equivalent
         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
@@ -1767,6 +1822,7 @@ class Catphan_projections(Phantom2):
               /np.sqrt(np.std(slc[250:260,250:260])**2 + np.std(slc[310:320,250:260])**2))
 
         return CNR
+    
 class XCAT(Phantom2):
 
     def __init__(self):
@@ -2221,14 +2277,14 @@ class XCAT2(Phantom2):
             try:
                 self.img = tigre.algorithms.FDK(self.proj, self.geomet, self.angles,filter=filt)
             except Exception:
-                print('WARNING: Tigre failed during recon using Astra')
+                logging.info('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
 
         if algo == 'CGLS':
             try:
                 self.img = tigre.algorithms.cgls(self.proj.astype(np.float32), self.geomet, self.angles,niter=20)
             except Exception:
-                print('WARNING: Tigre failed during recon using Astra')
+                logging.info('WARNING: Tigre failed during recon using Astra')
                 self.img = self.astra_recon(self.proj.transpose([1,0,2]))
 
 
@@ -2363,7 +2419,7 @@ def update_fluence(mv_file,value):
 
     ])*15000000/6.242E9*value #
 
-    print(31/50000000 * fluences_per_ma[target_list_load.index(mv_file)])
+    logging.info(31/50000000 * fluences_per_ma[target_list_load.index(mv_file)])
 
     return 31/50000000 * fluences_per_ma[target_list_load.index(mv_file)]
 
@@ -2449,7 +2505,7 @@ def add_char_radiation(s, method="fraction_above_poly"):
         s.discrete.append([69.067, 0.01410 * fraction_above * norm, 1])
     else:
         if method != "fraction_above_poly":
-            print(
+            logging.info(
                 "WARNING: Unknown char radiation calculation method. Using fraction_above_poly")
         s.discrete.append([58.65, (0.1912 * fraction_above - 0.00615 *
                                    fraction_above ** 2 - 0.1279 * fraction_above ** 3) * norm, 1])
@@ -2600,12 +2656,12 @@ def cli():
 
     if args.output is not None:
         if "." not in args.output:
-            print("Output file format unknown", file=sys.stderr)
+            logging.info("Output file format unknown")# , file=sys.stderr)
             exit(-1)
         else:
             ext = args.output.split(".")[-1].lower()
             if ext not in ["csv", "xlsx", "pkl"]:
-                print("Output file format unknown", file=sys.stderr)
+                logging.info("Output file format unknown")# , file=sys.stderr)
                 exit(-1)
         monitor = console_monitor
     else:
@@ -2639,14 +2695,14 @@ def cli():
         np.save(args.output,phantom.img)
 
     # if args.output is None:
-    #     [print("%.6g, %.6g" % (x, y)) for x, y in zip(x2, y2)]
+    #     [logging.info("%.6g, %.6g" % (x, y)) for x, y in zip(x2, y2)]
     # elif ext == "csv":
     #     s.export_csv(args.output)
     # elif ext == "xlsx":
     #     s.export_xlsx(args.output)
     # elif ext == "pkl":
     #     import pickle
-    #     print(args.overwrite)
+    #     logging.info(args.overwrite)
     #     if args.overwrite:
     #         mode = "wb"
     #     else:
