@@ -1176,7 +1176,7 @@ class Catphan_515(Phantom2):
 
     def __init__(self): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy')) #'catphan_low_contrast_512_8cm.npy')) # Paper 2 uses the 8cm btw
-        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.DSD = 1520 #1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
         self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
@@ -1422,7 +1422,7 @@ class Catphan_404(Phantom2):
             self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_8cm.npy'))#10cm.npy'))
             logging.info('Phantom is low resolution')
         # The 10cm is really the 8cm equivalent
-        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
         self.geomet.DSD = 1500 #1520 JO dec 2020 1500 + 20 for det casing
         self.geomet.nDetector = np.array([64,512])
@@ -1696,7 +1696,7 @@ class Catphan_MTF(Phantom2):
 
     def __init__(self):
         self.phantom = np.load(os.path.join(data_path,'phantoms','MTF_phantom_1024.npy'))
-        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([64,512])
         self.geomet.dDetector = np.array([0.784, 0.784])
         self.phan_map = ['air','water',"G4_BONE_COMPACT_ICRU"] 
@@ -1801,7 +1801,7 @@ class Catphan_projections(Phantom2):
 
     def __init__(self):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_projection_512_10cm.npy')).T
-        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([512,512])
         self.geomet.dDetector = np.array([0.784, 0.784])
         self.phan_map = ['air','water','CB2-30','adipose','water','water','G4_LUNG_ICRP','tissue4','testis','brain','tissue','tissue4','testis','brain',
@@ -1827,7 +1827,7 @@ class XCAT(Phantom2):
 
     def __init__(self):
         self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_smaller.npy'))
-        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([512,512])
         self.geomet.dDetector = np.array([0.784, 0.784])
         self.phan_map = ['air','lung','adipose','adipose','water','water','G4_LUNG_ICRP','tissue4','testis','brain','tissue','tissue4','testis','brain',
@@ -2242,7 +2242,7 @@ class XCAT2(Phantom2):
             self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_head_small.npy'))
         else:
             self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_smaller.npy'))
-        self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([124,512])
         self.geomet.dDetector = np.array([0.784, 0.784])
 
