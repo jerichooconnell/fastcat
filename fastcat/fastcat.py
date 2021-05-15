@@ -16,7 +16,7 @@ import sys
 
 import numpy as np
 from scipy import interpolate, integrate, optimize
-import xlsxwriter
+# import xlsxwriter
 from matplotlib import cm
 from matplotlib.colors import LogNorm
 import astropy.stats as stats
