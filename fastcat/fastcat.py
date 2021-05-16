@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-"""xpecgen.py: A module to calculate x-ray spectra generated in tungsten anodes."""
+"""
+Fastcat a rapid and accurate CBCT simulator.
+
+Contains code from xpecgen.py to simulate spectra: A module to calculate x-ray spectra generated in tungsten anodes.
+"""
 
 from __future__ import print_function
 
@@ -16,17 +20,11 @@ import sys
 
 import numpy as np
 from scipy import interpolate, integrate, optimize
-# import xlsxwriter
 from matplotlib import cm
 from matplotlib.colors import LogNorm
 import astropy.stats as stats
 
 import tigre
-# try:
-#     import astra
-# except ImportError as error:
-#     # Output expected ImportErrors.
-#     print(error.__class__.__name__ + ": " + error.message)
 
 import tigre.algorithms as algs
 from scipy.signal import fftconvolve, find_peaks, butter, filtfilt, convolve
@@ -35,21 +33,12 @@ from scipy.ndimage import gaussian_filter
 from numpy import cos, sin
 from builtins import map
 
-# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logging.basicConfig(
     stream=sys.stdout, 
     format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
-    level=logging.DEBUG
-)
-# root = logging.getLogger()
-# root.setLevel(logging.DEBUG)
+    level=logging.DEBUG)
 
-# handler = logging.StreamHandler(sys.stdout)
-# handler.setLevel(logging.DEBUG)
-# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-# handler.setFormatter(formatter)
-# root.addHandler(handler)
 
 try:
     import matplotlib.pyplot as plt
@@ -60,7 +49,7 @@ except ImportError:
     warnings.warn("Unable to import matplotlib. Plotting will be disabled.")
     plot_available = False
 
-__author__ = 'JOConnell'
+__author__ = "Jericho OConnell"
 __version__ = "0.0.1"
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -71,12 +60,9 @@ mu_en_water = np.array([4.944, 0.5503, 0.1557  , 0.06947 , 0.04223 , 0.0319  , 0
 mu_water = np.array([5.329, 0.8096, 0.3756  , 0.2683  , 0.2269  , 0.2059  , 0.19289 , 0.1837  ,
     0.176564, 0.1707  , 0.1186  , 0.09687 , 0.083614, 0.074411,
     0.07072 , 0.04942 , 0.03403 , 0.0277  ])
-mu_woutcoherent_water = np.array([3.286E-01  , 2.395E-01   , 2.076E-01 , 1.920E-01  , 1.824E-01 , 1.755E-01  ,
-    1.700E-01, 1.654E-01 , 1.180E-01 , 9.665E-02 , 8.351E-02, 7.434E-02,
-    7.066E-02 , 4.940E-02 , 0.03402 , 0.0277  ])
+
 
 # --------------------General purpose functions-------------------------#
-
 
 def log_interp_1d(xx, yy, kind='linear'):
     """
@@ -109,7 +95,11 @@ def _infunc(x, func, c, d, more_args, epsrel):
     return integrate.quad(func, c, d, args=myargs, epsrel=epsrel, limit=2000)[0]
 
 def tigre2astra(phantom,geomet,angles,tile=False,init=False):
-
+    '''
+    This is a legacy function in an attempt to facilitate astra that I gave up on
+    
+    Converts a tigre geometry into an astra geometry
+    '''
     tigre_shape = geomet.nVoxel
     
     # Create a geometry object
@@ -193,29 +183,12 @@ def triangle(x, loc=0, size=0.5, area=1):
     # return 0 if t>1 else (1-t)*abs(area/size)
     return 0 if abs((x - loc) / size) > 1 else (1 - abs((x - loc) / size)) * abs(area / size)
 
-# def get_noise(length):
-
-#     if length == 512:
-
-#         primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
-#         noise = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
-#         primary_512 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
-#         primary = np.tile(primary_512,[1,1,2,1])
-
-#         return primary, noise
-#     elif length == 1024:
-#         primary_large = np.load('/home/xcite/xpecgen/tests/primary_kernel_int_larger.npy')
-#         noise_512 = np.load('/home/xcite/xpecgen/tests/noise_projections.npy')
-#         primary_256 = (primary_large[:,::2,:,:] + primary_large[:,1::2,:,:])/2
-#         primary_512 = np.tile(primary_256,[1,1,2,1])
-
-#         x = np.linspace(0,512,512,endpoint=False)
-#         xp = np.linspace(0,512,1024,endpoint=False)
-
-#         return np.interp(x,xp,primary_512),np.interp(x,xp,noise_512)
-
 # --------------------Spectrum model functionality----------------------#
 class IndexTracker(object):
+    '''
+    Shameless steal from matplotlib documentation
+    Enables a plot that uses scrolling from cursor
+    '''    
     def __init__(self, ax, X):
         self.ax = ax
         ax.set_title('Geometry Viewer')
@@ -265,10 +238,34 @@ class IndexTracker2(object):
         self.ax.set_ylabel('Projection %s' % self.ind)
         self.im.axes.figure.canvas.draw()
 
-class Kernel:
-
+class Detector:
+    '''
+    Detector class that holds the optical properties of a detector
+    
+    '''
     def __init__(self,spectrum,detector,Verbose = False):
-
+        '''
+        The spectrum is used to calculate the MTF for the detector
+        
+        Input
+        -----
+        
+        spectrum: Fastcat Spectrum Object
+            An energy spectrum of a beam for which the MTF is
+            calculated.
+        detector: String
+            The name of the detector. One of the detector folders
+            in data/Detectors. ex. 'CSI-784-micrometer' numbers are
+            the pixel pitch
+        Verbose: Bool
+            Handles the output of the function. True prints stuff
+            about the detector.
+            
+        Returns
+        -------
+        Fastcat Detector object
+        '''
+        
         dump_files = os.path.join(
             data_path, "Detectors", detector, '*phsp.npy')
         self.deposition_efficiency_file = os.path.join(
@@ -305,7 +302,6 @@ class Kernel:
         super_kernel = np.zeros([len(fluence),kernels.shape[1],kernels.shape[2]])
 
 
-#         logging.info(f'{kernels.shape} ,{len(deposition_summed)}')
         for ii in range(kernels.shape[1]):
             for jj in range(kernels.shape[2]):
                 
@@ -346,6 +342,18 @@ class Kernel:
 #         place.colorbar()
 
     def get_plot_mtf_real(self, place, show_mesh=True, prepare_format=True,label=''):
+        
+        """
+        Prepare a plot of the data in the given place of the MTF
+        Also performs the MTF calulation
+
+        Args:
+            place: The class whose method plot is called to produce the plot (e.g., matplotlib.pyplot).
+            show_mesh (bool): Whether to plot the points over the continuous line as circles.
+            prepare_format (bool): Whether to include ticks and labels in the plot.
+            peak_shape: The window function used to plot the peaks. See :obj:`triangle` for an example.
+
+        """
         
         h,w = 1024*4,2*1024 #Wouldn't change tbh for building lsf # used to be 4
         step = 16*2 #Wouldn't change tbh for building lsf
@@ -420,16 +428,23 @@ class Kernel:
         self.freq = xf/10
 
     def add_focal_spot(self,fs_size_in_mm):
+        '''
+        The most basic focal spot one can think of. Do better, do better, got it.
         
+        Input
+        -----
+        fs_size_in_pix: float
+            The number of pixels the focal spot size is
+        
+        '''
         self.fs_size = fs_size_in_mm/self.pitch
         
         if self.kernel.shape[0] < 30:
             self.kernel_show = gaussian_filter(np.pad(self.kernel,((15,15),(15,15))),sigma=self.fs_size)
         else:
             self.kernel_show = gaussian_filter(self.kernel,sigma=self.fs_size)
-#         self.kernel = gaussian_filter(self.kernel,sigma=fs_size_in_pix)
                                                
-class Phantom2:
+class Phantom:
 
     def __init__(self):
         pass
@@ -437,8 +452,69 @@ class Phantom2:
     def return_projs(self,kernel,spectra,angles,nphoton = None,
                     mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True,convolve_on=True,ASG=False,**kwargs):
         '''
-        The main function for returning the projections
+        The main simulation, a call to return generates the
+        projection from a detector, phantom, spectrum, and angles
+        projections are stored in the phantom object
+        
+        Input
+        -----
+        detector: Fastcat detector object
+            Determines the energy efficiency and optical spread of the simulation
+        spectra: Fastcat spectra object
+            Energy spectra that is used in the simulation
+        angles: 1d np.array or list
+            The angles to return projections for in radians
+        nphoton: float
+            Option to specify the number of photons used in the simulation, will modify
+            the noise. Defaults to None which means no noise.
+        mgy: float
+            Option to specify the dose to each projection in mgy, will modify the noise.
+            Defaults to 0.0 which will give no noise.
+            
+        Returns
+        -------
+        Projections are stored at phantom.projs
+        
+        Keyword Arguments
+        -----------------
+            return_dose: Bool
+                This is an option mostly for tests. Returns some partial dose calculations.
+            det_on: Bool
+                This is an option to turn the detector off which will give perfect energy
+                absorption. Default True (on)
+            scat_on: Bool
+                This is an option to remove scatter from the simulation. Default True (on)
+            convolve_on: Bool
+                Option to give a perfect response for the detector where spatial resolution
+                is not degraded by optical spread. Default True (on)
+            ASG: Bool
+                Option to include an anti scatter grid. The anti scatter grid has a primary
+                transmission factor of 0.72 and a scatter transmission factor of 0.32. 
+                Default False (off)
+            filter: string
+                String which specifies one of the filters in data/filters/ these filter 
+                the beam before it hits the phantom.
+        
+        Example (MV CBCT)
+        -------
+        
+        import fastcat.fastcat as fc
+        import numpy as np
+        import matplotlib.pyplot as plt
+        
+        s = fc.Spectrum()
+        s.load('W_spectrum_6') # 6 MV Tungsten
+        det = fc.Detector(s,'CuGOS-784-micrometer')
+        
+        angles = np.linspace(0,2*pi,90,endpoint=False)
+        phantom = fc.Catphan_404()
+        phantom.return_projs(det,s,angles,mgy=0.4)
+        phantom.recon('FDK')
+        
+        plt.figure() # Show one of the reconstructed images
+        plt.imshow(phantom.img[5])
         '''
+        
         return_intensity = False
 
         if 'test' in kwargs.keys():
@@ -454,7 +530,6 @@ class Phantom2:
                 logger.setLevel(level)
                 for handler in logger.handlers:
                     handler.setLevel(level)
-#                 logging.getLogger().setLevel(logging.WARNING)
 
         bowtie_on = False
 
@@ -473,8 +548,6 @@ class Phantom2:
         # These are what I used in the Monte Carlo
         deposition = np.load(kernel.deposition_efficiency_file,allow_pickle=True)
 
-        # deposition[0][1:] = deposition[0][:-1]
-        
         # csi has two extra kv energies
         if len(deposition[0]) == 18:
             original_energies_keV = np.array([10,20,30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
@@ -498,7 +571,6 @@ class Phantom2:
         # Binning to get the fluence per energy
         large_energies = np.linspace(0,6000,3001)
         f_flu = interpolate.interp1d(np.insert(spectra.x,(0,-1),(0,6000)), np.insert(spectra.y,(0,-1),(0,spectra.y[-1])))
-        # import ipdb; ipdb.set_trace()
         f_dep = interpolate.interp1d(np.insert(original_energies_keV,0,0), np.insert(deposition_summed,0,0))
         f_e = interpolate.interp1d(np.insert(original_energies_keV,0,0),
                                           np.insert((deposition[0]),0,0))
@@ -516,7 +588,6 @@ class Phantom2:
 
         fluence_large = f_flu(large_energies)
         
-#         import ipdb;ipdb.set_trace()
         # Still binning
         for ii, val in enumerate(large_energies):   
             index = np.argmin(np.abs(original_energies_keV-val))
@@ -527,8 +598,6 @@ class Phantom2:
         # Normalize
         if det_on:
             weights_xray_small = weights_xray_small 
-#             logging.info('really doing it!') 
-        # Normalize
         
         fluence_small /= np.sum(fluence_small)                                                    
         weights_xray_small /= np.sum(weights_xray_small)
@@ -562,7 +631,7 @@ class Phantom2:
         if ASG:
             # Modify the primary
             logging.info('Initializing ASG')
-            flood_summed = factor*660*0.72 #0.76 # This is the 0.85 efficiency for the ASG
+            flood_summed = factor*660*0.72 # This is the 0.85 efficiency for the ASG
             
             lead = get_mu(82)
             for jj in range(mc_scatter.shape[1]):
@@ -582,6 +651,7 @@ class Phantom2:
         self.flood_summed = flood_summed
         
         def interpolate_pixel(series):
+            
             # The scatter is 512 with 0.78 mm pixels
             logging.info(f'    Interpolating scatter from 512 to {self.geomet.nDetector[1]} pixels')
             no = 0.784
@@ -635,7 +705,6 @@ class Phantom2:
         for jj, energy in enumerate(original_energies_keV):
             # Change the phantom values
             if weights_xray_small[jj] == 0:
-#                 logging.info('pass')
                 doses.append(0)
                 continue
 
@@ -643,9 +712,6 @@ class Phantom2:
             
             for ii in range(0,len(self.phan_map)-1):
                 phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-            
-#             if bowtie_on:
-#                 bowtie = np.load(os.path.join(data_path,'filters',kwargs['filter'] + '_lengths.npy')) # The bowtie additional attenuation
             
             if load_proj:
                 projection = projections[jj]
@@ -694,8 +760,6 @@ class Phantom2:
                         mod_filter = gaussian_filter(np.pad(kernel.kernels[jj+1],((10,10),(10,10))),fs_real)
                     else:
                         mod_filter = kernel.kernels[jj+1]
-#                     int_temp[ii,:,:] = gaussian_filter(int_temp[ii,:,:],5)
-#                     noise_temp[ii,:,:] = gaussian_filter(noise_temp[ii,:,:],5)
                         
                     kernel.kernels[jj+1] 
                     int_temp[ii,bx:-bx,by:-by] = fftconvolve(int_temp[ii,:,:],mod_filter, mode = 'same')[bx:-bx,by:-by]
@@ -703,8 +767,6 @@ class Phantom2:
                     
             intensity += int_temp*weights_energies[jj]/weights_xray_small[jj]
             noise += noise_temp*weights_energies[jj]/weights_xray_small[jj]
-            
-#             logging.info(int_temp[0,32,256])
             
         self.weights_small = weights_energies
         self.weights_small2 = weights_xray_small
@@ -729,9 +791,7 @@ class Phantom2:
 
         def get_dose_per_photon(doses,fluence_small):
             # linear fit of the data mod Mar 2021
-#             pp = np.array([0.88759883, 0.01035186])
             pp = np.array([0.87810143, 0.01136471])
-#             pp = np.array([1,0])
             return ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
 
         ratio = None
@@ -750,13 +810,8 @@ class Phantom2:
         self.nphotons_at = deposition_long
         nphotons_av = np.sum(nphotons_at_energy)
 
-#         logging.info('ratio is', ratio,'number of photons', nphotons_av)
-
-        # import ipdb; ipdb.set_trace()
         if return_dose:
-#             pp = np.array([0.88759883, 0.01035186])
             pp = np.array([0.87810143, 0.01136471])
-#             pp = np.array([1,0])
             return np.array(doses), spectra.y,((np.array(doses)/1000)@(fluence_small)), ((np.array(doses)/1000)@(fluence_small))*pp[0] + pp[1]
         
         # ----------------------------------------------
@@ -802,7 +857,6 @@ class Phantom2:
 
                 sin_id = None
 
-                ##??
                 for kk in range(tigre_shape[0]):
 
                     if sin_id is not None:
@@ -859,321 +913,11 @@ class Phantom2:
         plt.axis('equal')
         plt.axis('off')
 
-class Phantom:
-
-    def __init__(self):
-        pass
-
-    def create_circular_mask(x, y, r, index, image, size):
-    
-        h,w = image.shape
         
-        center = [x*int(w/2)/size + int(w/2),y*int(h/2)/size + int(h/2)]
-
-        if center is None: # use the middle of the image
-            center = (int(w/2), int(h/2))
-        if r is None: # use the smallest distance between the center and image walls
-            radius = min(center[0], center[1], w-center[0], h-center[1])
-
-        Y, X = np.ogrid[:h, :w]
-        dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
-
-        mask = dist_from_center <= r*int(w/2)/size
-        
-        
-        image[mask] = index
-
-    def return_projs(self,kernel,spectra,angles,nphoton = None,
-                    mgy = 0.,return_dose=False,det_on=True,scat_on=True,tigre_works = True):
-        '''
-        The main function for returning the projections
-        '''
-
-        # --- Making the phantom maps between G4 attenuation coeffs and ints in phantom ---
-
-        # Don't want to look for zeros
-        useful_phantom = self.phantom != 0
-        # These are what I used in the Monte Carlo
-        deposition = np.load(kernel.deposition_efficiency_file,allow_pickle=True)
-        
-        # csi has two extra kv energies
-        if len(deposition[0]) == 18:
-            original_energies_keV = np.array([10,20,30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-            mu_en_water2 = mu_en_water
-            mu_water2 = mu_water
-        else:
-            original_energies_keV = np.array([30, 40, 50 ,60, 70, 80 ,90 ,100 ,300 ,500 ,700, 900, 1000 ,2000 ,4000 ,6000])
-            mu_en_water2 = mu_en_water[2:]
-            mu_water2 = mu_water[2:]
-        # Loading the file from the monte carlo
-        # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-        deposition_summed = deposition[0]/(original_energies_keV/1000)/1000000
-        # The index of the different materials
-        masks = np.zeros([len(self.phan_map)-1,useful_phantom.shape[0],useful_phantom.shape[1],useful_phantom.shape[2]])
-        mapping_functions = []
-        # Get the mapping functions for the different tissues to reconstruct the phantom by energy
-        for ii in range(1,len(self.phan_map)):       
-            mapping_functions.append(get_mu(self.phan_map[ii].split(':')[0]))
-            masks[ii-1] = self.phantom == ii
-        phantom2 = self.phantom.copy().astype(np.float32) # Tigre only works with float32
-
-        self.angles = angles
-
-        # --- Ray tracing step ---        
-        proj = []
-        doses = []
-        # we assume tigre works
-        tile = True
-
-        if not tigre_works:
-            self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,init=True)
-
-        calc_projs = True
-
-        # Don't bother double calcing the projs if we already have them from a previous run
-        if hasattr(self, 'proj') and hasattr(self, 'n_energies_old'):
-            if self.angles.shape[0] in self.proj.shape:
-                if len(original_energies_keV) == self.n_energies_old:
-                    calc_projs = False
-
-        self.n_energies_old = len(original_energies_keV)
-
-        if calc_projs:
-            for jj, energy in enumerate(original_energies_keV):
-                # Change the phantom values
-                for ii in range(0,len(self.phan_map)-1):
-                    phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
-                
-                if tigre_works: # resort to astra if tigre doesn't work
-                    try:
-                        proj.append(np.squeeze(tigre.Ax(phantom2,self.geomet,angles)))
-                    except Exception:
-                        logging.info("WARNING: Tigre GPU not working. Switching to Astra CPU")
-
-                        sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(phantom2,self.geomet,angles,tile=True)
-                        proj.append(sinogram.transpose([1,0,2]))
-                        tigre_works=False
-                else:
-                    if tile:
-                        sin_id, sinogram = astra.create_sino(np.fliplr(phantom2[0,:,:]), self.proj_id)
-                        
-                        proj.append(np.tile(sinogram,[phantom2.shape[0],1,1]).transpose([1,0,2])/(1.6*(geomet.nDetector[1]/256)))
-                    else:
-                        sinogram = np.zeros([phantom2.shape[0],len(angles),geomet.nDetector[1]])
-                        
-                        sin_id = None
-                        
-                        for kk in range(tigre_shape[0]):
-                            
-                            if sin_id is not None:
-                                astra.data2d.delete(sin_id)
-                                
-                            sin_id, sinogram[kk,:,:] = astra.create_sino(np.fliplr(phantom2[kk,:,:]), self.proj_id)
-                        
-                        proj.append(sinogram.transpose([1,0,2])/(1.6*(self.geomet.nDetector[1]/256)))
-
-                    astra.data2d.delete(sin_id)
-                # Calculate a dose contribution by dividing by 10 since tigre has projections that are a little odd
-                doses.append((energy)*(1-np.exp(-(proj[-1][0]*.997)/10))*mu_en_water2[jj]/mu_water2[jj])
-
-        if calc_projs:
-            self.raw_proj = proj
-            self.raw_doses = doses
-        
-        # --- Factoring in the fluence and the energy deposition ---
-        # Binning to get the fluence per energy
-        large_energies = np.linspace(0,6000,3001)
-        fluence_large = np.interp(large_energies,np.array(spectra.x), spectra.y)
-        fluence_small = np.zeros(len(original_energies_keV))
-        # Still binning
-        for ii, val in enumerate(large_energies):   
-            index = np.argmin(np.abs(original_energies_keV-val))
-            fluence_small[index] += fluence_large[ii]       
-        # Normalize
-        fluence_small /= np.sum(fluence_small)
-        fluence_norm = spectra.y/np.sum(spectra.y)
-
-        if det_on:
-            weights_small = fluence_small*deposition_summed
-        else:
-            weights_small = fluence_small
-
-        # Need to make sure that the attenuations aren't janky for recon
-        weights_small /= np.sum(weights_small)
-        # This is the line to uncomment to run the working code for dose_comparison.ipynb
-        # --- Dose calculation ---
-        # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
-        def get_dose_nphoton(nphot):
-            return nphot/2e7
-
-        def get_dose_mgy(mgy,doses,fluence_small):
-            nphoton = mgy/(get_dose_per_photon(doses,fluence_small)*(1.6021766e-13)*1000)
-            return get_dose_nphoton(nphoton)
-
-        def get_dose_per_photon(doses,fluence_small):
-            # linear fit of the data
-            pp = np.array([0.88759883, 0.01035186])
-            return ((np.mean(np.mean(doses,1),1)/1000)@(fluence_small))*pp[0] + pp[1]
-
-        ratio = None
-
-        # Dose in micro grays
-        if mgy != 0.0:
-            ratio = get_dose_mgy(mgy,self.raw_doses,fluence_small)
-        elif nphoton is not None:
-            ratio = get_dose_nphoton(nphoton)
-        
-        # --- Noise and Scatter Calculation ---
-        # Now I interpolate deposition and get the average photons reaching the detector
-        deposition_long = np.interp(spectra.x,original_energies_keV,deposition_summed) ## !! big change
-        nphotons_at_energy = fluence_norm*deposition_long
-        nphotons_av = np.sum(nphotons_at_energy)
-
-        logging.info(f'The ratio compared to the mc {ratio} number of photons {nphotons_av}')
-
-        if return_dose:
-            return np.mean(np.mean(self.raw_doses,1),1), spectra.y
-        
-        # -------- Scatter Correction -----------
-        scatter = np.load(os.path.join(data_path,'scatter','scatter_updated.npy'))
-        # coh_scatter = np.load(os.path.join(data_path,'scatter','coherent_scatter.npy'))
-
-        dist = np.linspace(-256*0.0784 - 0.0392,256*0.0784 - 0.0392, 512)
-
-        def func(x, a, b):
-            return ((-(152/(np.sqrt(x**2 + 152**2)))**a)*b)
-
-        mc_scatter = np.zeros(scatter.shape)
-
-        for jj in range(16):
-
-            popt, popc = curve_fit(func,dist,scatter[:,jj],[10,scatter[256,jj]])
-            mc_scatter[:,jj] = func(dist, *popt)
-
-        if len(original_energies_keV) == 18:
-            mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter[:,0].T,mc_scatter.T))
-            # mc_scatter = np.vstack((mc_scatter[:,0].T,mc_scatter))
-            mc_scatter = mc_scatter.T
-
-            # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter[:,0].T,coh_scatter.T))
-            # coh_scatter = np.vstack((coh_scatter[:,0].T,coh_scatter))
-            # coh_catter = coh_scatter.T
-
-        factor = (152/(np.sqrt(dist**2 + 152**2)))**3
-        flood_summed = factor*660 
-        
-        scatter = mc_scatter
-        # log(i/i_0) to get back to intensity
-        raw = (np.exp(-np.array(self.raw_proj)/10)*(flood_summed)).T
-
-        # Add the already weighted noise
-        if scat_on:
-            raw_weighted = raw.transpose([2,1,0,3]) + scatter
-        else:
-            raw_weighted = raw.transpose([2,1,0,3])
-
-        if det_on == False:
-            return raw_weighted @ weights_small
-
-        # Normalize the kernel
-        kernel_norm = kernel.kernel/np.sum(kernel.kernel)
-            
-        # add the poisson noise
-        if ratio is not None:
-            
-            # if det_on:
-            adjusted_ratio = ratio*nphotons_av
-            # else:
-            #     adjusted_ratio = ratio
-            
-            raw_weighted = np.random.poisson(lam=raw_weighted*adjusted_ratio)/adjusted_ratio
-        
-        filtered = raw_weighted.copy()
-
-        if det_on: # if the detector is to be simulated
-
-            for ii in range(len(angles)):
-                for jj in range(len(original_energies_keV)):
-
-
-                    filtered[ii,:,:,jj] = fftconvolve(raw_weighted[ii,:,:,jj],kernel.kernels[jj+1], mode = 'same')
-
-        filtered = filtered @ weights_small
-
-        self.proj = -10*np.log(filtered/(flood_summed))
-
-    def plot_projs(self,fig):
-
-        subfig1 = fig.add_subplot(121)
-        subfig2 = fig.add_subplot(122)
-
-        tracker = IndexTracker(
-            subfig1, self.proj.transpose([1,2,0]))
-        fig.canvas.mpl_connect(
-            'scroll_event', tracker.onscroll)
-        tracker2 = IndexTracker(
-            subfig2, self.proj.transpose([0,2,1]))
-        fig.canvas.mpl_connect(
-            'scroll_event', tracker2.onscroll)
-        fig.tight_layout()
-
-    def reconstruct(self,algo,filt='hamming'):
-        
-        if algo == 'FDK':
-            try:
-                self.img = tigre.algorithms.FDK(self.proj, self.geomet, self.angles,filter=filt)
-            except Exception:
-                logging.info('WARNING: Tigre failed during recon using Astra')
-                self.img = self.astra_recon(self.proj.transpose([1,0,2]))
-
-        if algo == 'CGLS':
-            try:
-                self.img = tigre.algorithms.cgls(self.proj.astype(np.float32), self.geomet, self.angles,niter=20)
-            except Exception:
-                logging.info('WARNING: Tigre failed during recon using Astra')
-                self.img = self.astra_recon(self.proj.transpose([1,0,2]))
-
-    def astra_recon(self,projs,algo ='CGLS',niter=10):
-
-        sinogram, sin_id, proj_id, vol_geom = tigre2astra(self.phantom,self.geomet,self.angles,tile=True)
-    
-        rec_id = astra.data2d.create('-vol', vol_geom)
-
-        cfg = astra.astra_dict('CGLS')
-        
-        cfg['ReconstructionDataId'] = rec_id
-        cfg['ProjectionDataId'] = sin_id
-        cfg['ProjectorId'] = proj_id
-        
-        # Create the algorithm object from the configuration structure
-        alg_id = astra.algorithm.create(cfg)
-
-        recon = []
-
-        for ii in range(projs.T.shape[2]):
-
-            # Available algorithms:
-            # ART, SART, SIRT, CGLS, FBP
-            astra.data2d.store(sin_id,projs[ii,:,:]*(1.6*(self.geomet.nDetector[1]/256)))
-
-            # Run 20 iterations of the algorithm
-            # This will have a runtime in the order of 10 seconds.
-            astra.algorithm.run(alg_id,niter)
-
-            # Get the result
-            rec = astra.data2d.get(rec_id)
-
-            recon.append(rec)
-
-        astra.algorithm.delete(alg_id)
-        astra.data2d.delete(rec_id)
-        astra.data2d.delete(sin_id)
-        astra.projector.delete(proj_id)
-            
-        return np.array(recon)
-        
-class Catphan_515(Phantom2):
-
+class Catphan_515(Phantom):
+    '''
+    The subslice contrast module from a Catphan
+    '''
     def __init__(self): #,det):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_low_contrast_512_8cm.npy')) #'catphan_low_contrast_512_8cm.npy')) # Paper 2 uses the 8cm btw
         self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
@@ -1188,7 +932,6 @@ class Catphan_515(Phantom2):
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"] 
         
-#         self.phan_map = ['air','CATPHAN_Acrylic','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE",'air','air','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','CATPHAN_Acrylic','air','air','air','air','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU"]
     def analyse_515(self,recon_slice,place = None,run_name = ''):
 
         def create_mask(shape):
@@ -1360,13 +1103,6 @@ class Catphan_515(Phantom2):
         ref_mean = np.mean(recon_slice[im == ii])
         ref_std = np.std(recon_slice[im == ii])
 
-        # for ii in range(2,int(np.max(im)+1)):
-            
-        #     contrast.append(np.abs(np.mean(recon_slice[im == ii])- ref_mean))
-        #     noise.append(np.std(recon_slice[im == ii]))
-            
-        #     cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
-
         for ii in range(2,int(np.max(im)+1)):
             
             nsample = len(recon_slice[im == ii])
@@ -1413,7 +1149,7 @@ class Catphan_515(Phantom2):
         if return_contrast:
             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
 
-class Catphan_404(Phantom2):
+class Catphan_404(Phantom):
 
     def __init__(self,pitch=0.784,hi_res=True): #,det):
         if hi_res:
@@ -1434,7 +1170,6 @@ class Catphan_404(Phantom2):
         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
         
         self.phan_map = ['air','G4_POLYSTYRENE','G4_POLYVINYL_BUTYRAL','G4_POLYVINYL_BUTYRAL','CATPHAN_Delrin','G4_POLYVINYL_BUTYRAL','CATPHAN_Teflon_revised','air','CATPHAN_PMP','G4_POLYVINYL_BUTYRAL','CATPHAN_LDPE','G4_POLYVINYL_BUTYRAL','CATPHAN_Polystyrene','air','CATPHAN_Acrylic','air','CATPHAN_Teflon','air','air','air','air'] 
-#         self.phan_map = ['air','water','water','CATPHAN_B20','CATPHAN_Delrin','water','CATPHAN_Teflon','air','CATPHAN_PMP','CATPHAN_B50','CATPHAN_LDPE','water','CATPHAN_Polystyrene','air','CATPHAN_Acrylic'] 
 
     def analyse_515(self,recon_slice,place = None,run_name = ''):
 
@@ -1556,143 +1291,7 @@ class Catphan_404(Phantom2):
         if return_contrast:
             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
 
-# class Catphan_404(Phantom):
-
-#     def __init__(self): #,det):
-#         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_sensiometry_512_8cm.npy'))
-#         self.geomet = tigre.geometry_default(high_quality=False,nVoxel=self.phantom.shape)
-#         self.geomet.DSD = 1520 #1500 + 20 for det casing
-#         self.geomet.nDetector = np.array([64,512])
-#         self.geomet.dDetector = np.array([0.784, 0.784])#det.pitch, det.pitch]) #TODO: Change this to get phantom
-
-#         # I think I can get away with this
-#         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector    
-
-#         self.geomet.sVoxel = np.array((160, 160, 160)) 
-#         self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
-#         self.phan_map = ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"] 
-
-#     def analyse_515(self,recon_slice,place = None,run_name = ''):
-
-#         def create_mask(shape):
-
-#             im = np.zeros(shape)
-#             ii = 1
-            
-#             offset = 0.1
-            
-#             first_radius = 5
-
-#             A0  = 90.0*np.pi/180
-
-#             # Phantom 
-#             # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */                        
-#             create_circular_mask(x= 6*cos(A0+1/4*np.pi),  y= 6*sin(A0+1/4*np.pi),  r=0.5, index = ii, image = im)
-
-#             ii += 1
-
-#             # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-
-#             # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
-#             create_circular_mask(x= 6*cos(A0),  y= 6*sin(A0),  r=0.5, index = ii, image = im)
-
-#             ii += 1
-
-#             # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
-#             create_circular_mask(x= 6*cos(A0+1/2*np.pi),  y= 6*sin(A0+1/2*np.pi),  r=0.5, index = ii, image = im)
-
-
-#             ii += 1
-
-#             # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
-#             create_circular_mask(x= 6*cos(A0+np.pi),  y= 6*sin(A0+np.pi),  r=0.5, index = ii, image = im)
-
-#             ii += 1
-
-#             # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
-#             create_circular_mask(x= 6*cos(A0+3/2*np.pi),  y= 6*sin(A0+3/2*np.pi),  r=0.5, index = ii, image = im)
-
-
-#             return im
-
-#         def create_circular_mask(x, y, r, index, image):
-        
-#             h,w = image.shape
-            
-#             center = [x*int(w/2)/8 + int(w/2),y*int(h/2)/8 + int(h/2)]
-
-#             if center is None: # use the middle of the image
-#                 center = (int(w/2), int(h/2))
-#             if r is None: # use the smallest distance between the center and image walls
-#                 radius = min(center[0], center[1], w-center[0], h-center[1])
-
-#             Y, X = np.ogrid[:h, :w]
-#             dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
-
-#             mask = dist_from_center <= r*int(w/2)/8
-            
-            
-#             image[mask] = index
-
-#         im = create_mask(recon_slice.shape)
-
-#         contrast = []
-#         noise = []
-#         cnr = []
-#         ci = []
-
-#         ii = 1
-
-#         ref_mean = np.mean(recon_slice[im == ii])
-#         ref_std = np.std(recon_slice[im == ii])
-
-#         for ii in range(2,int(np.max(im)+1)):
-            
-#             nsample = len(recon_slice[im == ii])
-            
-#             if nsample > 2:
-                
-#                 noise.append(np.std(recon_slice[im == ii]))
-                
-#                 booted = np.abs(stats.bootstrap(recon_slice[im == ii],100,samples=int(nsample/5),bootfunc=np.mean) - ref_mean)
-
-#                 ci.append(np.std(booted))
-#                 contrast.append(np.mean(booted))
-
-#                 cnr.append(contrast[-1]/(np.sqrt(noise[-1]**2)))
-                      
-#         ci_v = [2*(ci[ii]/ref_mean)*100 for ii in range(len(ci))]
-            
-#         rs = np.linspace(0.1,0.45,8)
-
-#         inds_i_want = [0,1,2,3]
-#         ww = 0.085
-
-#         shorts = ['Lung','Compact Bone','Cortical Bone','Adipose']
-
-#         contrasts_i_want = np.array([(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))])[inds_i_want]
-
-#         place[0].errorbar(np.arange(len(inds_i_want)),contrasts_i_want
-#                                 ,capsize = ww+1.5, yerr=np.array(ci_v)[inds_i_want],fmt='x',label=run_name)
-#         place[0].set_xticks(range(len(inds_i_want))) 
-#         place[0].set_xticklabels(shorts, fontsize=12, rotation = 75)
-#         place[0].set_ylabel('% Contrast')
-#         place[0].set_title('Contrast')
-#         place[0].legend()
-
-#         place[1].errorbar(np.arange(len(inds_i_want)),np.array(cnr)[inds_i_want],capsize = ww+1.5,
-#                             yerr=np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want),fmt='x')
-#         place[1].set_xticks(range(len(inds_i_want))) 
-#         place[1].set_xticklabels(shorts[:len(inds_i_want)], fontsize=12, rotation = 75)
-#         place[1].set_ylabel('CNR')
-#         place[1].set_title('Contrast to Noise')
-
-#         return_contrast = True
-
-#         if return_contrast:
-#             return rs, [(contrast[ii]/ref_mean)*100 for ii in range(len(contrast))],ci_v, cnr,np.array(cnr)[inds_i_want]*(np.array(ci_v)[inds_i_want]/contrasts_i_want)
-
-class Catphan_MTF(Phantom2):
+class Catphan_MTF(Phantom):
 
     def __init__(self):
         self.phantom = np.load(os.path.join(data_path,'phantoms','MTF_phantom_1024.npy'))
@@ -1797,7 +1396,7 @@ class Catphan_MTF(Phantom2):
 
         return [signal/signal[0], standev/signal[0]]
 
-class Catphan_projections(Phantom2):
+class Catphan_projections(Phantom):
 
     def __init__(self):
         self.phantom = np.load(os.path.join(data_path,'phantoms','catphan_projection_512_10cm.npy')).T
@@ -1823,7 +1422,7 @@ class Catphan_projections(Phantom2):
 
         return CNR
     
-class XCAT(Phantom2):
+class XCAT(Phantom):
 
     def __init__(self):
         self.phantom = np.load(os.path.join(data_path,'phantoms','ct_scan_smaller.npy'))
@@ -2233,7 +1832,7 @@ def get_fluence(e_0=100.0):
     # return lambda x,u:f(x,u)[0]
 
         
-class XCAT2(Phantom2):
+class XCAT2(Phantom):
 
     def __init__(self):
 
@@ -2678,7 +2277,7 @@ def cli():
     else:
         s = Spectrum()
         s.load(args.s)
-        kernel = Kernel(s,args.d)
+        kernel = Detector(s,args.d)
         
         dispatcher={'Catphan_515':Catphan_515,
                     'Catphan_MTF':Catphan_MTF}
