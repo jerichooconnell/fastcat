@@ -1,0 +1,12 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "fastcat"
+author = "Jericho OConnell"
+author-email = "jerichoo@uvic.ca"
+home-page = "https://github.com/jerichooconnell/fastcat"
+classifiers = [ "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",]
+description-file = "README.md"
+

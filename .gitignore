@@ -28,6 +28,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -84,11 +85,35 @@ celerybeat-schedule
 .env
 
 # virtualenv
+.env
+.venv
+env/
 venv/
 ENV/
+env.bak/
+venv.bak/
 
 # Spyder project settings
 .spyderproject
 
 # Rope project settings
 .ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+.vscode/
