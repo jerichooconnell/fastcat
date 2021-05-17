@@ -5,13 +5,9 @@
 
 from __future__ import print_function
 
-import tigre
-# import fastcat as fc
-import fastcat.fastcat as fc
 import re
 from glob import glob
 import os
-import numpy as np
 from traceback import print_exc
 import queue
 import threading
@@ -20,29 +16,116 @@ from tkinter.ttk import *
 import tkinter.filedialog
 from tkinter import messagebox
 
-from tigre.demos.Test_data import data_loader
+import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
-from matplotlib import pyplot as plt
 
+import fastcat.fastcat as fc
 
 __author__ = "Dih5"
 
-_elements = ['Nihil', 'Hydrogen', 'Helium', 'Lithium', 'Beryllium', 'Boron', 'Carbon, Graphite', 'Nitrogen', 'Oxygen',
-             'Fluorine', 'Neon', 'Sodium', 'Magnesium', 'Aluminum', 'Silicon', 'Phosphorus', 'Sulfur', 'Chlorine',
-             'Argon', 'Potassium', 'Calcium', 'Scandium', 'Titanium', 'Vanadium', 'Chromium', 'Manganese', 'Iron',
-             'Cobalt', 'Nickel', 'Copper', 'Zinc', 'Gallium', 'Germanium', 'Arsenic', 'Selenium', 'Bromine', 'Krypton',
-             'Rubidium', 'Strontium', 'Yttrium', 'Zirconium', 'Niobium', 'Molybdenum', 'Technetium', 'Ruthenium',
-             'Rhodium', 'Palladium', 'Silver', 'Cadmium', 'Indium', 'Tin', 'Antimony', 'Tellurium', 'Iodine', 'Xenon',
-             'Cesium', 'Barium', 'Lanthanum', 'Cerium', 'Praseodymium', 'Neodymium', 'Promethium', 'Samarium',
-             'Europium', 'Gadolinium', 'Terbium', 'Dysprosium', 'Holmium', 'Erbium', 'Thulium', 'Ytterbium', 'Lutetium',
-             'Hafnium', 'Tantalum', 'Tungsten', 'Rhenium', 'Osmium', 'Iridium', 'Platinum', 'Gold', 'Mercury',
-             'Thallium', 'Lead', 'Bismuth', 'Polonium', 'Astatine', 'Radon', 'Francium', 'Radium', 'Actinium',
-             'Thorium', 'Protactinium', 'Uranium']
+_elements = [
+    "Nihil",
+    "Hydrogen",
+    "Helium",
+    "Lithium",
+    "Beryllium",
+    "Boron",
+    "Carbon, Graphite",
+    "Nitrogen",
+    "Oxygen",
+    "Fluorine",
+    "Neon",
+    "Sodium",
+    "Magnesium",
+    "Aluminum",
+    "Silicon",
+    "Phosphorus",
+    "Sulfur",
+    "Chlorine",
+    "Argon",
+    "Potassium",
+    "Calcium",
+    "Scandium",
+    "Titanium",
+    "Vanadium",
+    "Chromium",
+    "Manganese",
+    "Iron",
+    "Cobalt",
+    "Nickel",
+    "Copper",
+    "Zinc",
+    "Gallium",
+    "Germanium",
+    "Arsenic",
+    "Selenium",
+    "Bromine",
+    "Krypton",
+    "Rubidium",
+    "Strontium",
+    "Yttrium",
+    "Zirconium",
+    "Niobium",
+    "Molybdenum",
+    "Technetium",
+    "Ruthenium",
+    "Rhodium",
+    "Palladium",
+    "Silver",
+    "Cadmium",
+    "Indium",
+    "Tin",
+    "Antimony",
+    "Tellurium",
+    "Iodine",
+    "Xenon",
+    "Cesium",
+    "Barium",
+    "Lanthanum",
+    "Cerium",
+    "Praseodymium",
+    "Neodymium",
+    "Promethium",
+    "Samarium",
+    "Europium",
+    "Gadolinium",
+    "Terbium",
+    "Dysprosium",
+    "Holmium",
+    "Erbium",
+    "Thulium",
+    "Ytterbium",
+    "Lutetium",
+    "Hafnium",
+    "Tantalum",
+    "Tungsten",
+    "Rhenium",
+    "Osmium",
+    "Iridium",
+    "Platinum",
+    "Gold",
+    "Mercury",
+    "Thallium",
+    "Lead",
+    "Bismuth",
+    "Polonium",
+    "Astatine",
+    "Radon",
+    "Francium",
+    "Radium",
+    "Actinium",
+    "Thorium",
+    "Protactinium",
+    "Uranium",
+]
 
 
 def _add_element_name(material):
-    """Check if the string is a integer. If so, convert to element name, e.g., 13-> 13: Aluminum"""
+    """
+    Check if the string is a integer.
+    If so, convert to element name, e.g., 13-> 13: Aluminum
+    """
     try:
         int(material)
         return "%d: %s" % (int(material), _elements[int(material)])
@@ -64,7 +147,8 @@ class CreateToolTip(object):
     """
 
     # Based on the content from this post:
-    # http://stackoverflow.com/questions/3221956/what-is-the-simplest-way-to-make-tooltips-in-tkinter
+    # http://stackoverflow.com/questions/3221956/
+    # what-is-the-simplest-way-to-make-tooltips-in-tkinter
 
     def __init__(self, widget, text, color="#ffe14c"):
         """
@@ -112,9 +196,15 @@ class CreateToolTip(object):
         # Leaves only the label and removes the app window
         self.tw.wm_overrideredirect(True)
         self.tw.wm_geometry("+%d+%d" % (x, y))
-        label = Label(self.tw, text=self.text, justify='left',
-                      background=self.color, relief='solid', borderwidth=1,
-                      wraplength=self.wraplength)
+        label = Label(
+            self.tw,
+            text=self.text,
+            justify="left",
+            background=self.color,
+            relief="solid",
+            borderwidth=1,
+            wraplength=self.wraplength,
+        )
         label.pack(ipadx=1)
 
     def hidetip(self):
@@ -125,19 +215,36 @@ class CreateToolTip(object):
 
 
 class ParBox:
-    """A parameter entry with labels preceding and succeeding it and an optional tooltip"""
+    """
+    A parameter entry with labels preceding and succeeding 
+    it and an optional tooltip
+    """
 
-    def __init__(self, master=None, textvariable=0, lblText="", unitsTxt="", helpTxt="", row=0, read_only=False):
+    def __init__(
+        self,
+        master=None,
+        textvariable=0,
+        lblText="",
+        unitsTxt="",
+        helpTxt="",
+        row=0,
+        read_only=False,
+    ):
         """
         Create the parameter box.
 
         Args:
             master: the master widget.
-            textvariable (:obj:`tkinter.Variable`): The variable associated with the parameter.
+            textvariable (:obj:`tkinter.Variable`):
+            The variable associated with the parameter.
             lblText (str): The text preceding the text entry.
-            unitsTxt (str): The text succeeding the text entry, typically the units.
-            helpTxt (str): The help text to show in the tooltip. If "", no tooltip is shown.
-            row (int): The row where the widgets are set in the grid.
+            unitsTxt (str): 
+            The text succeeding the text entry, typically the units.
+            helpTxt (str): 
+            The help text to show in the tooltip. If "",
+            no tooltip is shown.
+            row (int): 
+            The row where the widgets are set in the grid.
             read_only (bool): Whether the entry is read_only.
 
         """
@@ -163,7 +270,7 @@ def _human_order_key(text):
 
     """
     # This is based in http://nedbatchelder.com/blog/200712/human_sorting.html
-    return [int(c) if c.isdigit() else c for c in re.split('(\d+)', text)]
+    return [int(c) if c.isdigit() else c for c in re.split("(\d+)", text)]
 
 
 class XpecgenGUI(Notebook):
@@ -181,7 +288,7 @@ class XpecgenGUI(Notebook):
         Grid.rowconfigure(master, 0, weight=1)
         Grid.columnconfigure(master, 0, weight=1)
         self.grid(row=0, column=0, sticky=N + S + E + W)
-        self.master.title("".join(('fastcat v', fc.__version__, " GUI")))
+        self.master.title("".join(("fastcat v", fc.__version__, " GUI")))
         self.master.minsize(800, 600)
 
         self.spectra = []
@@ -210,7 +317,8 @@ class XpecgenGUI(Notebook):
         Polling method to update changes in spectrum list.
 
         """
-        # Note the Tk manual advised for polling instead of binding all methods that are able to change a listbox
+        # Note the Tk manual advised for polling 
+        # instead of binding all methods that are able to change a listbox
         try:
             now = self.lstHistory.curselection()[0]
             if now != self.active_spec:
@@ -248,7 +356,7 @@ class XpecgenGUI(Notebook):
 
         self.geo = StringVar()
         # self.geo.set("Head Phantom")
-        self.geo.set("Catphan_404")#"catphan_low_contrast_512_8cm")
+        self.geo.set("Catphan_404")  # "catphan_low_contrast_512_8cm")
 
         self.EMin = DoubleVar()
         self.EMin.set(3.0)
@@ -260,19 +368,19 @@ class XpecgenGUI(Notebook):
         self.Eps.set(0.5)
 
         self.algorithm = StringVar()
-        self.algorithm.set('Filter Back Projection')
+        self.algorithm.set("Filter Back Projection")
 
         self.filt = StringVar()
-        self.filt.set('hamming')
+        self.filt.set("hamming")
 
         self.filetype = StringVar()
-        self.filetype.set('*.npy')
+        self.filetype.set("*.npy")
 
         self.niter = IntVar()
         self.niter.set(0)
 
         self.fs_size = DoubleVar()
-        self.fs_size.set(0.)
+        self.fs_size.set(0.0)
 
         # Operation-related variables
 
@@ -283,7 +391,7 @@ class XpecgenGUI(Notebook):
         self.AttenThick.set(0.1)
 
         self.current = DoubleVar()
-        self.current.set(0)#6.200432949299284e-07)
+        self.current.set(0)  # 6.200432949299284e-07)
 
         self.noise = None
         self.nphoton = None
@@ -366,13 +474,13 @@ class XpecgenGUI(Notebook):
         self.frmSino = Frame(self)
         self.frmReso = Frame(self)
         self.frmOutp = Frame(self)
-        self.add(self.frmCalc, text='Calculate')
-        self.add(self.frmSpec, text='Spectrum')
-        self.add(self.frmKern, text='Kernel')
-        self.add(self.frmGeom, text='Geometry')
-        self.add(self.frmSino, text='Projections')
-        self.add(self.frmReso, text='Results')
-        self.add(self.frmOutp, text='Analysis')
+        self.add(self.frmCalc, text="Calculate")
+        self.add(self.frmSpec, text="Spectrum")
+        self.add(self.frmKern, text="Kernel")
+        self.add(self.frmGeom, text="Geometry")
+        self.add(self.frmSino, text="Projections")
+        self.add(self.frmReso, text="Results")
+        self.add(self.frmOutp, text="Analysis")
 
         self.matplotlib_embedded = True
 
@@ -385,57 +493,95 @@ class XpecgenGUI(Notebook):
         self.init_outp()
 
         # Calculate Tab
+
     def init_calc(self):
         """Initialize the first tab"""
 
         # Physical Parameters
         self.frmPhysPar = LabelFrame(
-            self.frmCalc, text="Physical parameters")
+            self.frmCalc,
+            text="Physical parameters"
+        )
         self.frmPhysPar.grid(row=0, column=0, sticky=N + S + E + W)
-        self.ParE0 = ParBox(self.frmPhysPar, self.E0, lblText="Electron Energy (E0)",
-                            unitsTxt="keV", helpTxt="Electron kinetic energy in keV.", row=0)
-        self.ParTheta = ParBox(self.frmPhysPar, self.Theta, lblText=u"Angle (\u03b8)",
-                                unitsTxt="º", helpTxt="X-rays emission angle. The anode's normal is at 90º.", row=1)
-        self.ParPhi = ParBox(self.frmPhysPar, self.Phi, lblText=u"Elevation angle (\u03c6)",
-                                unitsTxt="º", helpTxt="X-rays emission altitude. The anode's normal is at 0º.", row=2)
+        self.ParE0 = ParBox(
+            self.frmPhysPar,
+            self.E0,
+            lblText="Electron Energy (E0)",
+            unitsTxt="keV",
+            helpTxt="Electron kinetic energy in keV.",
+            row=0,
+        )
+        self.ParTheta = ParBox(
+            self.frmPhysPar,
+            self.Theta,
+            lblText="Angle (\u03b8)",
+            unitsTxt="º",
+            helpTxt="X-rays emission angle. The anode's normal is at 90º.",
+            row=1,
+        )
+        self.ParPhi = ParBox(
+            self.frmPhysPar,
+            self.Phi,
+            lblText="Elevation angle (\u03c6)",
+            unitsTxt="º",
+            helpTxt="X-rays emission altitude. The anode's normal is at 0º.",
+            row=2,
+        )
         self.lblZ = Label(self.frmPhysPar, text="Target atomic number")
-        self.lblZTT = CreateToolTip(self.lblZ,
-                                    "Atomic number of the target. IMPORTANT: Only used in the cross-section and distance scaling. Fluence uses a tugsten model, but the range is increased in lower Z materials. Besides, characteristic radiation is only calculated for tugsten.")
+        self.lblZTT = CreateToolTip(
+            self.lblZ,
+            "Atomic number of the target. IMPORTANT: Only used in the cross-section and distance scaling. Fluence uses a tugsten model, but the range is increased in lower Z materials. Besides, characteristic radiation is only calculated for tugsten.",
+        )
         self.lblZ.grid(row=3, column=0, sticky=W)
         self.cmbZ = Combobox(self.frmPhysPar, textvariable=self.Z)
         self.cmbZ.grid(row=3, column=1, sticky=W + E)
-        self.cmbZTT = CreateToolTip(self.cmbZ,
-                                    "Atomic number of the target. IMPORTANT: Only used in the cross-section and distance scaling. Fluence uses a tugsten model, but the range is increased in lower Z materials. Besides, characteristic radiation is only calculated for tugsten.")
+        self.cmbZTT = CreateToolTip(
+            self.cmbZ,
+            "Atomic number of the target. IMPORTANT: Only used in the cross-section and distance scaling. Fluence uses a tugsten model, but the range is increased in lower Z materials. Besides, characteristic radiation is only calculated for tugsten.",
+        )
         # Available cross-section data
-        target_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(fc.data_path, "cs", "*.csv"))))
+        target_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".csv")[0],
+                glob(os.path.join(fc.data_path, "cs", "*.csv")),
+            )
+        )
         target_list.remove("grid")
         # Available csda-data
-        csda_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(fc.data_path, "csda", "*.csv"))))
+        csda_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".csv")[0],
+                glob(os.path.join(fc.data_path, "csda", "*.csv")),
+            )
+        )
         # Available attenuation data
-        mu_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(fc.data_path, "mu", "*.csv"))))
+        mu_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".csv")[0],
+                glob(os.path.join(fc.data_path, "mu", "*.csv")),
+            )
+        )
         mu_list.sort(key=_human_order_key)  # Used later
 
-        available_list = list(
-            set(target_list) & set(csda_list) & set(mu_list))
+        available_list = list(set(target_list) & set(csda_list) & set(mu_list))
         available_list.sort(key=_human_order_key)
 
         self.cmbZ["values"] = list(map(_add_element_name, available_list))
 
         self.loadlbl = Label(self.frmPhysPar, text="Load MV spectra")
-        self.loadTT = CreateToolTip(self.lblZ,
-                                    "Load known MV spectra from file")
+        self.loadTT = CreateToolTip(self.lblZ, "Load known MV spectra from file")
         self.loadlbl.grid(row=5, column=0, sticky=W)
         self.cmbload = Combobox(self.frmPhysPar, textvariable=self.load)
         self.cmbload.grid(row=5, column=1, sticky=W + E)
-        self.cmbloadTT = CreateToolTip(self.cmbZ,
-                                        "Load known MV spectra from file")
+        self.cmbloadTT = CreateToolTip(self.cmbZ, "Load known MV spectra from file")
 
         # Available cross-section data
-        target_list_load = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".txt")[0], glob(os.path.join(fc.data_path, "MV_spectra", "*.txt"))))
+        target_list_load = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".txt")[0],
+                glob(os.path.join(fc.data_path, "MV_spectra", "*.txt")),
+            )
+        )
         # list(map(_add_element_name, available_list))
         print(target_list_load)
         self.cmbload["values"] = target_list_load
@@ -446,20 +592,32 @@ class XpecgenGUI(Notebook):
         Grid.columnconfigure(self.frmPhysPar, 3, weight=0)
 
         # -Numerical Parameters
-        self.frmNumPar = LabelFrame(
-            self.frmCalc, text="Numerical parameters")
+        self.frmNumPar = LabelFrame(self.frmCalc, text="Numerical parameters")
         self.frmNumPar.grid(row=0, column=1, sticky=N + S + E + W)
-        self.ParEMin = ParBox(self.frmNumPar, self.EMin,
-                                lblText="Min energy", unitsTxt="keV",
-                                helpTxt="Minimum kinetic energy in the bremsstrahlung calculation. Note this might influence the characteristic peaks prediction.",
-                                row=0)
-        self.ParNumE = ParBox(self.frmNumPar, self.NumE,
-                                lblText="Number of points", unitsTxt="",
-                                helpTxt="Amount of points for the mesh were the bremsstrahlung spectrum is calculated.\nBremsstrahlung component is extended by interpolation.",
-                                row=1)
-        self.ParEps = ParBox(self.frmNumPar, self.Eps, lblText="Integrating tolerance", unitsTxt="",
-                                helpTxt="A numerical tolerance parameter used in numerical integration. Values around 0.5 provide fast and accurate calculations. If you want insanely accurate (and physically irrelevant) numerical integration you can reduce this value, increasing computation time.",
-                                row=2)
+        self.ParEMin = ParBox(
+            self.frmNumPar,
+            self.EMin,
+            lblText="Min energy",
+            unitsTxt="keV",
+            helpTxt="Minimum kinetic energy in the bremsstrahlung calculation. Note this might influence the characteristic peaks prediction.",
+            row=0,
+        )
+        self.ParNumE = ParBox(
+            self.frmNumPar,
+            self.NumE,
+            lblText="Number of points",
+            unitsTxt="",
+            helpTxt="Amount of points for the mesh were the bremsstrahlung spectrum is calculated.\nBremsstrahlung component is extended by interpolation.",
+            row=1,
+        )
+        self.ParEps = ParBox(
+            self.frmNumPar,
+            self.Eps,
+            lblText="Integrating tolerance",
+            unitsTxt="",
+            helpTxt="A numerical tolerance parameter used in numerical integration. Values around 0.5 provide fast and accurate calculations. If you want insanely accurate (and physically irrelevant) numerical integration you can reduce this value, increasing computation time.",
+            row=2,
+        )
 
         Grid.columnconfigure(self.frmNumPar, 0, weight=0)
         Grid.columnconfigure(self.frmNumPar, 1, weight=1)
@@ -468,26 +626,29 @@ class XpecgenGUI(Notebook):
         # -Buttons, status bar...
         self.cmdCalculate = Button(self.frmCalc, text="Calculate")
         self.cmdCalculate["command"] = self.calculate
-        self.cmdCalculate.bind('<Return>', lambda event: self.calculate())
+        self.cmdCalculate.bind("<Return>", lambda event: self.calculate())
         self.cmdCalculate.bind(
-            '<KP_Enter>', lambda event: self.calculate())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.calculate()
+        )  # Enter (num. kb)
         self.cmdCalculate.grid(row=1, column=0, sticky=E + W)
 
         self.cmdload = Button(self.frmCalc, text="Load")
         self.cmdload["command"] = self.loadfile
-        self.cmdload.bind('<Return>', lambda event: self.loadfile())
+        self.cmdload.bind("<Return>", lambda event: self.loadfile())
         self.cmdload.bind(
-            '<KP_Enter>', lambda event: self.loadfile())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.loadfile()
+        )  # Enter (num. kb)
         self.cmdload.grid(row=2, column=0, sticky=E + W)
 
         self.barProgress = Progressbar(
-            self.frmCalc, orient="horizontal", length=100, mode="determinate")
+            self.frmCalc, orient="horizontal", length=100, mode="determinate"
+        )
         self.barProgress.grid(row=1, column=1, columnspan=1, sticky=E + W)
 
         self.barProgressload = Progressbar(
-            self.frmCalc, orient="horizontal", length=100, mode="determinate")
-        self.barProgressload.grid(
-            row=2, column=1, columnspan=1, sticky=E + W)
+            self.frmCalc, orient="horizontal", length=100, mode="determinate"
+        )
+        self.barProgressload.grid(row=2, column=1, columnspan=1, sticky=E + W)
 
         Grid.columnconfigure(self.frmCalc, 0, weight=1)
         Grid.columnconfigure(self.frmCalc, 1, weight=1)
@@ -509,35 +670,42 @@ class XpecgenGUI(Notebook):
         self.lstHistory.config(yscrollcommand=self.scrollHistory.set)
         self.scrollHistory.config(command=self.lstHistory.yview)
         self.cmdCleanHistory = Button(
-            self.frmHist, text="Revert to selected", state=DISABLED)
+            self.frmHist, text="Revert to selected", state=DISABLED
+        )
         self.cmdCleanHistory["command"] = self.clean_history
         self.cmdCleanHistory.grid(row=1, column=0, columnspan=2, sticky=E + W)
-        self.cmdExport = Button(
-            self.frmHist, text="Save selected", state=DISABLED)
+        self.cmdExport = Button(self.frmHist, text="Save selected", state=DISABLED)
         self.cmdExport["command"] = self.export
         self.cmdExport.grid(row=2, column=0, columnspan=2, sticky=E + W)
 
         self.lbldet = Label(self.frmSpec, text="Detector Response")
-        self.lbldetTT = CreateToolTip(self.lblZ,
-                                    "Choose a detector response to modify the detector")
+        self.lbldetTT = CreateToolTip(
+            self.lblZ, "Choose a detector response to modify the detector"
+        )
         self.lbldet.grid(row=3, column=0, sticky=W)
         self.cmbdet = Combobox(self.frmSpec, textvariable=self.det)
         self.cmbdet.grid(row=3, column=1, sticky=W + E)
-        self.cmbdetTT = CreateToolTip(self.cmbdet,
-                                    "Choose a detectro response to modify")
+        self.cmbdetTT = CreateToolTip(
+            self.cmbdet, "Choose a detectro response to modify"
+        )
 
         # Available cross-section data
-        target_list_det = list(map(lambda x: (os.path.split(
-            x)[-1]), glob(os.path.join(fc.data_path, "Detectors", '*'))))
+        target_list_det = list(
+            map(
+                lambda x: (os.path.split(x)[-1]),
+                glob(os.path.join(fc.data_path, "Detectors", "*")),
+            )
+        )
 
         # list(map(_add_element_name, available_list))
         self.cmbdet["values"] = target_list_det
 
         self.cmddet = Button(self.frmSpec, text="Calculate Detector Response")
         self.cmddet["command"] = self.computeKernel
-        self.cmddet.bind('<Return>', lambda event: self.computeKernel())
+        self.cmddet.bind("<Return>", lambda event: self.computeKernel())
         self.cmddet.bind(
-            '<KP_Enter>', lambda event: self.computeKernel())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.computeKernel()
+        )  # Enter (num. kb)
         self.cmddet.grid(row=5, column=0, sticky=E + W)
 
         Grid.rowconfigure(self.frmHist, 0, weight=1)
@@ -545,20 +713,31 @@ class XpecgenGUI(Notebook):
         Grid.columnconfigure(self.frmHist, 1, weight=0)
 
         # Available cross-section data
-        target_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(fc.data_path, "cs", "*.csv"))))
+        target_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".csv")[0],
+                glob(os.path.join(fc.data_path, "cs", "*.csv")),
+            )
+        )
         target_list.remove("grid")
         # Available csda-data
-        csda_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(fc.data_path, "csda", "*.csv"))))
+        csda_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".csv")[0],
+                glob(os.path.join(fc.data_path, "csda", "*.csv")),
+            )
+        )
         # Available attenuation data
-        mu_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(fc.data_path, "mu", "*.csv"))))
+        mu_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".csv")[0],
+                glob(os.path.join(fc.data_path, "mu", "*.csv")),
+            )
+        )
         mu_list.sort(key=_human_order_key)  # Used later
 
-        available_list = list(
-            set(target_list) & set(csda_list) & set(mu_list))
-        available_list.sort(key=_human_order_key)        
+        available_list = list(set(target_list) & set(csda_list) & set(mu_list))
+        available_list.sort(key=_human_order_key)
 
         # -Operations frame
         self.frmOper = LabelFrame(self.frmSpec, text="Spectrum operations")
@@ -569,13 +748,20 @@ class XpecgenGUI(Notebook):
         self.lblAttenMaterial = Label(self.frmOperAtten, text="Material")
         self.lblAttenMaterial.grid()
         self.cmbAttenMaterial = Combobox(
-            self.frmOperAtten, textvariable=self.AttenMaterial)
+            self.frmOperAtten, textvariable=self.AttenMaterial
+        )
         self.cmbAttenMaterial["values"] = list(map(_add_element_name, mu_list))
         self.cmbAttenMaterial.grid(row=0, column=1, sticky=E + W)
         self.ParAttenThick = ParBox(
-            self.frmOperAtten, self.AttenThick, lblText="Thickness", unitsTxt="cm", row=1)
+            self.frmOperAtten,
+            self.AttenThick,
+            lblText="Thickness",
+            unitsTxt="cm",
+            row=1,
+        )
         self.cmdAtten = Button(
-            self.frmOperAtten, text="Add attenuation", state=DISABLED)
+            self.frmOperAtten, text="Add attenuation", state=DISABLED
+        )
         self.cmdAtten["command"] = self.attenuate
         self.cmdAtten.grid(row=2, column=0, columnspan=3, sticky=E + W)
         Grid.columnconfigure(self.frmOperAtten, 0, weight=0)
@@ -588,14 +774,15 @@ class XpecgenGUI(Notebook):
         self.lblNormCriterion = Label(self.frmOperNorm, text="Criterion")
         self.lblNormCriterion.grid()
         self.cmbNormCriterion = Combobox(
-            self.frmOperNorm, textvariable=self.NormCriterion)
+            self.frmOperNorm, textvariable=self.NormCriterion
+        )
         self.criteriaList = ["Number", "Energy (keV)", "Dose (mGy)"]
         self.cmbNormCriterion["values"] = self.criteriaList
         self.cmbNormCriterion.grid(row=0, column=1, sticky=E + W)
         self.ParNormValue = ParBox(
-            self.frmOperNorm, self.NormValue, lblText="Value", unitsTxt="", row=1)
-        self.cmdNorm = Button(
-            self.frmOperNorm, text="Normalize", state=DISABLED)
+            self.frmOperNorm, self.NormValue, lblText="Value", unitsTxt="", row=1
+        )
+        self.cmdNorm = Button(self.frmOperNorm, text="Normalize", state=DISABLED)
         self.cmdNorm["command"] = self.normalize
         self.cmdNorm.grid(row=2, column=0, columnspan=3, sticky=E + W)
         Grid.columnconfigure(self.frmOperNorm, 0, weight=0)
@@ -608,15 +795,13 @@ class XpecgenGUI(Notebook):
         self.frmPlot = Frame(self.frmSpec)
 
         try:
-            self.fig = Figure(figsize=(5, 4), dpi=100,
-                            facecolor=self.master["bg"])
+            self.fig = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
             self.subfig = self.fig.add_subplot(111)
             self.canvas = FigureCanvasTkAgg(self.fig, master=self.frmPlot)
             self.canvas.draw()
             self.canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar = NavigationToolbar2Tk(
-                self.canvas, self.frmPlot)
+            self.canvasToolbar = NavigationToolbar2Tk(self.canvas, self.frmPlot)
             self.canvasToolbar.update()
             self.canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
@@ -628,32 +813,79 @@ class XpecgenGUI(Notebook):
             # self.cmdShowPlot = Button(self.frmPlot,text="Open plot window")
             # self.cmdShowPlot["command"] = self.update_plot
             # self.cmdShowPlot.grid(row=0,column=0)
-            print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
-                file=sys.stderr)
+            print(
+                "WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
+                file=sys.stderr,
+            )
 
         # --Spectral parameters frame
         self.frmSpectralParameters = LabelFrame(
-            self.frmSpec, text="Spectral parameters")
+            self.frmSpec, text="Spectral parameters"
+        )
         self.frmSpectralParameters.grid(row=2, column=0, sticky=S + E + W)
-        self.ParHVL1 = ParBox(self.frmSpectralParameters, self.HVL1, lblText="1HVL Al", unitsTxt="cm", row=0,
-                            read_only=True,
-                            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.ParHVL2 = ParBox(self.frmSpectralParameters, self.HVL2, lblText="2HVL Al", unitsTxt="cm", row=1,
-                            read_only=True,
-                            helpTxt="Thickness of Al at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.")
-        self.ParHVL3 = ParBox(self.frmSpectralParameters, self.HVL3, lblText="1HVL Cu", unitsTxt="cm", row=2,
-                            read_only=True,
-                            helpTxt="Thickness of Cu at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.ParHVL4 = ParBox(self.frmSpectralParameters, self.HVL4, lblText="2HVL Cu", unitsTxt="cm", row=3,
-                            read_only=True,
-                            helpTxt="Thickness of Cu at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.")
-        self.ParNorm = ParBox(self.frmSpectralParameters, self.number, lblText="Photon number", unitsTxt="", row=4,
-                            read_only=True, helpTxt="Number of photons in the spectrum.")
-        self.ParEnergy = ParBox(self.frmSpectralParameters, self.energy, lblText="Energy", unitsTxt="keV", row=5,
-                                read_only=True, helpTxt="Total energy in the spectrum.")
-        self.ParDose = ParBox(self.frmSpectralParameters, self.dose, lblText="Dose", unitsTxt="mGy", row=6,
-                            read_only=True,
-                            helpTxt="Dose produced in air by the spectrum, assuming it is describing the differential fluence in particles/keV/cm^2.")
+        self.ParHVL1 = ParBox(
+            self.frmSpectralParameters,
+            self.HVL1,
+            lblText="1HVL Al",
+            unitsTxt="cm",
+            row=0,
+            read_only=True,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
+        self.ParHVL2 = ParBox(
+            self.frmSpectralParameters,
+            self.HVL2,
+            lblText="2HVL Al",
+            unitsTxt="cm",
+            row=1,
+            read_only=True,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.",
+        )
+        self.ParHVL3 = ParBox(
+            self.frmSpectralParameters,
+            self.HVL3,
+            lblText="1HVL Cu",
+            unitsTxt="cm",
+            row=2,
+            read_only=True,
+            helpTxt="Thickness of Cu at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
+        self.ParHVL4 = ParBox(
+            self.frmSpectralParameters,
+            self.HVL4,
+            lblText="2HVL Cu",
+            unitsTxt="cm",
+            row=3,
+            read_only=True,
+            helpTxt="Thickness of Cu at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.",
+        )
+        self.ParNorm = ParBox(
+            self.frmSpectralParameters,
+            self.number,
+            lblText="Photon number",
+            unitsTxt="",
+            row=4,
+            read_only=True,
+            helpTxt="Number of photons in the spectrum.",
+        )
+        self.ParEnergy = ParBox(
+            self.frmSpectralParameters,
+            self.energy,
+            lblText="Energy",
+            unitsTxt="keV",
+            row=5,
+            read_only=True,
+            helpTxt="Total energy in the spectrum.",
+        )
+        self.ParDose = ParBox(
+            self.frmSpectralParameters,
+            self.dose,
+            lblText="Dose",
+            unitsTxt="mGy",
+            row=6,
+            read_only=True,
+            helpTxt="Dose produced in air by the spectrum, assuming it is describing the differential fluence in particles/keV/cm^2.",
+        )
 
         Grid.columnconfigure(self.frmSpec, 0, weight=1)
 
@@ -670,63 +902,74 @@ class XpecgenGUI(Notebook):
         self.frmPlotKern = Frame(self.frmKern)
 
         try:
-            self.figKern = Figure(figsize=(8, 4), dpi=100,
-                                facecolor=self.master["bg"])
+            self.figKern = Figure(figsize=(8, 4), dpi=100, facecolor=self.master["bg"])
             self.subfigKern = self.figKern.add_subplot(121)
             self.subfigKern2 = self.figKern.add_subplot(122)
-            self.canvasKern = FigureCanvasTkAgg(
-                self.figKern, master=self.frmPlotKern)
+            self.canvasKern = FigureCanvasTkAgg(self.figKern, master=self.frmPlotKern)
             self.canvasKern.draw()
             self.canvasKern.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
             self.canvasToolbarKern = NavigationToolbar2Tk(
-                self.canvasKern, self.frmPlotKern)
+                self.canvasKern, self.frmPlotKern
+            )
             self.canvasToolbarKern.update()
             self.canvasKern._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlotKern.grid(
-                row=0, column=1, rowspan=3, sticky=N + S + E + W)
+            self.frmPlotKern.grid(row=0, column=1, rowspan=3, sticky=N + S + E + W)
 
             self.matplotlib_embedded = True
         except Exception:
             self.matplotlib_embedded = False
-            print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
-                file=sys.stderr)
+            print(
+                "WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
+                file=sys.stderr,
+            )
 
-        geo_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".npy")[0], glob(os.path.join(fc.data_path, "phantoms", "*.npy"))))
+        geo_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".npy")[0],
+                glob(os.path.join(fc.data_path, "phantoms", "*.npy")),
+            )
+        )
         geo_list.sort(key=_human_order_key)  # Used later
 
         self.frmGeo = LabelFrame(self.frmKern, text="Geometries")
         self.frmGeo.grid(row=0, column=0, sticky=N + S + E + W)
         self.lblgeo = Label(self.frmGeo, text="Choose Geometry")
-        self.lblgeoTT = CreateToolTip(self.lblgeo,
-                                    "Choose a geometry")
+        self.lblgeoTT = CreateToolTip(self.lblgeo, "Choose a geometry")
         self.lblgeo.grid(row=0, column=0, sticky=W)
         self.cmbgeo = Combobox(self.frmGeo, textvariable=self.geo)
-        self.cmbgeo["values"] = ['Catphan_515','Catphan_MTF','XCAT','Catphan_404','Catphan_projections']#geo_list # these names correspond to xpecgen classes
+        self.cmbgeo["values"] = [
+            "Catphan_515",
+            "Catphan_MTF",
+            "XCAT",
+            "Catphan_404",
+            "Catphan_projections",
+        ]  # geo_list # these names correspond to xpecgen classes
         self.cmbgeo.grid(row=0, column=1, sticky=W + E)
-        self.cmbgeoTT = CreateToolTip(self.cmbgeo,
-                                    "Choose a geometry")
+        self.cmbgeoTT = CreateToolTip(self.cmbgeo, "Choose a geometry")
 
         self.cmdgeo = Button(self.frmKern, text="Geometry Viewer")
         self.cmdgeo["command"] = self.computeGeometry
-        self.cmdgeo.bind('<Return>', lambda event: self.computeGeometry())
+        self.cmdgeo.bind("<Return>", lambda event: self.computeGeometry())
         self.cmdgeo.bind(
-            '<KP_Enter>', lambda event: self.computeGeometry())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.computeGeometry()
+        )  # Enter (num. kb)
         self.cmdgeo.grid(row=3, column=0, sticky=S + E + W)
 
         self.cmbgeofs = Combobox(self.frmGeo, textvariable=self.geo)
         self.cmbgeofs = ParBox(
-            self.frmGeo, self.fs_size, lblText="Focal spot size", unitsTxt="mm", row=2)
+            self.frmGeo, self.fs_size, lblText="Focal spot size", unitsTxt="mm", row=2
+        )
         # self.cmbgeofs["values"] = geo_list
-        # self.cmbgeofs.grid(row=2, column=0, sticky=W + E)        
+        # self.cmbgeofs.grid(row=2, column=0, sticky=W + E)
 
         self.cmdgeofs = Button(self.frmGeo, text="Add focal spot")
         self.cmdgeofs["command"] = self.add_focal_spot
-        self.cmdgeofs.bind('<Return>', lambda event: self.add_focal_spot())
+        self.cmdgeofs.bind("<Return>", lambda event: self.add_focal_spot())
         self.cmdgeofs.bind(
-            '<KP_Enter>', lambda event: self.add_focal_spot())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.add_focal_spot()
+        )  # Enter (num. kb)
         self.cmdgeofs.grid(row=5, column=0, columnspan=2, sticky=N + S + E + W)
 
         Grid.columnconfigure(self.frmKern, 0, weight=1)
@@ -736,11 +979,17 @@ class XpecgenGUI(Notebook):
 
         # --Spectral parameters frame
         self.frmSpectralParameters2 = LabelFrame(
-            self.frmKern, text="Spectral parameters")
-        self.frmSpectralParameters2.grid(row=1, column=0, sticky=N+E + W)
-        self.ParHVL12 = ParBox(self.frmSpectralParameters2, self.load, lblText="Loaded Spectra", row=0,
-                            read_only=True,
-                            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
+            self.frmKern, text="Spectral parameters"
+        )
+        self.frmSpectralParameters2.grid(row=1, column=0, sticky=N + E + W)
+        self.ParHVL12 = ParBox(
+            self.frmSpectralParameters2,
+            self.load,
+            lblText="Loaded Spectra",
+            row=0,
+            read_only=True,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
         # self.ParHVL22 = ParBox(self.frmSpectralParameters2, self.geo, lblText="Geo file", row=1,
         #                     read_only=True,
         #                     helpTxt="Thickness of Al at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.")
@@ -771,20 +1020,26 @@ class XpecgenGUI(Notebook):
         self.lstHistory2.config(yscrollcommand=self.scrollHistory2.set)
         self.scrollHistory2.config(command=self.lstHistory2.yview)
 
-        mu_list = list(map(lambda x: (os.path.split(x)[1]).split(
-            ".csv")[0], glob(os.path.join(fc.data_path, "mu", "*.csv"))))
+        mu_list = list(
+            map(
+                lambda x: (os.path.split(x)[1]).split(".csv")[0],
+                glob(os.path.join(fc.data_path, "mu", "*.csv")),
+            )
+        )
         mu_list.sort(key=_human_order_key)  # Used later
 
         self.cmbChangeMaterial = Combobox(
-            self.frmHist2, textvariable=self.AttenMaterial)
+            self.frmHist2, textvariable=self.AttenMaterial
+        )
         self.lblChange = Label(self.frmHist2, text="Material")
-        self.lblChangeTT = CreateToolTip(self.lblChange,
-                                    "Change a selected material in the phantom mapping to the material above")
+        self.lblChangeTT = CreateToolTip(
+            self.lblChange,
+            "Change a selected material in the phantom mapping to the material above",
+        )
         self.lblChange.grid(row=1, column=0, sticky=W)
         self.cmbChangeMaterial["values"] = list(map(_add_element_name, mu_list))
         self.cmbChangeMaterial.grid(row=2, column=0, sticky=E + W)
-        self.cmdCleanHistory2 = Button(
-            self.frmHist2, text="Change Selected")
+        self.cmdCleanHistory2 = Button(self.frmHist2, text="Change Selected")
         self.cmdCleanHistory2["command"] = self.update_phan_map
         self.cmdCleanHistory2.grid(row=3, column=0, columnspan=2, sticky=E + W)
         # self.cmdExport2 = Button(
@@ -794,9 +1049,10 @@ class XpecgenGUI(Notebook):
 
         self.cmddet2 = Button(self.frmGeom, text="Generate Projections")
         self.cmddet2["command"] = self.computeProjection
-        self.cmddet2.bind('<Return>', lambda event: self.computeProjection())
+        self.cmddet2.bind("<Return>", lambda event: self.computeProjection())
         self.cmddet2.bind(
-            '<KP_Enter>', lambda event: self.computeProjection())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.computeProjection()
+        )  # Enter (num. kb)
         self.cmddet2.grid(row=5, column=0, sticky=E + W)
 
         Grid.rowconfigure(self.frmHist2, 0, weight=1)
@@ -810,8 +1066,12 @@ class XpecgenGUI(Notebook):
         self.frmOperAtten2 = LabelFrame(self.frmOper2, text="Simulation Parameters")
         self.frmOperAtten2.grid(row=0, column=0, sticky=N + S + E + W)
 
-        self.radio1 = Checkbutton(self.frmOperAtten2,text='Scatter Correction',variable=self.scatter_on).pack(anchor=W)
-        self.radio2 = Checkbutton(self.frmOperAtten2,text='Detector Convolution',variable=self.det_on).pack(anchor=W)
+        self.radio1 = Checkbutton(
+            self.frmOperAtten2, text="Scatter Correction", variable=self.scatter_on
+        ).pack(anchor=W)
+        self.radio2 = Checkbutton(
+            self.frmOperAtten2, text="Detector Convolution", variable=self.det_on
+        ).pack(anchor=W)
 
         Grid.columnconfigure(self.frmOperAtten2, 0, weight=0)
         Grid.columnconfigure(self.frmOperAtten2, 1, weight=1)
@@ -825,14 +1085,20 @@ class XpecgenGUI(Notebook):
         self.lblNormCriterion2 = Label(self.frmOperNorm2, text="Criterion")
         self.lblNormCriterion2.grid()
         self.cmbNormCriterion2 = Combobox(
-            self.frmOperNorm2, textvariable=self.NormCriterion2)
-        self.criteriaList2 = ["None", "Dose per View (mGy)","Dose per CT (mGy)", "Fluence (n photons per view)"]
+            self.frmOperNorm2, textvariable=self.NormCriterion2
+        )
+        self.criteriaList2 = [
+            "None",
+            "Dose per View (mGy)",
+            "Dose per CT (mGy)",
+            "Fluence (n photons per view)",
+        ]
         self.cmbNormCriterion2["values"] = self.criteriaList2
         self.cmbNormCriterion2.grid(row=0, column=1, sticky=E + W)
         self.ParNormValue2 = ParBox(
-            self.frmOperNorm2, self.current, lblText="Value", unitsTxt="", row=1)
-        self.cmdNorm = Button(
-            self.frmOperNorm2, text="Update", state=DISABLED)
+            self.frmOperNorm2, self.current, lblText="Value", unitsTxt="", row=1
+        )
+        self.cmdNorm = Button(self.frmOperNorm2, text="Update", state=DISABLED)
         self.cmdNorm["command"] = self.normalize2
         self.cmdNorm.grid(row=2, column=0, columnspan=3, sticky=E + W)
 
@@ -847,51 +1113,81 @@ class XpecgenGUI(Notebook):
         self.frmPlot3 = Frame(self.frmGeom)
 
         try:
-            self.fig3 = Figure(figsize=(5, 4), dpi=100,
-                            facecolor=self.master["bg"])
+            self.fig3 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
             self.subfig3 = self.fig3.add_subplot(121)
             self.subfig4 = self.fig3.add_subplot(122)
             self.canvas3 = FigureCanvasTkAgg(self.fig3, master=self.frmPlot3)
             self.canvas3.draw()
             self.canvas3.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar3 = NavigationToolbar2Tk(
-                self.canvas3, self.frmPlot3)
+            self.canvasToolbar3 = NavigationToolbar2Tk(self.canvas3, self.frmPlot3)
             self.canvasToolbar3.update()
             self.canvas3._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot3.grid(row=0, column=1, rowspan=3,
-                            sticky=N + S + E + W)
+            self.frmPlot3.grid(row=0, column=1, rowspan=3, sticky=N + S + E + W)
 
             self.matplotlib_embedded = True
         except Exception:
             self.matplotlib_embedded = False
 
-            print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
-                file=sys.stderr)
+            print(
+                "WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
+                file=sys.stderr,
+            )
 
         # --Spectral parameters frame
         self.frmSpectralParameters2 = LabelFrame(
-            self.frmGeom, text="Spectral parameters")
+            self.frmGeom, text="Spectral parameters"
+        )
         self.frmSpectralParameters2.grid(row=2, column=0, sticky=S + E + W)
-        self.ParHVL12 = ParBox(self.frmSpectralParameters2, self.load, lblText="Loaded Spectra", row=0,
-                            read_only=True,
-                            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.ParHVL22 = ParBox(self.frmSpectralParameters2, self.geo, lblText="Geo file", row=1,
-                            read_only=True,
-                            helpTxt="Thickness of Al at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.")
-        self.ParHVL32 = ParBox(self.frmSpectralParameters2, self.HVL32, lblText="# of Views", row=2,
-                            read_only=False,
-                            helpTxt="How many projections")
-        self.ParHVL42 = ParBox(self.frmSpectralParameters2, self.HVL42, lblText="Starting Angle", row=3,
-                            read_only=False,
-                            helpTxt="Starting angle")
-        self.ParHVL52 = ParBox(self.frmSpectralParameters2, self.HVL52, lblText="Ending Angle", row=4,
-                            read_only=False,
-                            helpTxt="Ending angle of projection")
-        self.ParHVL62 = ParBox(self.frmSpectralParameters2, self.doseperproj, lblText="mGy", row=5,
-                            read_only=True,
-                            helpTxt="Thickness of Cu at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
+        self.ParHVL12 = ParBox(
+            self.frmSpectralParameters2,
+            self.load,
+            lblText="Loaded Spectra",
+            row=0,
+            read_only=True,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
+        self.ParHVL22 = ParBox(
+            self.frmSpectralParameters2,
+            self.geo,
+            lblText="Geo file",
+            row=1,
+            read_only=True,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum after crossing a HVL is halved again, according to the exponential attenuation model.",
+        )
+        self.ParHVL32 = ParBox(
+            self.frmSpectralParameters2,
+            self.HVL32,
+            lblText="# of Views",
+            row=2,
+            read_only=False,
+            helpTxt="How many projections",
+        )
+        self.ParHVL42 = ParBox(
+            self.frmSpectralParameters2,
+            self.HVL42,
+            lblText="Starting Angle",
+            row=3,
+            read_only=False,
+            helpTxt="Starting angle",
+        )
+        self.ParHVL52 = ParBox(
+            self.frmSpectralParameters2,
+            self.HVL52,
+            lblText="Ending Angle",
+            row=4,
+            read_only=False,
+            helpTxt="Ending angle of projection",
+        )
+        self.ParHVL62 = ParBox(
+            self.frmSpectralParameters2,
+            self.doseperproj,
+            lblText="mGy",
+            row=5,
+            read_only=True,
+            helpTxt="Thickness of Cu at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
 
         Grid.columnconfigure(self.frmGeom, 0, weight=1)
 
@@ -906,13 +1202,13 @@ class XpecgenGUI(Notebook):
 
         try:
             now = int(self.lstHistory2.curselection()[0])
-            
+
             self.lstHistory2.delete(0, END)
 
             self.phantom.phan_map[now] = self.AttenMaterial.get()
 
             for ii, item in enumerate(self.phantom.phan_map):
-                self.lstHistory2.insert(END, f'{ii},' + item)
+                self.lstHistory2.insert(END, f"{ii}," + item)
 
         except IndexError:  # Ignore if nothing selected
             pass
@@ -921,60 +1217,65 @@ class XpecgenGUI(Notebook):
 
         """Initialize sino frame"""
 
-        self.frmRecon = LabelFrame(
-            self.frmSino, text="Reconstruction operations")
+        self.frmRecon = LabelFrame(self.frmSino, text="Reconstruction operations")
         self.frmRecon.grid(row=0, column=0, sticky=N + S + E + W)
-        self.lblReconPar = Label(
-            self.frmRecon, text="Reconstruction Algorithm")
-        self.lblReconPar.grid(row=2, column=0,sticky= W)
-        self.cmbReconType = Combobox(
-            self.frmRecon, textvariable=self.algorithm)
-        self.cmbReconType.grid(row=3, column=0,sticky=E + W)
-        self.cmbReconType2 = Combobox(
-            self.frmRecon, textvariable=self.filt)
-        self.lblReconPar2 = Label(
-            self.frmRecon, text="Filter")
-        self.lblReconPar2.grid(row=4, column=0,sticky=E + W)
+        self.lblReconPar = Label(self.frmRecon, text="Reconstruction Algorithm")
+        self.lblReconPar.grid(row=2, column=0, sticky=W)
+        self.cmbReconType = Combobox(self.frmRecon, textvariable=self.algorithm)
+        self.cmbReconType.grid(row=3, column=0, sticky=E + W)
+        self.cmbReconType2 = Combobox(self.frmRecon, textvariable=self.filt)
+        self.lblReconPar2 = Label(self.frmRecon, text="Filter")
+        self.lblReconPar2.grid(row=4, column=0, sticky=E + W)
 
-        #self.cmbReconType["values"] = list(map(_add_element_name, mu_list))
+        # self.cmbReconType["values"] = list(map(_add_element_name, mu_list))
         # row=5, column=0,rowspan=4, sticky=E + W)
-        self.cmbReconType2.grid(row=5, column=0,sticky=E + W)
+        self.cmbReconType2.grid(row=5, column=0, sticky=E + W)
 
-        self.frmReconParameters = LabelFrame(
-            self.frmSino, text="Spectral parameters")
+        self.frmReconParameters = LabelFrame(self.frmSino, text="Spectral parameters")
         self.frmReconParameters.grid(row=1, column=0, sticky=N + S + E + W)
 
         # self.get_proj = ParBox(
         #     self.get_proj, self.AttenThick2, lblText="Thickness", unitsTxt="cm", row=1)
         # self.frmRecon = LabelFrame(self.frmRecon, text="Spectral parameters")
         # self.frmSpectralParameters2.grid(row=2, column=0, sticky=S + E + W)
-        self.Parrecon = ParBox(self.frmReconParameters, self.niter, lblText="Number of Iterations", row=0,
-                        read_only=False,
-                        helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
+        self.Parrecon = ParBox(
+            self.frmReconParameters,
+            self.niter,
+            lblText="Number of Iterations",
+            row=0,
+            read_only=False,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
         self.cmdRecon = Button(self.frmReconParameters, text="Reconstruct")
         self.cmdRecon["command"] = self.reconstruct
-        self.cmdRecon.bind('<Return>', lambda event: self.reconstruct())
+        self.cmdRecon.bind("<Return>", lambda event: self.reconstruct())
         self.cmdRecon.bind(
-            '<KP_Enter>', lambda event: self.reconstruct())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.reconstruct()
+        )  # Enter (num. kb)
         # row=6, column=0, rowspan=4, sticky=E + W)
-        self.cmdRecon.grid(row=1, column=0,columnspan=2,sticky=S+E + W)
+        self.cmdRecon.grid(row=1, column=0, columnspan=2, sticky=S + E + W)
 
-        self.ParSave = ParBox(self.frmReconParameters, self.filename, lblText="File Name", row=2,
-                        read_only=False,
-                        helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        
+        self.ParSave = ParBox(
+            self.frmReconParameters,
+            self.filename,
+            lblText="File Name",
+            row=2,
+            read_only=False,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
+
         self.cmdSave = Button(self.frmReconParameters, text="Save Projections")
         self.cmdSave["command"] = self.saveproj
-        self.cmdSave.bind('<Return>', lambda event: self.saveproj())
+        self.cmdSave.bind("<Return>", lambda event: self.saveproj())
         self.cmdSave.bind(
-            '<KP_Enter>', lambda event: self.saveproj())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.saveproj()
+        )  # Enter (num. kb)
         # row=6, column=0, rowspan=4, sticky=E + W)
-        self.cmdSave.grid(row=3, column=0,columnspan=2,sticky=E + W)
+        self.cmdSave.grid(row=3, column=0, columnspan=2, sticky=E + W)
 
         Grid.columnconfigure(self.frmReconParameters, 0, weight=0)
         Grid.columnconfigure(self.frmReconParameters, 1, weight=1)
         Grid.columnconfigure(self.frmReconParameters, 2, weight=0)
-
 
         Grid.columnconfigure(self.frmRecon, 0, weight=1)
         Grid.columnconfigure(self.frmRecon, 1, weight=0)
@@ -986,21 +1287,18 @@ class XpecgenGUI(Notebook):
         self.frmPlot4 = Frame(self.frmSino)
 
         try:
-            self.fig4 = Figure(figsize=(5, 4), dpi=100,
-                            facecolor=self.master["bg"])
+            self.fig4 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
             self.subfig5 = self.fig4.add_subplot(121)
             self.subfig6 = self.fig4.add_subplot(122)
             self.canvas4 = FigureCanvasTkAgg(self.fig4, master=self.frmPlot4)
             self.canvas4.draw()
             self.canvas4.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar4 = NavigationToolbar2Tk(
-                self.canvas4, self.frmPlot4)
+            self.canvasToolbar4 = NavigationToolbar2Tk(self.canvas4, self.frmPlot4)
             self.canvasToolbar4.update()
             self.canvas4._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot4.grid(row=0, column=1, rowspan=5,
-                            sticky=N + S + E + W)
+            self.frmPlot4.grid(row=0, column=1, rowspan=5, sticky=N + S + E + W)
 
             self.matplotlib_embedded = True
         except Exception:
@@ -1008,8 +1306,10 @@ class XpecgenGUI(Notebook):
             # self.cmdShowPlot = Button(self.frmPlot,text="Open plot window")
             # self.cmdShowPlot["command"] = self.update_plot
             # self.cmdShowPlot.grid(row=0,column=0)
-            print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
-                file=sys.stderr)
+            print(
+                "WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
+                file=sys.stderr,
+            )
 
         Grid.columnconfigure(self.frmSino, 0, weight=1)
 
@@ -1027,42 +1327,49 @@ class XpecgenGUI(Notebook):
         """Initialize reso frame"""
 
         # -Operations frame
-        self.frmRecon2 = LabelFrame(
-            self.frmReso, text="Save file")
-        self.frmRecon2.grid(row=0, column=0,
-                        sticky=N + S + E + W)
+        self.frmRecon2 = LabelFrame(self.frmReso, text="Save file")
+        self.frmRecon2.grid(row=0, column=0, sticky=N + S + E + W)
         # self.cmdAtten2.grid(row=2, column=0, columnspan=3, sticky=E + W)
         # --Attenuation
         # self.frmRecon2Par = LabelFrame(self.frmRecon2, text="Attenuate")
         # # row=4, column=0,rowspan=4, sticky=E + W)
         # self.frmRecon2Par.grid(sticky=E + W)
-        self.lblRecon2Par = Label(
-            self.frmRecon2, text="File Type")
-        self.lblRecon2Par.grid(row=0,column=0,sticky=E + W)
-        self.cmbRecon2Type = Combobox(
-            self.frmRecon2, textvariable=self.filetype)
-        self.cmbRecon2Type.grid(row=1,column=1,sticky=E + W)
-        self.Par1 = ParBox(self.frmRecon2, self.filename, lblText="File Name", row=3,
-                        read_only=False,
-                        helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
-        self.Par2 = ParBox(self.frmRecon2, self.label, lblText="Plotting Label", row=4,
-                        read_only=False,
-                        helpTxt="label that will appear in the legend of the analysis plots")
+        self.lblRecon2Par = Label(self.frmRecon2, text="File Type")
+        self.lblRecon2Par.grid(row=0, column=0, sticky=E + W)
+        self.cmbRecon2Type = Combobox(self.frmRecon2, textvariable=self.filetype)
+        self.cmbRecon2Type.grid(row=1, column=1, sticky=E + W)
+        self.Par1 = ParBox(
+            self.frmRecon2,
+            self.filename,
+            lblText="File Name",
+            row=3,
+            read_only=False,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
+        self.Par2 = ParBox(
+            self.frmRecon2,
+            self.label,
+            lblText="Plotting Label",
+            row=4,
+            read_only=False,
+            helpTxt="label that will appear in the legend of the analysis plots",
+        )
         self.cmdRecon2 = Button(self.frmReso, text="Save Reconstruction")
         self.cmdRecon2["command"] = self.saverecon
-        self.cmdRecon2.bind('<Return>', lambda event: self.saverecon())
+        self.cmdRecon2.bind("<Return>", lambda event: self.saverecon())
         self.cmdRecon2.bind(
-            '<KP_Enter>', lambda event: self.saverecon())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.saverecon()
+        )  # Enter (num. kb)
         # row=6, column=0, rowspan=4, sticky=E + W)
-        self.cmdRecon2.grid(row=1,column=0,sticky=S+E + W)
+        self.cmdRecon2.grid(row=1, column=0, sticky=S + E + W)
 
         self.cmdRecon3 = Button(self.frmReso, text="Analyze Phantom")
         self.cmdRecon3["command"] = self.analyse_phan
-        self.cmdRecon3.bind('<Return>', lambda event: self.analyse_phan())
+        self.cmdRecon3.bind("<Return>", lambda event: self.analyse_phan())
         self.cmdRecon3.bind(
-            '<KP_Enter>', lambda event: self.analyse_phan())  # Enter (num. kb)
-        self.cmdRecon3.grid(sticky=S+E + W,row=2, column=0)
-
+            "<KP_Enter>", lambda event: self.analyse_phan()
+        )  # Enter (num. kb)
+        self.cmdRecon3.grid(sticky=S + E + W, row=2, column=0)
 
         Grid.columnconfigure(self.frmRecon2, 0, weight=0)
         Grid.columnconfigure(self.frmRecon2, 1, weight=1)
@@ -1071,31 +1378,29 @@ class XpecgenGUI(Notebook):
         Grid.rowconfigure(self.frmReso, 1, weight=0)
         Grid.rowconfigure(self.frmReso, 2, weight=0)
 
-
         self.frmPlot5 = Frame(self.frmReso)
 
         try:
-            self.fig5 = Figure(figsize=(5, 4), dpi=100,
-                            facecolor=self.master["bg"])
+            self.fig5 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
             self.subfig7 = self.fig5.add_subplot(121)
             self.subfig8 = self.fig5.add_subplot(122)
             self.canvas5 = FigureCanvasTkAgg(self.fig5, master=self.frmPlot5)
             self.canvas5.draw()
             self.canvas5.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar5 = NavigationToolbar2Tk(
-                self.canvas5, self.frmPlot5)
+            self.canvasToolbar5 = NavigationToolbar2Tk(self.canvas5, self.frmPlot5)
             self.canvasToolbar5.update()
             self.canvas5._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot5.grid(row=0, column=1, rowspan=5,
-                            sticky=N + S + E + W)
+            self.frmPlot5.grid(row=0, column=1, rowspan=5, sticky=N + S + E + W)
 
             self.matplotlib_embedded = True
         except Exception:
             self.matplotlib_embedded = False
-            print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
-                file=sys.stderr)
+            print(
+                "WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
+                file=sys.stderr,
+            )
 
         Grid.columnconfigure(self.frmReso, 0, weight=1)
 
@@ -1111,30 +1416,33 @@ class XpecgenGUI(Notebook):
         """Initialize reso frame"""
 
         # -Operations frame
-        self.frmRecon2 = LabelFrame(
-            self.frmOutp, text="Reconstruction operations")
+        self.frmRecon2 = LabelFrame(self.frmOutp, text="Reconstruction operations")
         self.frmRecon2.grid(row=0, column=0, sticky=N + S + E + W)
         # self.cmdAtten2.grid(row=2, column=0, columnspan=3, sticky=E + W)
         # --Attenuation
         # self.frmRecon2Par = LabelFrame(self.frmRecon2, text="Attenuate")
         # row=4, column=0,rowspan=4, sticky=E + W)
         # self.frmRecon2Par.grid(sticky=E + W)
-        self.lblRecon2Par = Label(
-            self.frmRecon2, text="File Type")
+        self.lblRecon2Par = Label(self.frmRecon2, text="File Type")
         self.lblRecon2Par.grid(sticky=E + W)
-        self.cmbRecon2Type = Combobox(
-            self.frmRecon2, textvariable=self.filetype)
+        self.cmbRecon2Type = Combobox(self.frmRecon2, textvariable=self.filetype)
         self.cmbRecon2Type.grid(sticky=E + W)
-        self.Par1 = ParBox(self.frmRecon2, self.filename, lblText="File Name", row=5,
-                        read_only=False,
-                        helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.")
+        self.Par1 = ParBox(
+            self.frmRecon2,
+            self.filename,
+            lblText="File Name",
+            row=5,
+            read_only=False,
+            helpTxt="Thickness of Al at which the dose produced by the spectrum is halved, according to the exponential attenuation model.",
+        )
         self.cmdRecon2 = Button(self.frmRecon2, text="Save Reconstruction")
         self.cmdRecon2["command"] = self.saverecon
-        self.cmdRecon2.bind('<Return>', lambda event: self.saverecon())
+        self.cmdRecon2.bind("<Return>", lambda event: self.saverecon())
         self.cmdRecon2.bind(
-            '<KP_Enter>', lambda event: self.saverecon())  # Enter (num. kb)
+            "<KP_Enter>", lambda event: self.saverecon()
+        )  # Enter (num. kb)
         self.cmdRecon2.grid(sticky=E + W)
-        
+
         Grid.columnconfigure(self.frmOutp, 0, weight=0)
         Grid.columnconfigure(self.frmOutp, 1, weight=1)
         Grid.columnconfigure(self.frmOutp, 2, weight=0)
@@ -1144,27 +1452,26 @@ class XpecgenGUI(Notebook):
         self.frmPlot6 = Frame(self.frmOutp)
 
         try:
-            self.fig6 = Figure(figsize=(5, 4), dpi=100,
-                            facecolor=self.master["bg"])
+            self.fig6 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
             self.subfig9 = self.fig6.add_subplot(121)
             self.subfig10 = self.fig6.add_subplot(122)
             self.canvas6 = FigureCanvasTkAgg(self.fig6, master=self.frmPlot6)
             self.canvas6.draw()
             self.canvas6.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar6 = NavigationToolbar2Tk(
-                self.canvas6, self.frmPlot6)
+            self.canvasToolbar6 = NavigationToolbar2Tk(self.canvas6, self.frmPlot6)
             self.canvasToolbar6.update()
             self.canvas6._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot6.grid(row=0, column=1, rowspan=5,
-                            sticky=N + S + E + W)
+            self.frmPlot6.grid(row=0, column=1, rowspan=5, sticky=N + S + E + W)
 
             self.matplotlib_embedded = True
         except Exception:
             self.matplotlib_embedded = False
-            print("WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
-                file=sys.stderr)
+            print(
+                "WARNING: Matplotlib couldn't be embedded in TkAgg.\nUsing independent window instead",
+                file=sys.stderr,
+            )
 
         if self.matplotlib_embedded:
             # If not embedding, use the whole window
@@ -1172,7 +1479,7 @@ class XpecgenGUI(Notebook):
 
         Grid.rowconfigure(self.frmReso, 0, weight=1)
         Grid.rowconfigure(self.frmReso, 1, weight=1)
-        
+
     def enable_analyze_buttons(self):
         """
         Enable widgets requiring a calculated spectrum to work.
@@ -1209,14 +1516,14 @@ class XpecgenGUI(Notebook):
         if self.matplotlib_embedded:
             self.subfigKern.clear()
             self.kernel.get_plot(self.subfigKern)
-            self.kernel.get_plot_mtf_real(self.subfigKern2,label=self.load.get())
+            self.kernel.get_plot_mtf_real(self.subfigKern2, label=self.load.get())
             self.figKern.tight_layout()
             self.canvasKern.draw()
             self.canvasToolbarKern.update()
 
         else:
             # FIXME: Update if independent window is opened
-            print('not going')
+            print("not going")
         self.update_param()
 
     def update_plot_proj(self):
@@ -1229,13 +1536,11 @@ class XpecgenGUI(Notebook):
             # self.subfigGeo.clear()
             if len(self.phantom.proj.shape) > 2:
                 self.tracker3 = fc.IndexTracker(
-                    self.subfig5, self.phantom.proj.transpose([1,2,0]))
-                self.fig4.canvas.mpl_connect(
-                    'scroll_event', self.tracker3.onscroll)
-                self.tracker4 = fc.IndexTracker(
-                    self.subfig6, self.phantom.proj)
-                self.fig4.canvas.mpl_connect(
-                    'scroll_event', self.tracker4.onscroll)
+                    self.subfig5, self.phantom.proj.transpose([1, 2, 0])
+                )
+                self.fig4.canvas.mpl_connect("scroll_event", self.tracker3.onscroll)
+                self.tracker4 = fc.IndexTracker(self.subfig6, self.phantom.proj)
+                self.fig4.canvas.mpl_connect("scroll_event", self.tracker4.onscroll)
                 self.fig4.tight_layout()
                 self.canvas4.draw()
                 self.canvasToolbar4.update()
@@ -1244,7 +1549,7 @@ class XpecgenGUI(Notebook):
                 self.subfig6.imshow(np.transpose(self.phantom.proj))
                 self.fig4.tight_layout()
                 self.canvas4.draw()
-                self.canvasToolbar4.update()                
+                self.canvasToolbar4.update()
 
     def update_plot_recon(self):
         """
@@ -1253,13 +1558,11 @@ class XpecgenGUI(Notebook):
 
         """
         if self.matplotlib_embedded:
-            print('Starting FDK reconstruction ...')
+            print("Starting FDK reconstruction ...")
             self.tracker5 = fc.IndexTracker(self.subfig7, self.phantom.img.T)
-            self.fig5.canvas.mpl_connect(
-                'scroll_event', self.tracker5.onscroll)
+            self.fig5.canvas.mpl_connect("scroll_event", self.tracker5.onscroll)
             self.tracker6 = fc.IndexTracker(self.subfig8, self.phantom.img)
-            self.fig5.canvas.mpl_connect(
-                'scroll_event', self.tracker6.onscroll)
+            self.fig5.canvas.mpl_connect("scroll_event", self.tracker6.onscroll)
             self.canvas5.draw()
             self.canvasToolbar5.update()
 
@@ -1271,18 +1574,15 @@ class XpecgenGUI(Notebook):
         """
         if self.matplotlib_embedded:
             self.tracker = fc.IndexTracker(self.subfig3, self.phantom.phantom.T)
-            self.fig3.canvas.mpl_connect('scroll_event', self.tracker.onscroll)
-            self.tracker2 = fc.IndexTracker(
-                self.subfig4, self.phantom.phantom)
-            self.fig3.canvas.mpl_connect(
-                'scroll_event', self.tracker2.onscroll)
+            self.fig3.canvas.mpl_connect("scroll_event", self.tracker.onscroll)
+            self.tracker2 = fc.IndexTracker(self.subfig4, self.phantom.phantom)
+            self.fig3.canvas.mpl_connect("scroll_event", self.tracker2.onscroll)
             self.canvas3.draw()
             self.canvasToolbar3.update()
 
         else:
             # FIXME: Update if independent window is opened
-            print('Failed to update plot.')
-
+            print("Failed to update plot.")
 
     def update_param(self):
         """
@@ -1292,27 +1592,39 @@ class XpecgenGUI(Notebook):
         if self.kV.get():
 
             hvlAl = self.spectra[self.active_spec].hvl(
-                0.5, self.fluence_to_dose, self.mu_Al)
+                0.5, self.fluence_to_dose, self.mu_Al
+            )
             qvlAl = self.spectra[self.active_spec].hvl(
-                0.25, self.fluence_to_dose, self.mu_Al)
+                0.25, self.fluence_to_dose, self.mu_Al
+            )
 
             hvlCu = self.spectra[self.active_spec].hvl(
-                0.5, self.fluence_to_dose, self.mu_Cu)
+                0.5, self.fluence_to_dose, self.mu_Cu
+            )
             qvlCu = self.spectra[self.active_spec].hvl(
-                0.25, self.fluence_to_dose, self.mu_Cu)
+                0.25, self.fluence_to_dose, self.mu_Cu
+            )
 
             # TODO: (?) cache the results
-            self.HVL1.set('%s' % float('%.3g' % hvlAl))
-            self.HVL2.set('%s' % float('%.3g' % (qvlAl - hvlAl)))
-            self.HVL3.set('%s' % float('%.3g' % hvlCu))
-            self.HVL4.set('%s' % float('%.3g' % (qvlCu - hvlCu)))
+            self.HVL1.set("%s" % float("%.3g" % hvlAl))
+            self.HVL2.set("%s" % float("%.3g" % (qvlAl - hvlAl)))
+            self.HVL3.set("%s" % float("%.3g" % hvlCu))
+            self.HVL4.set("%s" % float("%.3g" % (qvlCu - hvlCu)))
 
-            self.number.set('%s' % float('%.3g' %
-                                         (self.spectra[self.active_spec].get_norm())))
-            self.energy.set('%s' % float(
-                '%.3g' % (self.spectra[self.active_spec].get_norm(lambda x: x))))
-            self.dose.set('%s' % float(
-                '%.3g' % (self.spectra[self.active_spec].get_norm(self.fluence_to_dose))))
+            self.number.set(
+                "%s" % float("%.3g" % (self.spectra[self.active_spec].get_norm()))
+            )
+            self.energy.set(
+                "%s"
+                % float("%.3g" % (self.spectra[self.active_spec].get_norm(lambda x: x)))
+            )
+            self.dose.set(
+                "%s"
+                % float(
+                    "%.3g"
+                    % (self.spectra[self.active_spec].get_norm(self.fluence_to_dose))
+                )
+            )
 
     def monitor_bar(self, a, b):
         """
@@ -1335,7 +1647,7 @@ class XpecgenGUI(Notebook):
             now = int(self.lstHistory.curselection()[0])
             if now == len(self.spectra) - 1:  # No need to slice
                 return
-            self.spectra = self.spectra[0:now + 1]
+            self.spectra = self.spectra[0 : now + 1]
             self.lstHistory.delete(now + 1, END)
 
         except IndexError:  # Ignore if nothing selected
@@ -1351,12 +1663,14 @@ class XpecgenGUI(Notebook):
         else:
             selection = int(self.lstHistory.curselection()[0])
         file_opt = options = {}
-        options['defaultextension'] = '.xlsx'
-        options['filetypes'] = [
-            ('Excel Spreadsheet', '.xlsx'), ('Comma-separated values', '.csv')]
-        options['initialfile'] = 'spectrum.xlsx'
-        options['parent'] = self
-        options['title'] = 'Export spectrum'
+        options["defaultextension"] = ".xlsx"
+        options["filetypes"] = [
+            ("Excel Spreadsheet", ".xlsx"),
+            ("Comma-separated values", ".csv"),
+        ]
+        options["initialfile"] = "spectrum.xlsx"
+        options["parent"] = self
+        options["title"] = "Export spectrum"
         filename = tkinter.filedialog.asksaveasfilename(**file_opt)
         if not filename:  # Ignore if canceled
             return
@@ -1367,8 +1681,12 @@ class XpecgenGUI(Notebook):
         elif ext == "csv":
             self.spectra[selection].export_csv(filename)
         else:
-            messagebox.showerror("Error",
-                                 "Unknown file extension: " + ext + "\nUse the file types from the dialog to export.")
+            messagebox.showerror(
+                "Error",
+                "Unknown file extension: "
+                + ext
+                + "\nUse the file types from the dialog to export.",
+            )
 
     def calculate(self):
         """
@@ -1400,15 +1718,26 @@ class XpecgenGUI(Notebook):
 
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
-                s = fc.calculate_spectrum(self.E0.get(), self.Theta.get(), self.EMin.get(
-                ), self.NumE.get(), phi=self.Phi.get(), epsrel=self.Eps.get(), monitor=monitor, z=z)
+                s = fc.calculate_spectrum(
+                    self.E0.get(),
+                    self.Theta.get(),
+                    self.EMin.get(),
+                    self.NumE.get(),
+                    phi=self.Phi.get(),
+                    epsrel=self.Eps.get(),
+                    monitor=monitor,
+                    z=z,
+                )
                 self.spectra = [s]
                 self.queue_calculation.put(True)
             except Exception as e:
                 print_exc()
                 self.queue_calculation.put(False)
                 messagebox.showerror(
-                    "Error", "An error occurred during the calculation:\n%s\nCheck the parameters are valid." % str(e))
+                    "Error",
+                    "An error occurred during the calculation:\n%s\nCheck the parameters are valid."
+                    % str(e),
+                )
 
         self.queue_calculation = queue.Queue(maxsize=1)
         # The child will fill the queue with a value indicating whether an error occured.
@@ -1431,7 +1760,10 @@ class XpecgenGUI(Notebook):
             self.load.get()
         except AttributeError:  # If there is no calculation thread, there is nothing to worry about
             messagebox.showerror(
-                "Error", "An error occurred duringing loading:\n%s\nCheck that a file is selected." % str(e))
+                "Error",
+                "An error occurred duringing loading:\n%s\nCheck that a file is selected."
+                % str(e),
+            )
 
         self.calculation_count = 0
         self.calculation_total = self.NumE.get()
@@ -1446,7 +1778,9 @@ class XpecgenGUI(Notebook):
                 energies = []
                 fluence = []
 
-                with open(os.path.join(fc.data_path, "MV_spectra", f'{self.load.get()}.txt')) as f:
+                with open(
+                    os.path.join(fc.data_path, "MV_spectra", f"{self.load.get()}.txt")
+                ) as f:
                     for line in f:
                         # import pdb; pdb.set_trace()
                         energies.append(float(line.split()[0]))
@@ -1454,7 +1788,7 @@ class XpecgenGUI(Notebook):
 
                 # Check if MV
 
-                s.x = np.array(energies)*1000  # to keV
+                s.x = np.array(energies) * 1000  # to keV
                 s.y = np.array(fluence)
 
                 if max(s.x) > 500:
@@ -1467,7 +1801,10 @@ class XpecgenGUI(Notebook):
                 print_exc()
                 self.queue_calculation.put(False)
                 messagebox.showerror(
-                    "Error", "An error occurred during the calculation:\n%s\nCheck the parameters are valid." % str(e))
+                    "Error",
+                    "An error occurred during the calculation:\n%s\nCheck the parameters are valid."
+                    % str(e),
+                )
 
         self.queue_calculation = queue.Queue(maxsize=1)
         self.abort_calculation = False
@@ -1489,8 +1826,7 @@ class XpecgenGUI(Notebook):
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
 
-                self.kernel = fc.Kernel(
-                    self.spectra[-1], self.det.get())
+                self.kernel = fc.Kernel(self.spectra[-1], self.det.get())
 
                 self.queue_calculation.put(True)
 
@@ -1498,7 +1834,10 @@ class XpecgenGUI(Notebook):
                 print_exc()
                 self.queue_calculation.put(False)
                 messagebox.showerror(
-                    "Error", "An error occurred during the calculation:\n%s\nCheck the parameters are valid." % str(e))
+                    "Error",
+                    "An error occurred during the calculation:\n%s\nCheck the parameters are valid."
+                    % str(e),
+                )
 
         self.queue_calculation = queue.Queue(maxsize=1)
         # The child will fill the queue with a value indicating whether an error occured.
@@ -1516,14 +1855,16 @@ class XpecgenGUI(Notebook):
         Calculates a new spectrum using the parameters in the GUI.
 
         """
-        
+
         if self.matplotlib_embedded:
 
-            self.phantom.analyse_515(self.phantom.img[5],[self.subfig9,self.subfig10],self.label.get())
+            self.phantom.analyse_515(
+                self.phantom.img[5], [self.subfig9, self.subfig10], self.label.get()
+            )
             self.canvas6.draw()
             self.canvasToolbar6.update()
             self.fig6.tight_layout()
-            self.select(6)           
+            self.select(6)
 
     def reconstruct(self):
         """
@@ -1537,9 +1878,9 @@ class XpecgenGUI(Notebook):
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
 
-                print('FDK')
+                print("FDK")
 
-                self.phantom.reconstruct('FDK',self.filt.get())
+                self.phantom.reconstruct("FDK", self.filt.get())
 
                 self.queue_calculation.put(True)
 
@@ -1547,7 +1888,10 @@ class XpecgenGUI(Notebook):
                 print_exc()
                 self.queue_calculation.put(False)
                 messagebox.showerror(
-                    "Error", "An error occurred during the calculation:\n%s\nTigre not working resorting to astra" % str(e))
+                    "Error",
+                    "An error occurred during the calculation:\n%s\nTigre not working resorting to astra"
+                    % str(e),
+                )
 
         self.queue_calculation = queue.Queue(maxsize=1)
         # The child will fill the queue with a value indicating whether an error occured.
@@ -1564,22 +1908,32 @@ class XpecgenGUI(Notebook):
         """
         Calculates a new spectrum using the parameters in the GUI.
         """
-                
-        print('saving reconstruction...')
 
-        np.save(os.path.join(fc.data_path,'recons',self.filename.get()),self.phantom.img)
+        print("saving reconstruction...")
 
-        print('Reconstruction saved to ',os.path.join(fc.data_path,'recons',self.filename.get()))
+        np.save(
+            os.path.join(fc.data_path, "recons", self.filename.get()), self.phantom.img
+        )
+
+        print(
+            "Reconstruction saved to ",
+            os.path.join(fc.data_path, "recons", self.filename.get()),
+        )
 
     def saveproj(self):
         """
         Calculates a new spectrum using the parameters in the GUI.
         """
-                
-        print('saving projections...')
-        np.save(os.path.join(fc.data_path,'projs',self.filename.get()),self.phantom.proj)
 
-        print('Projections saved to ',os.path.join(fc.data_path,'projs',self.filename.get()))
+        print("saving projections...")
+        np.save(
+            os.path.join(fc.data_path, "projs", self.filename.get()), self.phantom.proj
+        )
+
+        print(
+            "Projections saved to ",
+            os.path.join(fc.data_path, "projs", self.filename.get()),
+        )
 
     def add_focal_spot(self):
 
@@ -1588,7 +1942,7 @@ class XpecgenGUI(Notebook):
         # self.computeGeometry()
         # self.select(2)
 
-        fs_size_in_pix = (self.fs_size.get() * 1536 / 1000)/ 0.672
+        fs_size_in_pix = (self.fs_size.get() * 1536 / 1000) / 0.672
 
         self.kernel.add_focal_spot(fs_size_in_pix)
 
@@ -1607,29 +1961,35 @@ class XpecgenGUI(Notebook):
             try:
 
                 print(np.squeeze(np.array(self.phantom.phantom)).shape)
-                self.angles = np.linspace(self.HVL42.get(), self.HVL52.get(
-                )*(np.pi)/180, int(self.HVL32.get()), dtype=np.float32)
+                self.angles = np.linspace(
+                    self.HVL42.get(),
+                    self.HVL52.get() * (np.pi) / 180,
+                    int(self.HVL32.get()),
+                    dtype=np.float32,
+                )
                 # print(self.angles)
                 energy_deposition_file = os.path.join(
-                    fc.data_path, "Detectors", self.det.get(), 'EnergyDeposition.npy')
-                self.phan_map = ['air','water',"G4_BONE_COMPACT_ICRU"]
+                    fc.data_path, "Detectors", self.det.get(), "EnergyDeposition.npy"
+                )
+                self.phan_map = ["air", "water", "G4_BONE_COMPACT_ICRU"]
                 # real one ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"]
-            #     ['air','water','Spongiosa_Bone_ICRP','G4_BONE_COMPACT_ICRU',
-            #  'G4_BONE_CORTICAL_ICRP','C4_Vertebra_ICRP','D6_Vertebra_ICRP','G4_B-100_BONE']
+                #     ['air','water','Spongiosa_Bone_ICRP','G4_BONE_COMPACT_ICRU',
+                #  'G4_BONE_CORTICAL_ICRP','C4_Vertebra_ICRP','D6_Vertebra_ICRP','G4_B-100_BONE']
                 # self.phan_map = ['air','water','adipose','adipose','adipose','adipose','adipose','adipose']
-               
 
                 # value = self.current.get()
                 self.normalize2()
 
-                self.phantom.return_projs(self.kernel,
-                            self.spectra[self.active_spec],
-                            self.angles,
-                            nphoton = self.nphoton,
-                            mgy =  self.noise,
-                            scat_on = self.scatter_on.get(),
-                            det_on = self.det_on.get())# I think it should be inverse
-                
+                self.phantom.return_projs(
+                    self.kernel,
+                    self.spectra[self.active_spec],
+                    self.angles,
+                    nphoton=self.nphoton,
+                    mgy=self.noise,
+                    scat_on=self.scatter_on.get(),
+                    det_on=self.det_on.get(),
+                )  # I think it should be inverse
+
                 print(np.array(self.phantom.proj).shape)
                 self.queue_calculation.put(True)
 
@@ -1637,7 +1997,10 @@ class XpecgenGUI(Notebook):
                 print_exc()
                 self.queue_calculation.put(False)
                 messagebox.showerror(
-                    "Error", "An error occurred during the calculation:\n%s\nCheck the parameters are valid." % str(e))
+                    "Error",
+                    "An error occurred during the calculation:\n%s\nCheck the parameters are valid."
+                    % str(e),
+                )
 
         self.queue_calculation = queue.Queue(maxsize=1)
         # The child will fill the queue with a value indicating whether an error occured.
@@ -1661,28 +2024,33 @@ class XpecgenGUI(Notebook):
 
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
-                dispatcher={'Catphan_515':fc.Catphan_515,
-                            'XCAT':fc.XCAT,
-                            'Catphan_projections':fc.Catphan_projections,
-                            'Catphan_MTF':fc.Catphan_MTF,
-                            'Catphan_404':fc.Catphan_404}
+                dispatcher = {
+                    "Catphan_515": fc.Catphan_515,
+                    "XCAT": fc.XCAT,
+                    "Catphan_projections": fc.Catphan_projections,
+                    "Catphan_MTF": fc.Catphan_MTF,
+                    "Catphan_404": fc.Catphan_404,
+                }
                 try:
-                    function=dispatcher[self.geo.get()]
+                    function = dispatcher[self.geo.get()]
                 except KeyError:
-                    raise ValueError('Invalid phantom module name')
+                    raise ValueError("Invalid phantom module name")
 
                 self.phantom = function()
                 self.queue_calculation.put(True)
 
-                self.lstHistory2.delete(0,END)
+                self.lstHistory2.delete(0, END)
                 for ii, item in enumerate(self.phantom.phan_map):
-                    self.lstHistory2.insert(END, f'{ii},' + item)
+                    self.lstHistory2.insert(END, f"{ii}," + item)
 
             except Exception as e:
                 print_exc()
                 self.queue_calculation.put(False)
                 messagebox.showerror(
-                    "Error", "An error occurred during the calculation:\n%s\nCheck the parameters are valid." % str(e))
+                    "Error",
+                    "An error occurred during the calculation:\n%s\nCheck the parameters are valid."
+                    % str(e),
+                )
 
         self.queue_calculation = queue.Queue(maxsize=1)
         # The child will fill the queue with a value indicating whether an error occured.
@@ -1812,11 +2180,18 @@ class XpecgenGUI(Notebook):
 
         """
         s2 = self.spectra[-1].clone()
-        s2.attenuate(self.AttenThick.get(),
-                     fc.get_mu(_remove_element_name(self.AttenMaterial.get())))
+        s2.attenuate(
+            self.AttenThick.get(),
+            fc.get_mu(_remove_element_name(self.AttenMaterial.get())),
+        )
         self.spectra.append(s2)
         self.lstHistory.insert(
-            END, "Attenuated: " + str(self.AttenThick.get()) + "cm of " + self.AttenMaterial.get())
+            END,
+            "Attenuated: "
+            + str(self.AttenThick.get())
+            + "cm of "
+            + self.AttenMaterial.get(),
+        )
         self.lstHistory.selection_clear(0, len(self.spectra) - 2)
         self.lstHistory.selection_set(len(self.spectra) - 1)
         self.update_plot()
@@ -1831,7 +2206,8 @@ class XpecgenGUI(Notebook):
         crit = self.NormCriterion.get()
         if value <= 0:
             messagebox.showerror(
-                "Error", "The norm of a spectrum must be a positive number.")
+                "Error", "The norm of a spectrum must be a positive number."
+            )
             return
         if crit not in self.criteriaList:
             messagebox.showerror("Error", "An unknown criterion was selected.")
@@ -1844,8 +2220,7 @@ class XpecgenGUI(Notebook):
         else:  # criteriaList[2]
             s2.set_norm(value, self.fluence_to_dose)
         self.spectra.append(s2)
-        self.lstHistory.insert(
-            END, "Normalized: " + crit + " = " + str(value))
+        self.lstHistory.insert(END, "Normalized: " + crit + " = " + str(value))
         self.lstHistory.selection_clear(0, len(self.spectra) - 2)
         self.lstHistory.selection_set(len(self.spectra) - 1)
         self.update_plot()
@@ -1860,10 +2235,11 @@ class XpecgenGUI(Notebook):
         crit = self.NormCriterion2.get()
         if value < 0:
             messagebox.showerror(
-                "Error", "The norm of a spectrum must be a positive number.")
+                "Error", "The norm of a spectrum must be a positive number."
+            )
             return
         if crit not in self.criteriaList2:
-            print('here')
+            print("here")
             messagebox.showerror("Error", "An unknown criterion was selected.")
             return
         s2 = self.spectra[-1].clone()
@@ -1874,7 +2250,7 @@ class XpecgenGUI(Notebook):
             self.noise = value
             self.nphoton = None
         elif crit == self.criteriaList2[2]:
-            self.noise = value/self.HVL32.get()
+            self.noise = value / self.HVL32.get()
             self.nphoton = None
         elif crit == self.criteriaList2[3]:
             self.noise = 0.0
@@ -1885,6 +2261,7 @@ class XpecgenGUI(Notebook):
             s2.set_norm2(value, self.fluence_to_dose)
         pass
 
+
 def main():
     """
     Start an instance of the GUI.
@@ -1893,7 +2270,7 @@ def main():
     root = Tk()
     root.style = Style()
     root.style.theme_use("clam")
-    root.configure()#background='black')
+    root.configure()  # background='black')
     app = XpecgenGUI(master=root)
     app.mainloop()
 

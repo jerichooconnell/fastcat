@@ -3,7 +3,8 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
-module = "fast-cat"
+module = "fastcat"
+dist-name = "fast-cat"
 author = "Jericho OConnell"
 author-email = "jerichoo@uvic.ca"
 home-page = "https://github.com/jerichooconnell/fastcat"

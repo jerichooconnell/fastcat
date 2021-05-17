@@ -1,7 +1,7 @@
 Metadata-Version: 1.1
-Name: fastcat
+Name: fast_cat
 Version: 1.3.0
-Summary: A package with a GUI to calculate X-ray sPECtra GENerated in tungsten anodes
+Summary: A package with a GUI to SIMULATE CBCT
 Home-page: https://github.com/jerichooconnell/fastcat
 Author: jerichooconnell
 Author-email: jericho.oconnell@gmail.com
