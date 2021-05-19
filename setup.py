@@ -23,7 +23,7 @@ on_rtd = environ.get('READTHEDOCS') == 'True'
 if on_rtd:
     require_list = []
 else:
-    require_list = ['matplotlib', 'numpy', 'scipy', 'XlsxWriter', 'future','tigre','astropy']
+    require_list = ['matplotlib', 'numpy', 'scipy', 'XlsxWriter', 'future','astropy']
 
 
 setup(

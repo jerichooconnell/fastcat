@@ -4,37 +4,37 @@
 """
 Fastcat a rapid and accurate CBCT simulator.
 
-Contains code from xpecgen.py to simulate spectra: A module to calculate x-ray spectra generated in tungsten anodes.
+Contains code from xpecgen.py to simulate spectra:
+A module to calculate x-ray spectra generated in tungsten anodes.
 """
 
 from __future__ import print_function
 
-import math
-from bisect import bisect_left
-import os
-from glob import glob
-import warnings
 import csv
 import logging
+import math
+import os
 import sys
+import warnings
+from bisect import bisect_left
+from builtins import map
+from glob import glob
 
+import astropy.stats as stats
 import numpy as np
+import tigre
 from matplotlib import cm
 from matplotlib.colors import LogNorm
-import astropy.stats as stats
-from builtins import map
-
-import tigre
-
-from scipy import interpolate, integrate, optimize
-from scipy.signal import fftconvolve, find_peaks, butter, filtfilt
-from scipy.optimize import curve_fit
-from scipy.ndimage import gaussian_filter
 from numpy import cos, sin
+from scipy import integrate, interpolate, optimize
+from scipy.ndimage import gaussian_filter
+from scipy.optimize import curve_fit
+from scipy.signal import butter, fftconvolve, filtfilt, find_peaks
 
 logging.basicConfig(
     stream=sys.stdout,
-    format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s",
+    format="[%(asctime)s] {%(filename)s:%"
+    "(lineno)d} %(levelname)s - %(message)s",
     level=logging.DEBUG,
 )
 
@@ -110,11 +110,13 @@ def log_interp_1d(xx, yy, kind="linear"):
     Args:
         xx (List[float]): x-coordinates of the points.
         yy (List[float]): y-coordinates of the points.
-        kind (str or int, optional): The kind of interpolation in the log-log domain. This is passed to
-                                     scipy.interpolate.interp1d.
+        kind (str or int, optional):
+            The kind of interpolation in the log-log domain. This is passed to
+            scipy.interpolate.interp1d.
 
     Returns:
-        A function whose call method uses interpolation in log-log scale to find the value at a given point.
+        A function whose call method uses interpolation
+        in log-log scale to find the value at a given point.
     """
     log_x = np.log(xx)
     log_y = np.log(yy)
@@ -125,18 +127,22 @@ def log_interp_1d(xx, yy, kind="linear"):
 
 
 # This custom implementation of dblquad is based in the one in numpy
-# (Cf. https://github.com/scipy/scipy/blob/v0.16.1/scipy/integrate/quadpack.py#L449 )
+# (Cf. https://github.com/scipy/scipy
+# /blob/v0.16.1/scipy/integrate/quadpack.py#L449 )
 # It was modified to work only in rectangular regions (no g(x) nor h(x))
 # to set the inner integral epsrel
 # and to increase the limit of points taken
-def _infunc(x, func, c, d, more_args, epsrel):
-    myargs = (x,) + more_args
-    return integrate.quad(func, c, d, args=myargs, epsrel=epsrel, limit=2000)[0]
+def _infunc(x_val, func, c, d, more_args, epsrel):
+    myargs = (x_val,) + more_args
+    return integrate.quad(func, c, d, args=myargs, epsrel=epsrel, limit=2000)[
+        0
+    ]
 
 
 # def tigre2astra(phantom, geomet, angles, tile=False, init=False):
 #     """
-#     This is a legacy function in an attempt to facilitate astra that I gave up on
+#     This is a legacy function in an attempt to facilitate
+#     astra that I gave up on
 
 #     Converts a tigre geometry into an astra geometry
 #     """
@@ -173,7 +179,9 @@ def _infunc(x, func, c, d, more_args, epsrel):
 #             vol_geom,
 #         )
 #     else:
-#         sinogram = np.zeros([tigre_shape[0], len(angles), geomet.nDetector[1]])
+#         sinogram = np.zeros([tigre_shape[0],
+#                              len(angles),
+#                              geomet.nDetector[1]])
 
 #         sin_id = None
 
@@ -186,28 +194,50 @@ def _infunc(x, func, c, d, more_args, epsrel):
 #                 phantom[ii, :, :], proj_id
 #             )  # this is some sort of relation
 
-#         return sinogram / (1.6 * (geomet.nDetector[1] / 256)), sin_id, proj_id, vol_geom
+#         return sinogram / (1.6 * (geomet.nDetector[1] / 256)),
+#                                sin_id, proj_id, vol_geom
 
 
 def custom_dblquad(
-    func, a, b, c, d, args=(), epsabs=1.49e-8, epsrel=1.49e-8, maxp1=50, limit=2000
+    func,
+    a,
+    b,
+    c,
+    d,
+    args=(),
+    epsabs=1.49e-8,
+    epsrel=1.49e-8,
+    maxp1=50,
+    limit=2000,
 ):
     """
-    A wrapper around numpy's dblquad to restrict it to a rectangular region and to pass arguments to the 'inner'
+    A wrapper around numpy's dblquad to restrict
+    it to a rectangular region and to pass arguments to the 'inner'
     integral.
 
     Args:
         func: The integrand function f(y,x).
-        a (float): The lower bound of the second argument in the integrand function.
-        b (float): The upper bound of the second argument in the integrand function.
-        c (float): The lower bound of the first argument in the integrand function.
-        d (float): The upper bound of the first argument in the integrand function.
-        args (sequence, optional): extra arguments to pass to func.
-        epsabs (float, optional): Absolute tolerance passed directly to the inner 1-D quadrature integration.
-        epsrel (float, optional): Relative tolerance of the inner 1-D integrals. Default is 1.49e-8.
-        maxp1 (float or int, optional): An upper bound on the number of Chebyshev moments.
-        limit (int, optional): Upper bound on the number of cycles (>=3) for use with a sinusoidal weighting and an
-                               infinite end-point.
+        a (float):
+        The lower bound of the second argument in the integrand function.
+        b (float):
+        The upper bound of the second argument in the integrand function.
+        c (float):
+        The lower bound of the first argument in the integrand function.
+        d (float):
+        The upper bound of the first argument in the integrand function.
+        args (sequence, optional):
+        extra arguments to pass to func.
+        epsabs (float, optional):
+        Absolute tolerance passed directly to the
+        inner 1-D quadrature integration.
+        epsrel (float, optional):
+        Relative tolerance of the inner 1-D integrals. Default is 1.49e-8.
+        maxp1 (float or int, optional):
+        An upper bound on the number of Chebyshev moments.
+        limit (int, optional):
+        Upper bound on the number of cycles (>=3)
+        for use with a sinusoidal weighting and an
+        infinite end-point.
 
     Returns:
         (tuple): tuple containing:
@@ -231,7 +261,8 @@ def custom_dblquad(
 
 def triangle(x, loc=0, size=0.5, area=1):
     """
-    The triangle window function centered in loc, of given size and area, evaluated at a point.
+    The triangle window function centered in loc,
+    of given size and area, evaluated at a point.
 
     Args:
         x: The point where the function is evaluated.
@@ -339,7 +370,9 @@ class Detector:
         Fastcat Detector object
         """
 
-        dump_files = os.path.join(data_path, "Detectors", detector, "*phsp.npy")
+        dump_files = os.path.join(
+            data_path, "Detectors", detector, "*phsp.npy"
+        )
         self.deposition_efficiency_file = os.path.join(
             data_path, "Detectors", detector, "EnergyDeposition.npy"
         )
@@ -353,14 +386,20 @@ class Detector:
                 # Make the first entry zeros
                 first_kernel = np.load(file)
                 kernels = np.zeros(
-                    [len(files) + 1, first_kernel.shape[0], first_kernel.shape[1]]
+                    [
+                        len(files) + 1,
+                        first_kernel.shape[0],
+                        first_kernel.shape[1],
+                    ]
                 )
 
             kernels[ii + 1] = np.load(file)
 
         fluence = spectrum.y / np.sum(spectrum.y)
 
-        deposition_summed = np.load(self.deposition_efficiency_file, allow_pickle=True)
+        deposition_summed = np.load(
+            self.deposition_efficiency_file, allow_pickle=True
+        )
         deposition_summed = np.insert(deposition_summed[0], 0, 0)
 
         if len(deposition_summed) == 16:
@@ -413,20 +452,25 @@ class Detector:
                 ]
             )
 
-        # Divide by the energy to get the photon count plus a factor 355000 for the original number of photons
+        # Divide by the energy to get the photon count
+        # plus a factor 355000 for the original number of photons
         deposition_summed[1:] /= (
             original_energies_keV[1:] / 355
         )  # I took this out and put it back in again
         deposition_interpolated = np.interp(
             spectrum.x, original_energies_keV, deposition_summed
         )
-        super_kernel = np.zeros([len(fluence), kernels.shape[1], kernels.shape[2]])
+        super_kernel = np.zeros(
+            [len(fluence), kernels.shape[1], kernels.shape[2]]
+        )
 
         for ii in range(kernels.shape[1]):
             for jj in range(kernels.shape[2]):
 
                 super_kernel[:, ii, jj] = np.interp(
-                    np.array(spectrum.x), original_energies_keV, kernels[:, ii, jj]
+                    np.array(spectrum.x),
+                    original_energies_keV,
+                    kernels[:, ii, jj],
                 )
 
         # import ipdb;ipdb.set_trace()
@@ -445,10 +489,16 @@ class Detector:
         Prepare a plot of the data in the given place
 
         Args:
-            place: The class whose method plot is called to produce the plot (e.g., matplotlib.pyplot).
-            show_mesh (bool): Whether to plot the points over the continuous line as circles.
-            prepare_format (bool): Whether to include ticks and labels in the plot.
-            peak_shape: The window function used to plot the peaks. See :obj:`triangle` for an example.
+            place:
+            The class whose method plot is called to
+            produce the plot (e.g., matplotlib.pyplot).
+            show_mesh (bool):
+            Whether to plot the points over the continuous line as circles.
+            prepare_format (bool):
+            Whether to include ticks and labels in the plot.
+            peak_shape:
+            The window function used to plot the peaks.
+            See :obj:`triangle` for an example.
 
         """
         if prepare_format:
@@ -463,21 +513,31 @@ class Detector:
 
     #         place.colorbar()
 
-    def get_plot_mtf_real(self, place, show_mesh=True, prepare_format=True, label=""):
+    def get_plot_mtf_real(
+        self, place, show_mesh=True, prepare_format=True, label=""
+    ):
 
         """
         Prepare a plot of the data in the given place of the MTF
         Also performs the MTF calulation
 
         Args:
-            place: The class whose method plot is called to produce the plot (e.g., matplotlib.pyplot).
-            show_mesh (bool): Whether to plot the points over the continuous line as circles.
-            prepare_format (bool): Whether to include ticks and labels in the plot.
-            peak_shape: The window function used to plot the peaks. See :obj:`triangle` for an example.
+            place:
+            The class whose method plot is called to
+            produce the plot (e.g., matplotlib.pyplot).
+            show_mesh (bool):
+            Whether to plot the points over the continuous line as circles.
+            prepare_format (bool): Whether to include ticks
+            and labels in the plot.
+            peak_shape: The window function used to plot the peaks.
+            See :obj:`triangle` for an example.
 
         """
 
-        h, w = 1024 * 4, 2 * 1024  # Wouldn't change tbh for building lsf # used to be 4
+        h, w = (
+            1024 * 4,
+            2 * 1024,
+        )  # Wouldn't change tbh for building lsf # used to be 4
         step = 16 * 2  # Wouldn't change tbh for building lsf
         pitch = self.pitch  # mm
         angle = 2.3  # deg
@@ -491,7 +551,8 @@ class Detector:
         dist_from_line = np.abs(
             (X - high_res.shape[1] / 2) + Y * np.tan(angle * np.pi / 180)
         )
-        # The MTF is from a 0.3 mm pixel times the angle times 16 since it will be averaged over 32 pix
+        # The MTF is from a 0.3 mm pixel times
+        # the angle times 16 since it will be averaged over 32 pix
         num_pix = lsf_width * 1 / cos(angle * np.pi / 180) / pitch * 16
         high_res[dist_from_line < num_pix] = 1
 
@@ -500,7 +561,7 @@ class Detector:
         low_res = np.array(
             [
                 [
-                    np.mean(high_res[ii: ii + step, jj: jj + step])
+                    np.mean(high_res[ii : ii + step, jj : jj + step])
                     for ii in range(0, h, step)
                 ]
                 for jj in range(0, w, step)
@@ -514,7 +575,9 @@ class Detector:
 
         # --- Pad and presample ---
         pad_len = int((512 - lsf_image.shape[1]) / 2)
-        lsf_image = np.pad(lsf_image, ((0, 0), (pad_len, pad_len)), mode="constant")
+        lsf_image = np.pad(
+            lsf_image, ((0, 0), (pad_len, pad_len)), mode="constant"
+        )
         Y, X = np.mgrid[: lsf_image.shape[0], : lsf_image.shape[1]]
         center = int(lsf_image.shape[1] / 2)
         # pitch needs to convert to cm from mm
@@ -530,7 +593,8 @@ class Detector:
 
         # if plot_stuff:
         #     plt.figure()
-        #     plt.plot(bins[1:],n/(np.sum(n)),'x-',linewidth= 1.1,markersize=5,color='cornflowerblue')
+        #     plt.plot(bins[1:],n/(np.sum(n)),'x-',
+        #              linewidth= 1.1,markersize=5,color='cornflowerblue')
         #     plt.title('LSF')
         #     plt.legend(['fastCAT','geant4'])
         #     plt.xlabel('[mm]')
@@ -540,11 +604,11 @@ class Detector:
 
         # --- fft to get mtf ---
         #         n,bins = np.histogram(line,818,weights=lsf,density=True)
-        xnew = np.linspace(bins[1:].min(), bins[1:].max(), 5000)
-        spl = interpolate.make_interp_spline(
-            bins[1:], n / (np.sum(n)), k=3
-        )  # type: BSpline
-        power_smooth = spl(xnew)
+        # xnew = np.linspace(bins[1:].min(), bins[1:].max(), 5000)
+        # spl = interpolate.make_interp_spline(
+        #     bins[1:], n / (np.sum(n)), k=3
+        # )  # type is BSpline
+        # power_smooth = spl(xnew)
         mtf = np.absolute(np.fft.fft(n))
         mtf_final = np.fft.fftshift(mtf)
         N = len(mtf)
@@ -573,7 +637,8 @@ class Detector:
 
     def add_focal_spot(self, fs_size_in_mm):
         """
-        The most basic focal spot one can think of. Do better, do better, got it.
+        The most basic focal spot one can think of.
+        Do better, do better, got it.
 
         Input
         -----
@@ -618,16 +683,19 @@ class Phantom:
         Input
         -----
         detector: Fastcat detector object
-            Determines the energy efficiency and optical spread of the simulation
+            Determines the energy efficiency
+            and optical spread of the simulation
         spectra: Fastcat spectra object
             Energy spectra that is used in the simulation
         angles: 1d np.array or list
             The angles to return projections for in radians
         nphoton: float
-            Option to specify the number of photons used in the simulation, will modify
+            Option to specify the number of photons
+            used in the simulation, will modify
             the noise. Defaults to None which means no noise.
         mgy: float
-            Option to specify the dose to each projection in mgy, will modify the noise.
+            Option to specify the dose to each projection in mgy,
+            will modify the noise.
             Defaults to 0.0 which will give no noise.
 
         Returns
@@ -637,21 +705,29 @@ class Phantom:
         Keyword Arguments
         -----------------
             return_dose: Bool
-                This is an option mostly for tests. Returns some partial dose calculations.
+                This is an option mostly for tests.
+                Returns some partial dose calculations.
             det_on: Bool
-                This is an option to turn the detector off which will give perfect energy
+                This is an option to turn the detector
+                off which will give perfect energy
                 absorption. Default True (on)
             scat_on: Bool
-                This is an option to remove scatter from the simulation. Default True (on)
+                This is an option to remove scatter
+                from the simulation. Default True (on)
             convolve_on: Bool
-                Option to give a perfect response for the detector where spatial resolution
-                is not degraded by optical spread. Default True (on)
+                Option to give a perfect response
+                for the detector where spatial resolution
+                is not degraded by optical spread.
+                Default True (on)
             ASG: Bool
-                Option to include an anti scatter grid. The anti scatter grid has a primary
-                transmission factor of 0.72 and a scatter transmission factor of 0.32.
+                Option to include an anti scatter grid.
+                The anti scatter grid has a primary
+                transmission factor of 0.72 and a scatter
+                transmission factor of 0.32.
                 Default False (off)
             filter: string
-                String which specifies one of the filters in data/filters/ these filter
+                String which specifies one of the
+                filters in data/filters/ these filter
                 the beam before it hits the phantom.
 
         Example (MV CBCT)
@@ -705,7 +781,9 @@ class Phantom:
         # ----------------------------------------------------------
 
         # These are what I used in the Monte Carlo
-        deposition = np.load(kernel.deposition_efficiency_file, allow_pickle=True)
+        deposition = np.load(
+            kernel.deposition_efficiency_file, allow_pickle=True
+        )
 
         # csi has two extra kv energies
         if len(deposition[0]) == 18:
@@ -760,12 +838,16 @@ class Phantom:
 
         #         spectra.x, spectra.y = spectra.get_points()
 
-        # Set the last value to zero so that the linear interpolation doesn't mess up
+        # Set the last value to zero so that
+        # the linear interpolation doesn't mess up
         spectra.y[-1] = 0
 
         # Loading the file from the monte carlo
-        # This is a scaling factor that I found to work to convert energy deposition to photon probability eta
-        deposition_summed = deposition[0] / (original_energies_keV / 1000) / 1000000
+        # This is a scaling factor that I found
+        # to work to convert energy deposition to photon probability eta
+        deposition_summed = (
+            deposition[0] / (original_energies_keV / 1000) / 1000000
+        )
 
         # Binning to get the fluence per energy
         large_energies = np.linspace(0, 6000, 3001)
@@ -774,10 +856,12 @@ class Phantom:
             np.insert(spectra.y, (0, -1), (0, spectra.y[-1])),
         )
         f_dep = interpolate.interp1d(
-            np.insert(original_energies_keV, 0, 0), np.insert(deposition_summed, 0, 0)
+            np.insert(original_energies_keV, 0, 0),
+            np.insert(deposition_summed, 0, 0),
         )
         f_e = interpolate.interp1d(
-            np.insert(original_energies_keV, 0, 0), np.insert((deposition[0]), 0, 0)
+            np.insert(original_energies_keV, 0, 0),
+            np.insert((deposition[0]), 0, 0),
         )
 
         weights_xray_small = np.zeros(len(original_energies_keV))
@@ -820,13 +904,15 @@ class Phantom:
             )
             dist = np.linspace(
                 -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
-            )  # TODO: fix this gore!!
+            )
             logging.info("   Scatter is filtered by bowtie")
         else:
-            scatter = np.load(os.path.join(data_path, "scatter", "scatter_updated.npy"))
+            scatter = np.load(
+                os.path.join(data_path, "scatter", "scatter_updated.npy")
+            )
             dist = np.linspace(
                 -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
-            )  # TODO: fix this gore!!
+            )
 
             def func(x, a, b):
                 return (-((152 / (np.sqrt(x ** 2 + 152 ** 2))) ** a)) * b
@@ -850,7 +936,9 @@ class Phantom:
 
             lead = get_mu(82)
             for jj in range(mc_scatter.shape[1]):
-                # quarter will be let through well 0.75 will be filtered should be 39 microns but made it bigger for the angle
+                # quarter will be let through well 0.75
+                # will be filtered should be 39 microns
+                # but made it bigger for the angle
                 mc_scatter[:, jj] = 0.2 * mc_scatter[:, jj] + 0.8 * mc_scatter[
                     :, jj
                 ] * np.exp(-0.007 * lead(original_energies_keV[jj]))
@@ -870,7 +958,7 @@ class Phantom:
 
             # The scatter is 512 with 0.78 mm pixels
             logging.info(
-                f"    Interpolating scatter from 512 to {self.geomet.nDetector[1]} pixels"
+                f"    Interp scatter 512 to {self.geomet.nDetector[1]} pixels"
             )
             no = 0.784
             npt = 512
@@ -889,7 +977,10 @@ class Phantom:
 
             return series
 
-        if self.geomet.dDetector[0] != 0.784 or self.geomet.dDetector[1] != 512:
+        if (
+            self.geomet.dDetector[0] != 0.784
+            or self.geomet.dDetector[1] != 512
+        ):
             flood_summed = interpolate_pixel(flood_summed)
             mc_scatter = interpolate_pixel(mc_scatter.T).T
 
@@ -909,7 +1000,8 @@ class Phantom:
         )
         mapping_functions = []
 
-        # Get the mapping functions for the different tissues to reconstruct the phantom by energy
+        # Get the mapping functions for the different
+        #  tissues to reconstruct the phantom by energy
         for ii in range(1, len(self.phan_map)):
             mapping_functions.append(get_mu(self.phan_map[ii].split(":")[0]))
             masks[ii - 1] = self.phantom == ii
@@ -942,7 +1034,9 @@ class Phantom:
             logging.info(f"    Simulating {energy} keV")
 
             for ii in range(0, len(self.phan_map) - 1):
-                phantom2[masks[ii].astype(bool)] = mapping_functions[ii](energy)
+                phantom2[masks[ii].astype(bool)] = mapping_functions[ii](
+                    energy
+                )
 
             if load_proj:
                 projection = projections[jj]
@@ -952,12 +1046,17 @@ class Phantom:
             kernel.kernels[jj + 1] /= np.sum(kernel.kernels[jj + 1])
 
             if bowtie_on:
-                # Calculate a dose contribution by dividing by 10 since tigre has projections that are different
+                # Calculate a dose contribution by
+                # dividing by 10 since tigre has projections
+                # that are different
                 # The bowtie is used to modify the dose absorbed by the filter
                 doses.append(
                     np.mean(
                         (energy)
-                        * (-np.exp(-(projection * 0.997) / 10) + bowtie_coef[:, jj])
+                        * (
+                            -np.exp(-(projection * 0.997) / 10)
+                            + bowtie_coef[:, jj]
+                        )
                         * mu_en_water2[jj]
                         / mu_water2[jj]
                     )
@@ -976,29 +1075,44 @@ class Phantom:
             if bowtie_on:
                 if scat_on:
                     int_temp = (
-                        (np.exp(-0.97 * np.array(projection) / 10) * (flood_summed[jj]))
+                        (
+                            np.exp(-0.97 * np.array(projection) / 10)
+                            * (flood_summed[jj])
+                        )
                         + mc_scatter[:, jj]
                     ) * weights_xray_small[
                         jj
                     ]  # 0.97 JO
                 else:
                     int_temp = (
-                        (np.exp(-0.97 * np.array(projection) / 10) * (flood_summed[jj]))
+                        (
+                            np.exp(-0.97 * np.array(projection) / 10)
+                            * (flood_summed[jj])
+                        )
                     ) * weights_xray_small[
                         jj
                     ]  # 0.97 JO
             else:
-                #                 int_temp = ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))*weights_xray_small[jj] # !!This took out the scatter for test
+                #                 int_temp =
+                #  ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))
+                # *weights_xray_small[jj]
+                # # !!This took out the scatter for test
                 if scat_on:
                     int_temp = (
-                        (np.exp(-0.97 * np.array(projection) / 10) * (flood_summed))
+                        (
+                            np.exp(-0.97 * np.array(projection) / 10)
+                            * (flood_summed)
+                        )
                         + mc_scatter[:, jj]
                     ) * weights_xray_small[
                         jj
                     ]  # 0.97 JO
                 else:
                     int_temp = (
-                        (np.exp(-0.97 * np.array(projection) / 10) * (flood_summed))
+                        (
+                            np.exp(-0.97 * np.array(projection) / 10)
+                            * (flood_summed)
+                        )
                     ) * weights_xray_small[
                         jj
                     ]  # 0.97 J078
@@ -1017,11 +1131,17 @@ class Phantom:
                     if kernel.fs_size is not None:
 
                         # foical spot with geometrical factor
-                        fs_real = kernel.fs_size * self.geomet.DSO / self.geomet.DSD
+                        fs_real = (
+                            kernel.fs_size * self.geomet.DSO / self.geomet.DSD
+                        )
                         if ii == 10:
-                            logging.info(f"   {kernel.fs_size} focal spot added")
+                            logging.info(
+                                f"   {kernel.fs_size} focal spot added"
+                            )
                         mod_filter = gaussian_filter(
-                            np.pad(kernel.kernels[jj + 1], ((10, 10), (10, 10))),
+                            np.pad(
+                                kernel.kernels[jj + 1], ((10, 10), (10, 10))
+                            ),
                             fs_real,
                         )
                     else:
@@ -1032,10 +1152,14 @@ class Phantom:
                         int_temp[ii, :, :], mod_filter, mode="same"
                     )[bx:-bx, by:-by]
                     noise_temp[ii, bx:-bx, by:-by] = fftconvolve(
-                        noise_temp[ii, :, :], kernel.kernel[jj + 1], mode="same"
+                        noise_temp[ii, :, :],
+                        kernel.kernel[jj + 1],
+                        mode="same",
                     )[bx:-bx, by:-by]
 
-            intensity += int_temp * weights_energies[jj] / weights_xray_small[jj]
+            intensity += (
+                int_temp * weights_energies[jj] / weights_xray_small[jj]
+            )
             noise += noise_temp * weights_energies[jj] / weights_xray_small[jj]
 
         self.weights_small = weights_energies
@@ -1051,13 +1175,17 @@ class Phantom:
         # ----------- Dose calculation -----------------
         # ----------------------------------------------
 
-        # Sum over the image dimesions to get the energy intensity and multiply by fluence TODO: what is this number?
+        # Sum over the image dimesions to get the energy
+        # intensity and multiply by fluence, 2e7 was number
+        # in reference MC simulations
         def get_dose_nphoton(nphot):
             return nphot / 2e7
 
         def get_dose_mgy(mgy, doses, fluence_small):
             nphoton = mgy / (
-                get_dose_per_photon(doses, fluence_small) * (1.6021766e-13) * 1000
+                get_dose_per_photon(doses, fluence_small)
+                * (1.6021766e-13)
+                * 1000
             )
             return get_dose_nphoton(nphoton)
 
@@ -1075,7 +1203,8 @@ class Phantom:
             ratio = get_dose_nphoton(nphoton)
 
         # --- Noise and Scatter Calculation ---
-        # Now I interpolate deposition and get the average photons reaching the detector
+        # Now I interpolate deposition
+        # and get the average photons reaching the detector
         deposition_long = np.interp(
             spectra.x,
             original_energies_keV,
@@ -1103,9 +1232,12 @@ class Phantom:
 
             adjusted_ratio = ratio * nphotons_av
             logging.info(f"    Added noise {adjusted_ratio} times ref")
-            # This is a moderately iffy approximation, but probably not too bad except in the large and small limit cases
+            # This is a moderately iffy approximation,
+            # but probably not too bad except in the
+            # large and small limit cases
             intensity = (
-                intensity * adjusted_ratio + noise * (adjusted_ratio ** (1 / 2))
+                intensity * adjusted_ratio
+                + noise * (adjusted_ratio ** (1 / 2))
             ) / adjusted_ratio
             # Why did I do this again? 2021
         else:
@@ -1127,41 +1259,49 @@ class Phantom:
             except Exception:
                 logging.info("WARNING: Tigre GPU not working")
 
-#                 sinogram, self.sin_id, self.proj_id, self.vol_geom = tigre2astra(
-#                     phantom2, self.geomet, self.angles, tile=True
-#                 )
+                # sinogram, self.sin_id,
+                # self.proj_id, self.vol_geom = tigre2astra(
+                #     phantom2, self.geomet, self.angles, tile=True
+                # )
                 self.tigre_works = False
-                return sinogram.transpose([1, 0, 2])
-#         else:
-#             if tile:
-#                 sin_id, sinogram = astra.create_sino(
-#                     np.fliplr(phantom2[0, :, :]), self.proj_id
-#                 )
+                # return sinogram.transpose([1, 0, 2])
 
-#                 return np.tile(sinogram, [phantom2.shape[0], 1, 1]).transpose(
-#                     [1, 0, 2]
-#                 ) / (1.6 * (self.geomet.nDetector[1] / 256))
-#             else:
-#                 sinogram = np.zeros(
-#                     [phantom2.shape[0], len(angles), self.geomet.nDetector[1]]
-#                 )
+            # else:
+            #     if tile:
+            #         sin_id, sinogram = astra.create_sino(
+            #             np.fliplr(phantom2[0, :, :]), self.proj_id
+            #         )
 
-#                 sin_id = None
+            #         return np.tile(
+            #             sinogram, [phantom2.shape[0], 1, 1]
+            #         ).transpose([1, 0, 2]) / (
+            #             1.6 * (self.geomet.nDetector[1] / 256)
+            #         )
+            #     else:
+            #         sinogram = np.zeros(
+            #             [
+            #                 phantom2.shape[0],
+            #                 len(angles),
+            #                 self.geomet.nDetector[1],
+            #             ]
+            #         )
 
-#                 for kk in range(tigre_shape[0]):
+    #                 sin_id = None
 
-#                     if sin_id is not None:
-#                         astra.data2d.delete(sin_id)
+    #                 for kk in range(tigre_shape[0]):
 
-#                     sin_id, sinogram[kk, :, :] = astra.create_sino(
-#                         np.fliplr(phantom2[kk, :, :]), self.proj_id
-#                     )
+    #                     if sin_id is not None:
+    #                         astra.data2d.delete(sin_id)
 
-#                 astra.data2d.delete(sin_id)
+    #                     sin_id, sinogram[kk, :, :] = astra.create_sino(
+    #                         np.fliplr(phantom2[kk, :, :]), self.proj_id
+    #                     )
 
-#                 return sinogram.transpose([1, 0, 2]) / (
-#                     1.6 * (self.geomet.nDetector[1] / 256)
-#                 )
+    #                 astra.data2d.delete(sin_id)
+
+    #                 return sinogram.transpose([1, 0, 2]) / (
+    #                     1.6 * (self.geomet.nDetector[1] / 256)
+    #                 )
 
     def reconstruct(self, algo, filt="hamming"):
 
@@ -1177,7 +1317,10 @@ class Phantom:
         if algo == "CGLS":
             try:
                 self.img = tigre.algorithms.cgls(
-                    self.proj.astype(np.float32), self.geomet, self.angles, niter=20
+                    self.proj.astype(np.float32),
+                    self.geomet,
+                    self.angles,
+                    niter=20,
                 )
             except Exception:
                 logging.info("WARNING: Tigre failed during recon using Astra")
@@ -1203,7 +1346,9 @@ class Phantom:
         if vmin_max is None:
             plt.imshow(self.img[ind], cmap="gray")
         else:
-            plt.imshow(self.img[ind], cmap="gray", vmax=vmin_max[1], vmin=vmin_max[0])
+            plt.imshow(
+                self.img[ind], cmap="gray", vmax=vmin_max[1], vmin=vmin_max[0]
+            )
 
         plt.axis("equal")
         plt.axis("off")
@@ -1216,7 +1361,9 @@ class Catphan_515(Phantom):
 
     def __init__(self):  # ,det):
         self.phantom = np.load(
-            os.path.join(data_path, "phantoms", "catphan_low_contrast_512_8cm.npy")
+            os.path.join(
+                data_path, "phantoms", "catphan_low_contrast_512_8cm.npy"
+            )
         )  # 'catphan_low_contrast_512_8cm.npy')) # Paper 2 uses the 8cm btw
         self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.DSD = 1520  # 1500 + 20 for det casing
@@ -1254,20 +1401,34 @@ class Catphan_515(Phantom):
 
             correction = 0  # -2*np.pi/180
             # CTMAT(x) formel=H2O dichte=x
-#             LEN = 100
+            #             LEN = 100
 
             A0 = 87.7082 * np.pi / 180 + correction
+            A1 = 108.3346 * np.pi / 180 + correction
+            A2 = 126.6693 * np.pi / 180 + correction
+            A3 = 142.7121 * np.pi / 180 + correction
+            A4 = 156.4631 * np.pi / 180 + correction
+            A5 = 167.9223 * np.pi / 180 + correction
+            A6 = 177.0896 * np.pi / 180 + correction
+            A7 = 183.9651 * np.pi / 180 + correction
+            A8 = 188.5487 * np.pi / 180 + correction
+
             B0 = 110.6265 * np.pi / 180 + correction
+            B1 = 142.7121 * np.pi / 180 + correction
+            B2 = 165.6304 * np.pi / 180 + correction
+            B3 = 179.3814 * np.pi / 180 + correction
 
             tad = 0.2
 
             # Phantom
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */
-            create_circular_mask(x=0.000, y=0.000, r=-tad + 2, index=ii, image=im)
+            # ++++ module body ++++++++++++++++++++ */
+            create_circular_mask(
+                x=0.000, y=0.000, r=-tad + 2, index=ii, image=im
+            )
 
             ii += 1
 
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 1.0% targets ++++++ */
             create_circular_mask(
                 x=first_radius * cos(A0),
                 y=first_radius * sin(A0),
@@ -1341,7 +1502,7 @@ class Catphan_515(Phantom):
             )
             ii += 1
 
-            # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 0.3% targets +++++++++++++++++++++ */
             create_circular_mask(
                 x=first_radius * cos(A0 + 2 / 3 * np.pi),
                 y=first_radius * sin(A0 + 2 / 3 * np.pi),
@@ -1415,7 +1576,7 @@ class Catphan_515(Phantom):
             )
             ii += 1
 
-            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++ */
             create_circular_mask(
                 x=first_radius * cos(A0 + 4 / 3 * np.pi),
                 y=first_radius * sin(A0 + 4 / 3 * np.pi),
@@ -1489,7 +1650,7 @@ class Catphan_515(Phantom):
             )
             ii += 1
 
-            # ++++ subslice 1.0% targets 7mm long +++++++++++++++++++++++++++++++++ */
+            # ++++ subslice 1.0% targets 7mm long  */
             create_circular_mask(
                 x=second_radius * cos(B0),
                 y=second_radius * sin(B0),
@@ -1523,7 +1684,7 @@ class Catphan_515(Phantom):
             )
             ii += 1
 
-            # ++++ subslice 1.0% targets 3mm long +++++++++++++++++++++++++++++++++ */
+            # ++++ subslice 1.0% targets 3mm long  */
             create_circular_mask(
                 x=second_radius * cos(B0 + 2 / 3 * np.pi),
                 y=second_radius * sin(B0 + 2 / 3 * np.pi),
@@ -1557,7 +1718,7 @@ class Catphan_515(Phantom):
             )
             ii += 1
 
-            # ++++ subslice 1.0% targets 5mm long +++++++++++++++++++++++++++++++++ */
+            # ++++ subslice 1.0% targets 5mm long  */
             create_circular_mask(
                 x=second_radius * cos(B0 + 4 / 3 * np.pi),
                 y=second_radius * sin(B0 + 4 / 3 * np.pi),
@@ -1603,30 +1764,18 @@ class Catphan_515(Phantom):
             second_radius = 2.5
 
             # CTMAT(x) formel=H2O dichte=x
-            LEN = 100
 
             A0 = 87.7082 * np.pi / 180 + correction
-            A1 = 108.3346 * np.pi / 180 + correction
-            A2 = 126.6693 * np.pi / 180 + correction
-            A3 = 142.7121 * np.pi / 180 + correction
-            A4 = 156.4631 * np.pi / 180 + correction
-            A5 = 167.9223 * np.pi / 180 + correction
-            A6 = 177.0896 * np.pi / 180 + correction
-            A7 = 183.9651 * np.pi / 180 + correction
-            A8 = 188.5487 * np.pi / 180 + correction
             B0 = 110.6265 * np.pi / 180 + correction
-            B1 = 142.7121 * np.pi / 180 + correction
-            B2 = 165.6304 * np.pi / 180 + correction
-            B3 = 179.3814 * np.pi / 180 + correction
 
             # Phantom
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */
+            # ++++ module body  */
             create_circular_mask(x=0.000, y=0.000, r=1.0, index=ii, image=im)
 
             ii += 1
 
             tad = 0.5
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 1.0% targets  */
 
             create_circular_mask(
                 x=first_radius * cos(A0),
@@ -1683,17 +1832,22 @@ class Catphan_515(Phantom):
 
             h, w = image.shape
 
-            center = [x * int(w / 2) / 8 + int(w / 2), y * int(h / 2) / 8 + int(h / 2)]
+            center = [
+                x * int(w / 2) / 8 + int(w / 2),
+                y * int(h / 2) / 8 + int(h / 2),
+            ]
 
             if center is None:  # use the middle of the image
                 center = (int(w / 2), int(h / 2))
-            if (
-                r is None
-            ):  # use the smallest distance between the center and image walls
-                radius = min(center[0], center[1], w - center[0], h - center[1])
+            # if (
+            #     r is None
+            # ):  # use the smallest distance between
+            # the center and image walls
 
             Y, X = np.ogrid[:h, :w]
-            dist_from_center = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
+            dist_from_center = np.sqrt(
+                (X - center[0]) ** 2 + (Y - center[1]) ** 2
+            )
 
             mask = dist_from_center <= r * int(w / 2) / 8
 
@@ -1709,7 +1863,7 @@ class Catphan_515(Phantom):
         ii = 1
 
         ref_mean = np.mean(recon_slice[im == ii])
-        ref_std = np.std(recon_slice[im == ii])
+        # ref_std = np.std(recon_slice[im == ii])
 
         for ii in range(2, int(np.max(im) + 1)):
 
@@ -1741,7 +1895,14 @@ class Catphan_515(Phantom):
         inds_i_want = [0, 6, 12, 18, 21, 24]
         ww = 0.085
 
-        shorts = ["Lung", "Compact Bone", "Cortical Bone", "Adipose", "Brain", "B-100"]
+        shorts = [
+            "Lung",
+            "Compact Bone",
+            "Cortical Bone",
+            "Adipose",
+            "Brain",
+            "B-100",
+        ]
 
         contrasts_i_want = np.array(
             [(contrast[ii] / ref_mean) * 100 for ii in range(len(contrast))]
@@ -1779,7 +1940,10 @@ class Catphan_515(Phantom):
         if return_contrast:
             return (
                 rs,
-                [(contrast[ii] / ref_mean) * 100 for ii in range(len(contrast))],
+                [
+                    (contrast[ii] / ref_mean) * 100
+                    for ii in range(len(contrast))
+                ],
                 ci_v,
                 cnr,
                 np.array(cnr)[inds_i_want]
@@ -1792,12 +1956,16 @@ class Catphan_404(Phantom):
         if hi_res:
             self.phantom = np.load(
                 os.path.join(
-                    data_path, "phantoms", "catphan_sensiometry_512_10cm_mod.npy"
+                    data_path,
+                    "phantoms",
+                    "catphan_sensiometry_512_10cm_mod.npy",
                 )
             )  # 10cm.npy'))
         else:
             self.phantom = np.load(
-                os.path.join(data_path, "phantoms", "catphan_sensiometry_512_8cm.npy")
+                os.path.join(
+                    data_path, "phantoms", "catphan_sensiometry_512_8cm.npy"
+                )
             )  # 10cm.npy'))
             logging.info("Phantom is low resolution")
         # The 10cm is really the 8cm equivalent
@@ -1844,14 +2012,14 @@ class Catphan_404(Phantom):
             im = np.zeros(shape)
             ii = 1
 
-            offset = 0.1
+            # offset = 0.1
 
-            first_radius = 5
+            # first_radius = 5
 
             A0 = 90.0 * np.pi / 180
 
             # Phantom
-            # ++++ module body ++++++++++++++++++++++++++++++++++++++++++++++++++ */
+            # ++++ module body  */
             create_circular_mask(
                 x=6 * cos(A0 + 1 / 4 * np.pi),
                 y=6 * sin(A0 + 1 / 4 * np.pi),
@@ -1862,16 +2030,16 @@ class Catphan_404(Phantom):
 
             ii += 1
 
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 1.0% targets  */
 
-            # ++++ supra-slice 1.0% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 1.0% targets  */
             create_circular_mask(
                 x=6 * cos(A0), y=6 * sin(A0), r=0.5, index=ii, image=im
             )
 
             ii += 1
 
-            # ++++ supra-slice 0.3% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 0.3% targets  */
             create_circular_mask(
                 x=6 * cos(A0 + 1 / 2 * np.pi),
                 y=6 * sin(A0 + 1 / 2 * np.pi),
@@ -1882,14 +2050,18 @@ class Catphan_404(Phantom):
 
             ii += 1
 
-            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 0.5% targets  */
             create_circular_mask(
-                x=6 * cos(A0 + np.pi), y=6 * sin(A0 + np.pi), r=0.5, index=ii, image=im
+                x=6 * cos(A0 + np.pi),
+                y=6 * sin(A0 + np.pi),
+                r=0.5,
+                index=ii,
+                image=im,
             )
 
             ii += 1
 
-            # ++++ supra-slice 0.5% targets +++++++++++++++++++++++++++++++++++++++ */
+            # ++++ supra-slice 0.5% targets  */
             create_circular_mask(
                 x=6 * cos(A0 + 3 / 2 * np.pi),
                 y=6 * sin(A0 + 3 / 2 * np.pi),
@@ -1904,17 +2076,22 @@ class Catphan_404(Phantom):
 
             h, w = image.shape
 
-            center = [x * int(w / 2) / 8 + int(w / 2), y * int(h / 2) / 8 + int(h / 2)]
+            center = [
+                x * int(w / 2) / 8 + int(w / 2),
+                y * int(h / 2) / 8 + int(h / 2),
+            ]
 
             if center is None:  # use the middle of the image
                 center = (int(w / 2), int(h / 2))
-            if (
-                r is None
-            ):  # use the smallest distance between the center and image walls
-                radius = min(center[0], center[1], w - center[0], h - center[1])
+            # if (
+            #     r is None
+            # ):  # use the smallest distance
+            # between the center and image walls
 
             Y, X = np.ogrid[:h, :w]
-            dist_from_center = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
+            dist_from_center = np.sqrt(
+                (X - center[0]) ** 2 + (Y - center[1]) ** 2
+            )
 
             mask = dist_from_center <= r * int(w / 2) / 8
 
@@ -1930,7 +2107,7 @@ class Catphan_404(Phantom):
         ii = 1
 
         ref_mean = np.mean(recon_slice[im == ii])
-        ref_std = np.std(recon_slice[im == ii])
+        # ref_std = np.std(recon_slice[im == ii])
 
         for ii in range(2, int(np.max(im) + 1)):
 
@@ -1991,7 +2168,9 @@ class Catphan_404(Phantom):
             fmt="x",
         )
         place[1].set_xticks(range(len(inds_i_want)))
-        place[1].set_xticklabels(shorts[: len(inds_i_want)], fontsize=12, rotation=75)
+        place[1].set_xticklabels(
+            shorts[: len(inds_i_want)], fontsize=12, rotation=75
+        )
         place[1].set_ylabel("CNR")
         place[1].set_title("Contrast to Noise")
 
@@ -2000,7 +2179,10 @@ class Catphan_404(Phantom):
         if return_contrast:
             return (
                 rs,
-                [(contrast[ii] / ref_mean) * 100 for ii in range(len(contrast))],
+                [
+                    (contrast[ii] / ref_mean) * 100
+                    for ii in range(len(contrast))
+                ],
                 ci_v,
                 cnr,
                 np.array(cnr)[inds_i_want]
@@ -2034,11 +2216,15 @@ class Catphan_MTF(Phantom):
 
         def get_diff(smoothed_slice, h0, d0):
 
-            peak_info = find_peaks(smoothed_slice, height=h0 / 3, prominence=d0 / 5)
+            peak_info = find_peaks(
+                smoothed_slice, height=h0 / 3, prominence=d0 / 5
+            )
 
             peaks = peak_info[0]
             valleys = np.unique(
-                np.hstack([peak_info[1]["right_bases"], peak_info[1]["left_bases"]])
+                np.hstack(
+                    [peak_info[1]["right_bases"], peak_info[1]["left_bases"]]
+                )
             )
 
             if len(valleys) > 0:
@@ -2066,7 +2252,11 @@ class Catphan_MTF(Phantom):
 
         b, a = butter(3, 1 / 7, btype="low", analog=False)
 
-        # smoothed_slice = filtfilt(b, a, np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)) #np.convolve(np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
+        # smoothed_slice = filtfilt(
+        # b, a, np.mean(slc[start_y:start_y+chunk_y,
+        # start_x:start_x+chunk_x],0))
+        # #np.convolve(np.mean(slc[start_
+        # y:start_y+chunk_y,start_x:start_x+chunk_x],0),10*[0.1],'same')
 
         high = np.max(np.mean(slc[270:290, 330:340], 1))
         low = np.min(np.mean(slc[270:290, 360:370], 1))
@@ -2078,7 +2268,9 @@ class Catphan_MTF(Phantom):
         b2, a2 = butter(3, 1 / 3.5, btype="low", analog=False)
         b3, a3 = butter(3, 1 / 2, btype="low", analog=False)
 
-        for start_y, freq in zip([400, 520, 650], [[b, a], [b2, a2], [b3, a3]]):
+        for start_y, freq in zip(
+            [400, 520, 650], [[b, a], [b2, a2], [b3, a3]]
+        ):
             for start_x in [690, 570, 430, 300]:
 
                 # Need this to correct against the artifacts
@@ -2088,11 +2280,16 @@ class Catphan_MTF(Phantom):
                     freq[0],
                     freq[1],
                     np.mean(
-                        slc[start_y : start_y + chunk_y, start_x : start_x + chunk_x], 0
+                        slc[
+                            start_y : start_y + chunk_y,
+                            start_x : start_x + chunk_x,
+                        ],
+                        0,
                     ),
                 )
                 # else:
-                #     smoothed_slice = np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)
+                #     smoothed_slice =
+                # np.mean(slc[start_y:start_y+chunk_y,start_x:start_x+chunk_x],0)
 
                 diffs = get_diff(smoothed_slice, high, signal[0])
 
@@ -2116,7 +2313,10 @@ class Catphan_MTF(Phantom):
         lpmm.insert(0, 1 / (2 * 30 * pitch))
 
         place[0].errorbar(
-            lpmm[: len(signal)], signal / signal[0], yerr=standev / signal[0], fmt="kx"
+            lpmm[: len(signal)],
+            signal / signal[0],
+            yerr=standev / signal[0],
+            fmt="kx",
         )
         place[0].plot(lpmm[: len(signal)], signal / signal[0], fmt)
         place[0].set_xlabel("lp/cm")
@@ -2128,7 +2328,9 @@ class Catphan_MTF(Phantom):
 class Catphan_projections(Phantom):
     def __init__(self):
         self.phantom = np.load(
-            os.path.join(data_path, "phantoms", "catphan_projection_512_10cm.npy")
+            os.path.join(
+                data_path, "phantoms", "catphan_projection_512_10cm.npy"
+            )
         ).T
         self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.nDetector = np.array([512, 512])
@@ -2175,7 +2377,8 @@ class Catphan_projections(Phantom):
         CNR = np.abs(
             np.mean(slc[250:260, 250:260]) - np.mean(slc[310:320, 250:260])
         ) / np.sqrt(
-            np.std(slc[250:260, 250:260]) ** 2 + np.std(slc[310:320, 250:260]) ** 2
+            np.std(slc[250:260, 250:260]) ** 2
+            + np.std(slc[310:320, 250:260]) ** 2
         )
 
         return CNR
@@ -2235,20 +2438,28 @@ class Spectrum:
     """
     Set of 2D points and discrete components representing a spectrum.
 
-    A Spectrum can be multiplied by a scalar (int, float...) to increase its counts in such a factor.
-    Two spectra can be added if they share their x axes and their discrete component positions.
+    A Spectrum can be multiplied by a scalar
+    (int, float...) to increase its counts in such a factor.
+    Two spectra can be added if they share their x axes and
+    their discrete component positions.
 
-    Note: When two spectrum are added it is not checked it that addition makes sense. It is the user's responsibility to
-          do so.
+    Note: When two spectrum are added it is not checked it
+    that addition makes sense. It is the user's responsibility to
+    do so.
 
     Attributes:
-        x (:obj:`numpy.ndarray`): x coordinates (energy) describing the continuum part of the spectrum.
-        y (:obj:`numpy.ndarray`): y coordinates (pdf) describing the continuum part of the spectrum.
-        discrete (List[List[float]]): discrete components of the spectrum, each of the form [x, num, rel_x] where:
+        x (:obj:`numpy.ndarray`):
+        x coordinates (energy) describing the continuum part of the spectrum.
+        y (:obj:`numpy.ndarray`):
+        y coordinates (pdf) describing the continuum part of the spectrum.
+        discrete (List[List[float]]):
+        discrete components of the spectrum, each of the form
+        [x, num, rel_x] where:
 
             * x is the mean position of the peak.
             * num is the number of particles in the peak.
-            * rel_x is a characteristic distance where it should extend. The exact meaning depends on the windows function.
+            * rel_x is a characteristic distance where it should extend.
+              The exact meaning depends on the windows function.
 
     """
 
@@ -2281,26 +2492,35 @@ class Spectrum:
         Get a function representing the continuous part of the spectrum.
 
         Returns:
-            An interpolation function representing the continuous part of the spectrum.
+            An interpolation function representing the
+             continuous part of the spectrum.
 
         """
-        return interpolate.interp1d(self.x, self.y, bounds_error=False, fill_value=0)
+        return interpolate.interp1d(
+            self.x, self.y, bounds_error=False, fill_value=0
+        )
 
     def get_points(self, peak_shape=triangle, num_discrete=10):
         """
-        Returns two lists of coordinates x y representing the whole spectrum, both the continuous and discrete components.
-        The mesh is chosen by extending x to include details of the discrete peaks.
+        Returns two lists of coordinates x y
+        representing the whole spectrum, both
+        the continuous and discrete components.
+        The mesh is chosen by extending x
+        to include details of the discrete peaks.
 
         Args:
-            peak_shape: The window function used to calculate the peaks. See :obj:`triangle` for an example.
+            peak_shape: The window function
+            used to calculate the peaks. See :obj:`triangle` for an example.
             num_discrete: Number of points that are added to mesh in each peak.
 
         Returns:
             (tuple): tuple containing:
 
-                x2 (List[float]): The list of x coordinates (energy) in the whole spectrum.
+                x2 (List[float]):
+                The list of x coordinates (energy) in the whole spectrum.
 
-                y2 (List[float]): The list of y coordinates (density) in the whole spectrum.
+                y2 (List[float]):
+                The list of y coordinates (density) in the whole spectrum.
 
         """
         if peak_shape is None or self.discrete == []:
@@ -2310,7 +2530,10 @@ class Spectrum:
             list(
                 map(
                     lambda x: np.linspace(
-                        x[0] - x[2], x[0] + x[2], num=num_discrete, endpoint=True
+                        x[0] - x[2],
+                        x[0] + x[2],
+                        num=num_discrete,
+                        endpoint=True,
                     ),
                     self.discrete,
                 )
@@ -2329,15 +2552,23 @@ class Spectrum:
         y2 = [f(x) + g(x) for x in x2]
         return x2, y2
 
-    def get_plot(self, place, show_mesh=True, prepare_format=True, peak_shape=triangle):
+    def get_plot(
+        self, place, show_mesh=True, prepare_format=True, peak_shape=triangle
+    ):
         """
         Prepare a plot of the data in the given place
 
         Args:
-            place: The class whose method plot is called to produce the plot (e.g., matplotlib.pyplot).
-            show_mesh (bool): Whether to plot the points over the continuous line as circles.
-            prepare_format (bool): Whether to include ticks and labels in the plot.
-            peak_shape: The window function used to plot the peaks. See :obj:`triangle` for an example.
+            place:
+            The class whose method plot is called to
+            produce the plot (e.g., matplotlib.pyplot).
+            show_mesh (bool):
+            Whether to plot the points over the continuous
+            line as circles.
+            prepare_format (bool):
+            Whether to include ticks and labels in the plot.
+            peak_shape: The window function used
+            to plot the peaks. See :obj:`triangle` for an example.
 
         """
         if prepare_format:
@@ -2357,7 +2588,8 @@ class Spectrum:
         Prepare the plot of the data and show it in matplotlib window.
 
         Args:
-            show_mesh (bool): Whether to plot the points over the continuous line as circles.
+            show_mesh (bool):
+            Whether to plot the points over the continuous line as circles.
             block (bool): Whether the plot is blocking or non blocking.
 
         """
@@ -2366,10 +2598,14 @@ class Spectrum:
             self.get_plot(plt, show_mesh=show_mesh, prepare_format=False)
             plt.xlabel("E")
             plt.ylabel("f(E)")
-            plt.gcf().canvas.set_window_title("".join(("xpecgen v", __version__)))
+            plt.gcf().canvas.set_window_title(
+                "".join(("xpecgen v", __version__))
+            )
             plt.show(block=block)
         else:
-            warnings.warn("Asked for a plot but matplotlib could not be imported.")
+            warnings.warn(
+                "Asked for a plot but matplotlib could not be imported."
+            )
 
     def export_csv(self, route="a.csv", peak_shape=triangle, transpose=False):
         """
@@ -2377,7 +2613,9 @@ class Spectrum:
 
         Args:
             route (str): The route where the file will be saved.
-            peak_shape: The window function used to plot the peaks. See :obj:`triangle` for an example.
+            peak_shape:
+            The window function used to plot the peaks.
+            See :obj:`triangle` for an example.
             transpose (bool): True to write in two columns, False in two rows.
 
         """
@@ -2390,57 +2628,68 @@ class Spectrum:
                 w.writerow(x2)
                 w.writerow(y2)
 
-#     def export_xlsx(self, route="a.xlsx", peak_shape=triangle, markers=False):
-#         """
-#         Export the data to a xlsx file (Excel format).
+    #     def export_xlsx(self, route="a.xlsx",
+    #                      peak_shape=triangle, markers=False):
+    #         """
+    #         Export the data to a xlsx file (Excel format).
 
-#         Args:
-#             route (str): The route where the file will be saved.
-#             peak_shape: The window function used to plot the peaks. See :obj:`triangle` for an example.
-#             markers (bool): Whether to use markers or a continuous line in the plot in the file.
+    #         Args:
+    #             route (str): The route where the file will be saved.
+    #             peak_shape: The window function used to plot the peaks.
+    #                       See :obj:`triangle` for an example.
+    #             markers (bool): Whether to use markers or a continuous
+    #                   line in the plot in the file.
 
-#         """
-#         x2, y2 = self.get_points(peak_shape=peak_shape)
+    #         """
+    #         x2, y2 = self.get_points(peak_shape=peak_shape)
 
-#         workbook = xlsxwriter.Workbook(route)
-#         worksheet = workbook.add_worksheet()
-#         bold = workbook.add_format({"bold": 1})
-#         worksheet.write(0, 0, "Energy (keV)", bold)
-#         worksheet.write(0, 1, "Photon density (1/keV)", bold)
-#         worksheet.write_column("A2", x2)
-#         worksheet.write_column("B2", y2)
+    #         workbook = xlsxwriter.Workbook(route)
+    #         worksheet = workbook.add_worksheet()
+    #         bold = workbook.add_format({"bold": 1})
+    #         worksheet.write(0, 0, "Energy (keV)", bold)
+    #         worksheet.write(0, 1, "Photon density (1/keV)", bold)
+    #         worksheet.write_column("A2", x2)
+    #         worksheet.write_column("B2", y2)
 
-#         # Add a plot
-#         if markers:
-#             chart = workbook.add_chart(
-#                 {"type": "scatter", "subtype": "straight_with_markers"}
-#             )
-#         else:
-#             chart = workbook.add_chart({"type": "scatter", "subtype": "straight"})
+    #         # Add a plot
+    #         if markers:
+    #             chart = workbook.add_chart(
+    #                 {"type": "scatter", "subtype": "straight_with_markers"}
+    #             )
+    #         else:
+    #             chart = workbook.add_chart(
+    #                       {"type": "scatter", "subtype": "straight"}
+    #         )
 
-#         chart.add_series(
-#             {
-#                 "name": "=Sheet1!$B$1",
-#                 "categories": "=Sheet1!$A$2:$A$" + str(len(x2) + 1),
-#                 "values": "=Sheet1!$B$2:$B$" + str(len(y2) + 1),
-#             }
-#         )
-#         chart.set_title({"name": "Emission spectrum"})
-#         chart.set_x_axis({"name": "Energy (keV)", "min": 0, "max": str(x2[-1])})
-#         chart.set_y_axis({"name": "Photon density (1/keV)"})
-#         chart.set_legend({"position": "none"})
-#         chart.set_style(11)
+    #         chart.add_series(
+    #             {
+    #                 "name": "=Sheet1!$B$1",
+    #                 "categories": "=Sheet1!$A$2:$A$" + str(len(x2) + 1),
+    #                 "values": "=Sheet1!$B$2:$B$" + str(len(y2) + 1),
+    #             }
+    #         )
+    #         chart.set_title({"name": "Emission spectrum"})
+    #         chart.set_x_axis(
+    #           {"name": "Energy (keV)", "min": 0, "max": str(x2[-1])}
+    #         )
+    #         chart.set_y_axis({"name": "Photon density (1/keV)"})
+    #         chart.set_legend({"position": "none"})
+    #         chart.set_style(11)
 
-#         worksheet.insert_chart("D3", chart, {"x_offset": 25, "y_offset": 10})
+    #         worksheet.insert_chart(
+    #               "D3", chart, {"x_offset": 25, "y_offset": 10}
+    #         )
 
-#         workbook.close()
+    #         workbook.close()
 
     def get_norm(self, weight=None):
         """
         Return the norm of the spectrum using a weighting function.
 
         Args:
-            weight: A function used as a weight to calculate the norm. Typical examples are:
+            weight:
+            A function used as a weight to calculate the norm.
+            Typical examples are:
 
                 * weight(E)=1 [Photon number]
                 * weight(E)=E [Energy]
@@ -2451,7 +2700,10 @@ class Spectrum:
 
         """
         if weight is None:
-            w = lambda x: 1
+
+            def w(x):
+                return 1
+
         else:
             w = weight
         y2 = list(map(lambda x, y: w(x) * y, self.x, self.y))
@@ -2465,8 +2717,10 @@ class Spectrum:
         Set the norm of the spectrum using a weighting function.
 
         Args:
-            value (float): The norm of the modified spectrum in the given convention.
-            weight: A function used as a weight to calculate the norm. Typical examples are:
+            value (float):
+            The norm of the modified spectrum in the given convention.
+            weight: A function used as a weight to calculate the norm.
+            Typical examples are:
 
                 * weight(E)=1 [Photon number]
                 * weight(E)=E [Energy]
@@ -2481,11 +2735,14 @@ class Spectrum:
         """
         Calculate a generalized half-value-layer.
 
-        This method calculates the depth of a material needed for a certain dosimetric magnitude to decrease in a given factor.
+        This method calculates the depth of a material needed
+        for a certain dosimetric magnitude to decrease in a given factor.
 
         Args:
-            value (float): The factor the desired magnitude is decreased. Must be in [0, 1].
-            weight: A function used as a weight to calculate the norm. Typical examples are:
+            value (float): The factor the desired
+            magnitude is decreased. Must be in [0, 1].
+            weight: A function used as a weight
+            to calculate the norm. Typical examples are:
 
                 * weight(E)=1 [Photon number]
                 * weight(E)=E [Energy]
@@ -2497,7 +2754,8 @@ class Spectrum:
             (float): The generalized hvl in cm.
 
         """
-        # TODO: (?) Cut characteristic if below cutoff. However, such a high cutoff
+        # TODO: (?) Cut characteristic if below
+        # cutoff. However, such a high cutoff
         # would probably make no sense
 
         try:
@@ -2510,16 +2768,20 @@ class Spectrum:
             discrete2 = [weight(a[0]) * a[1] for a in self.discrete]
             n2 = integrate.simps(y2, x=x) + sum(discrete2)
             y3 = [a / n2 for a in y2]
-            discrete3 = [[a[0], weight(a[0]) * a[1] / n2] for a in self.discrete]
+            discrete3 = [
+                [a[0], weight(a[0]) * a[1] / n2] for a in self.discrete
+            ]
             # Now we only need to add attenuation as a function of depth
             f = (
                 lambda t: integrate.simps(
-                    list(map(lambda a, b: b * math.exp(-mu(a) * t), x, y3)), x=x
+                    list(map(lambda a, b: b * math.exp(-mu(a) * t), x, y3)),
+                    x=x,
                 )
                 + sum([c[1] * math.exp(-mu(c[0]) * t) for c in discrete3])
                 - value
             )
-            # Search the order of magnitude of the root (using the fact that f is
+            # Search the order of magnitude of
+            # the root (using the fact that f is
             # monotonically decreasing)
             a = 1.0
             if f(a) > 0:
@@ -2539,17 +2801,22 @@ class Spectrum:
 
     def attenuate(self, depth=1, mu=lambda x: 1):
         """
-        Attenuate the spectrum as if it passed thorough a given depth of material with attenuation described by a given
+        Attenuate the spectrum as if it passed
+        thorough a given depth of material with attenuation
+        described by a given
         attenuation coefficient. Consistent units should be used.
 
         Args:
             depth: The amount of material (typically in cm).
-            mu: The energy-dependent absorption coefficient (typically in cm^-1).
+            mu: The energy-dependent absorption coefficient
+            (typically in cm^-1).
 
 
         """
 
-        self.y = list(map(lambda x, y: y * math.exp(-mu(x) * depth), self.x, self.y))
+        self.y = list(
+            map(lambda x, y: y * math.exp(-mu(x) * depth), self.x, self.y)
+        )
         self.discrete = list(
             map(
                 lambda l: [l[0], l[1] * math.exp(-mu(l[0]) * depth), l[2]],
@@ -2562,7 +2829,9 @@ class Spectrum:
         energies = []
         fluence = []
 
-        with open(os.path.join(data_path, "MV_spectra", f"{spectrum_file}.txt")) as f:
+        with open(
+            os.path.join(data_path, "MV_spectra", f"{spectrum_file}.txt")
+        ) as f:
             for line in f:
                 energies.append(float(line.split()[0]))
                 fluence.append(float(line.split()[1]))
@@ -2582,7 +2851,8 @@ class Spectrum:
         s.x = self.x
         s.y = [a + b for a, b in zip(self.y, other.y)]
         s.discrete = [
-            [a[0], a[1] + b[1], a[2]] for a, b in zip(self.discrete, other.discrete)
+            [a[0], a[1] + b[1], a[2]]
+            for a, b in zip(self.discrete, other.discrete)
         ]
         return s
 
@@ -2605,10 +2875,12 @@ class Spectrum:
 
 def get_fluence(e_0=100.0):
     """
-    Returns a function representing the electron fluence with the distance in CSDA units.
+    Returns a function representing the electron
+    fluence with the distance in CSDA units.
 
     Args:
-        e_0 (float): The kinetic energy whose CSDA range is used to scale the distances.
+        e_0 (float): The kinetic energy whose
+        CSDA range is used to scale the distances.
 
     Returns:
         A function representing fluence(x,u) with x in CSDA units.
@@ -2626,16 +2898,21 @@ def get_fluence(e_0=100.0):
     e_closest = min(e0_list, key=lambda x: abs(x - e_0))
 
     with open(os.path.join(data_path, "fluence/grid.csv"), "r") as csvfile:
-        r = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         t = next(r)
         x = np.array([float(a) for a in t[0].split(",")])
         t = next(r)
         u = np.array([float(a) for a in t[0].split(",")])
     t = []
     with open(
-        os.path.join(data_path, "fluence", "".join([str(e_closest), ".csv"])), "r"
+        os.path.join(data_path, "fluence", "".join([str(e_closest), ".csv"])),
+        "r",
     ) as csvfile:
-        r = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         for row in r:
             t.append([float(a) for a in row[0].split(",")])
     t = np.array(t)
@@ -2740,7 +3017,10 @@ class XCAT2(Phantom):
         if algo == "CGLS":
             try:
                 self.img = tigre.algorithms.cgls(
-                    self.proj.astype(np.float32), self.geomet, self.angles, niter=20
+                    self.proj.astype(np.float32),
+                    self.geomet,
+                    self.angles,
+                    niter=20,
                 )
             except Exception:
                 logging.info("WARNING: Tigre failed during recon using Astra")
@@ -2756,13 +3036,17 @@ def get_cs(e_0=100, z=74):
         z (int): Atomic number of the material.
 
     Returns:
-        A function representing cross_section(e_g,u) in mb/keV, with e_g in keV.
+        A function representing cross_section(e_g,u)
+        in mb/keV, with e_g in keV.
 
     """
-    # NOTE: Data is given for E0>1keV. CS values below this level should be used with caution.
+    # NOTE: Data is given for E0>1keV. CS values below this
+    # level should be used with caution.
     # The default behaviour is to keep it constant
     with open(os.path.join(data_path, "cs/grid.csv"), "r") as csvfile:
-        r = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         t = next(r)
         e_e = np.array([float(a) for a in t[0].split(",")])
         log_e_e = np.log10(e_e)
@@ -2770,7 +3054,9 @@ def get_cs(e_0=100, z=74):
         k = np.array([float(a) for a in t[0].split(",")])
     t = []
     with open(os.path.join(data_path, "cs/%d.csv" % z), "r") as csvfile:
-        r = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         for row in r:
             t.append([float(a) for a in row[0].split(",")])
     t = np.array(t)
@@ -2787,17 +3073,24 @@ def get_cs(e_0=100, z=74):
 
 def get_mu(z=74):
     """
-    Returns a function representing an energy-dependent attenuation coefficient.
+    Returns a function representing an energy-dependent
+    attenuation coefficient.
 
     Args:
-        z (int or str): The identifier of the material in the data folder, typically the atomic number.
+        z (int or str): The identifier of the material in
+        the data folder, typically the atomic number.
 
     Returns:
-        The attenuation coefficient mu(E) in cm^-1 as a function of the energy measured in keV.
+        The attenuation coefficient mu(E) in cm^-1 as
+        a function of the energy measured in keV.
 
     """
-    with open(os.path.join(data_path, "mu", "".join([str(z), ".csv"])), "r") as csvfile:
-        r = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+    with open(
+        os.path.join(data_path, "mu", "".join([str(z), ".csv"])), "r"
+    ) as csvfile:
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         t = next(r)
         x = [float(a) for a in t[0].split(",")]
         t = next(r)
@@ -2813,11 +3106,14 @@ def get_csda(z=74):
         z (int): Atomic number of the material.
 
     Returns:
-        The CSDA range in cm in tungsten as a function of the electron kinetic energy in keV.
+        The CSDA range in cm in tungsten as a
+        function of the electron kinetic energy in keV.
 
     """
     with open(os.path.join(data_path, "csda/%d.csv" % z), "r") as csvfile:
-        r = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         t = next(r)
         x = [float(a) for a in t[0].split(",")]
         t = next(r)
@@ -2827,14 +3123,16 @@ def get_csda(z=74):
 
 def get_mu_csda(e_0, z=74):
     """
-    Returns a function representing the CSDA-scaled energy-dependent attenuation coefficient in tungsten.
+    Returns a function representing the CSDA-scaled
+    energy-dependent attenuation coefficient in tungsten.
 
     Args:
         e_0 (float): The electron initial kinetic energy.
         z (int): Atomic number of the material.
 
     Returns:
-        The attenuation coefficient mu(E) in CSDA units as a function of the energy measured in keV.
+        The attenuation coefficient mu(E) in CSDA units
+        as a function of the energy measured in keV.
 
     """
     mu = get_mu(z)
@@ -2844,14 +3142,18 @@ def get_mu_csda(e_0, z=74):
 
 def get_fluence_to_dose():
     """
-    Returns a function representing the weighting factor which converts fluence to dose.
+    Returns a function representing the weighting
+    factor which converts fluence to dose.
 
     Returns:
-        A function representing the weighting factor which converts fluence to dose in Gy * cm^2.
+        A function representing the weighting factor
+        which converts fluence to dose in Gy * cm^2.
 
     """
     with open(os.path.join(data_path, "fluence2dose/f2d.csv"), "r") as csvfile:
-        r = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         t = next(r)
         x = [float(a) for a in t[0].split(",")]
         t = next(r)
@@ -2878,52 +3180,76 @@ def update_fluence(mv_file, value):
         * value
     )  #
 
-    logging.info(31 / 50000000 * fluences_per_ma[target_list_load.index(mv_file)])
+    logging.info(
+        31 / 50000000 * fluences_per_ma[target_list_load.index(mv_file)]
+    )
 
     return 31 / 50000000 * fluences_per_ma[target_list_load.index(mv_file)]
 
 
 def get_source_function(fluence, cs, mu, theta, e_g, phi=0.0):
     """
-    Returns the attenuated source function (Eq. 2 in the paper) for the given parameters.
+    Returns the attenuated source function
+    (Eq. 2 in the paper) for the given parameters.
 
-    An E_0-dependent factor (the fraction found there) is excluded. However, the E_0 dependence is removed in
+    An E_0-dependent factor (the fraction found there) is excluded.
+    However, the E_0 dependence is removed in
     integrate_source.
 
     Args:
         fluence: The function representing the fluence.
         cs: The function representing the bremsstrahlung cross-section.
         mu: The function representing the attenuation coefficient.
-        theta (float): The emission angle in degrees, the anode's normal being at 90º.
+        theta (float): The emission angle in degrees,
+        the anode's normal being at 90º.
         e_g (float): The emitted photon energy in keV.
-        phi (float): The elevation angle in degrees, the anode's normal being at 12º.
+        phi (float): The elevation angle in degrees,
+        the anode's normal being at 12º.
 
     Returns:
         The attenuated source function s(u,x).
 
     """
-    factor = -mu(e_g) / math.sin(math.radians(theta)) / math.cos(math.radians(phi))
+    factor = (
+        -mu(e_g) / math.sin(math.radians(theta)) / math.cos(math.radians(phi))
+    )
     return lambda u, x: fluence(x, u) * cs(e_g, u) * math.exp(factor * x)
 
 
 def integrate_source(
-    fluence, cs, mu, theta, e_g, e_0, phi=0.0, x_min=0.0, x_max=0.6, epsrel=0.1, z=74
+    fluence,
+    cs,
+    mu,
+    theta,
+    e_g,
+    e_0,
+    phi=0.0,
+    x_min=0.0,
+    x_max=0.6,
+    epsrel=0.1,
+    z=74,
 ):
     """
     Find the integral of the attenuated source function.
 
-    An E_0-independent factor is excluded (i.e., the E_0 dependence on get_source_function is taken into account here).
+    An E_0-independent factor is excluded
+    (i.e., the E_0 dependence on get_source_function
+    is taken into account here).
 
     Args:
         fluence: The function representing the fluence.
         cs: The function representing the bremsstrahlung cross-section.
         mu: The function representing the attenuation coefficient.
-        theta (float): The emission angle in degrees, the anode's normal being at 90º.
+        theta (float): The emission angle in degrees,
+        the anode's normal being at 90º.
         e_g: (float): The emitted photon energy in keV.
         e_0 (float): The electron initial kinetic energy.
-        phi (float): The elevation angle in degrees, the anode's normal being at 12º.
-        x_min: The lower-bound of the integral in depth, scaled by the CSDA range.
-        x_max: The upper-bound of the integral in depth, scaled by the CSDA range.
+        phi (float): The elevation angle in degrees,
+        the anode's normal being at 12º.
+        x_min: The lower-bound of the integral in depth,
+        scaled by the CSDA range.
+        x_max: The upper-bound of the integral in depth,
+        scaled by the CSDA range.
         epsrel: The relative tolerance of the integral.
         z (int): Atomic number of the material.
 
@@ -2933,24 +3259,32 @@ def integrate_source(
     if e_g >= e_0:
         return 0
     f = get_source_function(fluence, cs, mu, theta, e_g, phi=phi)
-    (y, y_err) = custom_dblquad(f, x_min, x_max, e_g / e_0, 1, epsrel=epsrel, limit=100)
-    # The factor includes n_med, its units being 1/(mb * r_CSDA). We only take into account the r_CSDA dependence.
+    (y, y_err) = custom_dblquad(
+        f, x_min, x_max, e_g / e_0, 1, epsrel=epsrel, limit=100
+    )
+    # The factor includes n_med, its units being 1/(mb * r_CSDA).
+    # We only take into account the r_CSDA dependence.
     y *= get_csda(z=z)(e_0)
     return y
 
 
 def add_char_radiation(s, method="fraction_above_poly"):
     """
-    Adds characteristic radiation to a calculated bremsstrahlung spectrum, assuming it is a tungsten-generated spectrum
+    Adds characteristic radiation to a calculated bremsstrahlung spectrum,
+    assuming it is a tungsten-generated spectrum
 
     If a discrete component already exists in the spectrum, it is replaced.
 
     Args:
-        s (:obj:`Spectrum`): The spectrum whose discrete component is recalculated.
-        method (str): The method to use to calculate the discrete component. Available methods include:
+        s (:obj:`Spectrum`): The spectrum whose discrete
+        component is recalculated.
+        method (str): The method to use to calculate the
+        discrete component. Available methods include:
 
-            * 'fraction_above_linear': Use a linear relation between bremsstrahlung above the K-edge and peaks.
-            * 'fraction_above_poly': Use polynomial fits between bremsstrahlung above the K-edge and peaks.
+            * 'fraction_above_linear': Use a linear relation
+            between bremsstrahlung above the K-edge and peaks.
+            * 'fraction_above_poly': Use polynomial fits between
+            bremsstrahlung above the K-edge and peaks.
 
     """
     s.discrete = []
@@ -2968,7 +3302,8 @@ def add_char_radiation(s, method="fraction_above_poly"):
     else:
         if method != "fraction_above_poly":
             logging.info(
-                "WARNING: Unknown char radiation calculation method. Using fraction_above_poly"
+                "WARNING: Unknown char radiation calculation method."
+                "Using fraction_above_poly"
             )
         s.discrete.append(
             [
@@ -3017,8 +3352,10 @@ def console_monitor(a, b):
     Prints in stdout 'a/b'.
 
     Args:
-        a: An object representing the completed amount (e.g., a number representing a part...).
-        b: An object representing the total amount (... of a number representing a total).
+        a: An object representing the completed amount
+        (e.g., a number representing a part...).
+        b: An object representing the total amount
+        (... of a number representing a total).
 
 
     """
@@ -3030,15 +3367,19 @@ def calculate_spectrum_mesh(
 ):
     """
     Calculates the x-ray spectrum for given parameters.
-    Characteristic peaks are also calculated by add_char_radiation, which is called with the default parameters.
+    Characteristic peaks are also calculated by add
+    char_radiation, which is called with the default parameters.
 
     Args:
         e_0 (float): Electron kinetic energy in keV
         theta (float): X-ray emission angle in degrees, the normal being at 90º
-        mesh (list of float or ndarray): The photon energies where the integral will be evaluated
+        mesh (list of float or ndarray): The photon
+        energies where the integral will be evaluated
         phi (float): X-ray emission elevation angle in degrees.
         epsrel (float): The tolerance parameter used in numeric integration.
-        monitor: A function to be called after each iteration with arguments finished_count, total_count. See for example :obj:`console_monitor`.
+        monitor: A function to be called after
+        each iteration with arguments finished_count,
+        total_count. See for example :obj:`console_monitor`.
         z (int): Atomic number of the material.
 
     Returns:
@@ -3075,20 +3416,31 @@ def calculate_spectrum_mesh(
 
 
 def calculate_spectrum(
-    e_0, theta, e_min, num_e, phi=0.0, epsrel=0.2, monitor=console_monitor, z=74
+    e_0,
+    theta,
+    e_min,
+    num_e,
+    phi=0.0,
+    epsrel=0.2,
+    monitor=console_monitor,
+    z=74,
 ):
     """
     Calculates the x-ray spectrum for given parameters.
-    Characteristic peaks are also calculated by add_char_radiation, which is called with the default parameters.
+    Characteristic peaks are also calculated
+    by add_char_radiation, which is called with the default parameters.
 
     Args:
         e_0 (float): Electron kinetic energy in keV
         theta (float): X-ray emission angle in degrees, the normal being at 90º
-        e_min (float): Minimum kinetic energy to calculate in the spectrum in keV
+        e_min (float): Minimum kinetic energy
+        to calculate in the spectrum in keV
         num_e (int): Number of points to calculate in the spectrum
         phi (float): X-ray emission elevation angle in degrees.
         epsrel (float): The tolerance parameter used in numeric integration.
-        monitor: A function to be called after each iteration with arguments finished_count, total_count. See for example :obj:`console_monitor`.
+        monitor: A function to be called after
+        each iteration with arguments finished_count, total_count.
+        See for example :obj:`console_monitor`.
         z (int): Atomic number of the material.
 
     Returns:
@@ -3108,9 +3460,12 @@ def calculate_spectrum(
 
 def cli():
     import argparse
-#     import sys
 
-    parser = argparse.ArgumentParser(description="Calculate a bremsstrahlung spectrum.")
+    #     import sys
+
+    parser = argparse.ArgumentParser(
+        description="Calculate a bremsstrahlung spectrum."
+    )
     parser.add_argument(
         "--e_0",
         metavar="E0",
@@ -3123,7 +3478,8 @@ def cli():
         metavar="theta",
         type=float,
         default=12,
-        help="X-ray emission angle in degrees, the anode's normal being at 90º.",
+        help="X-ray emission angle in degrees,"
+        "the anode's normal being at 90º.",
     )
 
     parser.add_argument(
@@ -3131,7 +3487,8 @@ def cli():
         metavar="phi",
         type=float,
         default=0,
-        help="X-ray emission altitude in degrees, the anode's normal being at 0º.",
+        help="X-ray emission altitude in degrees,"
+        "the anode's normal being at 0º.",
     )
 
     parser.add_argument(
@@ -3139,7 +3496,8 @@ def cli():
         metavar="z",
         type=int,
         default=74,
-        help="Atomic number of the material (characteristic radiation is only available for z=74).",
+        help="Atomic number of the material"
+        "(characteristic radiation is only available for z=74).",
     )
 
     parser.add_argument(
@@ -3147,7 +3505,8 @@ def cli():
         metavar="e_min",
         type=float,
         default=3.0,
-        help="Minimum kinetic energy in keV in the bremsstrahlung calculation.",
+        help="Minimum kinetic energy"
+        "in keV in the bremsstrahlung calculation.",
     )
 
     parser.add_argument(
@@ -3180,19 +3539,31 @@ def cli():
         "--output",
         metavar="path",
         type=str,
-        help="Output file. Available formats are csv, xlsx, and pkl, selected by the file extension. "
-        "pkl appends objects using the pickle module. Note you have to import the Spectrum class "
-        " INTO THE NAMESPACE (e.g., from xpecgen.xpecgen import Spectrum) to load them. "
-        "If this argument is not provided, points are written to the standard output and "
+        help="Output file. Available formats are csv,"
+        "xlsx, and pkl, selected by the file extension. "
+        "pkl appends objects using the pickle module."
+        "Note you have to import the Spectrum class "
+        " INTO THE NAMESPACE (e.g., from xpecgen.xpecgen"
+        "import Spectrum) to load them. "
+        "If this argument is not provided, points are"
+        "written to the standard output and "
         "calculation monitor is not displayed.",
     )
 
-    parser.add_argument("-s", metavar="spectrum", type=str, help="Spectrum to load")
-
-    parser.add_argument("-d", metavar="detector", type=str, help="Detector to use")
+    parser.add_argument(
+        "-s", metavar="spectrum", type=str, help="Spectrum to load"
+    )
 
     parser.add_argument(
-        "--fs", metavar="fs", type=int, default=0, help="The size of the focal spot"
+        "-d", metavar="detector", type=str, help="Detector to use"
+    )
+
+    parser.add_argument(
+        "--fs",
+        metavar="fs",
+        type=int,
+        default=0,
+        help="The size of the focal spot",
     )
 
     parser.add_argument(
@@ -3219,14 +3590,18 @@ def cli():
         else:
             ext = args.output.split(".")[-1].lower()
             if ext not in ["csv", "xlsx", "pkl"]:
-                logging.info("Output file format unknown")  # , file=sys.stderr)
+                logging.info(
+                    "Output file format unknown"
+                )  # , file=sys.stderr)
                 exit(-1)
         monitor = console_monitor
     else:
         monitor = None
 
     if args.mesh is None:
-        mesh = np.linspace(args.e_min, args.e_0, num=args.n_points, endpoint=True)
+        mesh = np.linspace(
+            args.e_min, args.e_0, num=args.n_points, endpoint=True
+        )
     else:
         mesh = args.mesh
 

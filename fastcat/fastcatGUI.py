@@ -17,7 +17,10 @@ import tkinter.filedialog
 from tkinter import messagebox
 
 import numpy as np
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg,
+    NavigationToolbar2Tk,
+)
 from matplotlib.figure import Figure
 
 import fastcat.fastcat as fc
@@ -216,7 +219,7 @@ class CreateToolTip(object):
 
 class ParBox:
     """
-    A parameter entry with labels preceding and succeeding 
+    A parameter entry with labels preceding and succeeding
     it and an optional tooltip
     """
 
@@ -238,12 +241,12 @@ class ParBox:
             textvariable (:obj:`tkinter.Variable`):
             The variable associated with the parameter.
             lblText (str): The text preceding the text entry.
-            unitsTxt (str): 
+            unitsTxt (str):
             The text succeeding the text entry, typically the units.
-            helpTxt (str): 
+            helpTxt (str):
             The help text to show in the tooltip. If "",
             no tooltip is shown.
-            row (int): 
+            row (int):
             The row where the widgets are set in the grid.
             read_only (bool): Whether the entry is read_only.
 
@@ -317,7 +320,7 @@ class XpecgenGUI(Notebook):
         Polling method to update changes in spectrum list.
 
         """
-        # Note the Tk manual advised for polling 
+        # Note the Tk manual advised for polling
         # instead of binding all methods that are able to change a listbox
         try:
             now = self.lstHistory.curselection()[0]
@@ -498,10 +501,7 @@ class XpecgenGUI(Notebook):
         """Initialize the first tab"""
 
         # Physical Parameters
-        self.frmPhysPar = LabelFrame(
-            self.frmCalc,
-            text="Physical parameters"
-        )
+        self.frmPhysPar = LabelFrame(self.frmCalc, text="Physical parameters")
         self.frmPhysPar.grid(row=0, column=0, sticky=N + S + E + W)
         self.ParE0 = ParBox(
             self.frmPhysPar,
@@ -569,11 +569,15 @@ class XpecgenGUI(Notebook):
         self.cmbZ["values"] = list(map(_add_element_name, available_list))
 
         self.loadlbl = Label(self.frmPhysPar, text="Load MV spectra")
-        self.loadTT = CreateToolTip(self.lblZ, "Load known MV spectra from file")
+        self.loadTT = CreateToolTip(
+            self.lblZ, "Load known MV spectra from file"
+        )
         self.loadlbl.grid(row=5, column=0, sticky=W)
         self.cmbload = Combobox(self.frmPhysPar, textvariable=self.load)
         self.cmbload.grid(row=5, column=1, sticky=W + E)
-        self.cmbloadTT = CreateToolTip(self.cmbZ, "Load known MV spectra from file")
+        self.cmbloadTT = CreateToolTip(
+            self.cmbZ, "Load known MV spectra from file"
+        )
 
         # Available cross-section data
         target_list_load = list(
@@ -674,7 +678,9 @@ class XpecgenGUI(Notebook):
         )
         self.cmdCleanHistory["command"] = self.clean_history
         self.cmdCleanHistory.grid(row=1, column=0, columnspan=2, sticky=E + W)
-        self.cmdExport = Button(self.frmHist, text="Save selected", state=DISABLED)
+        self.cmdExport = Button(
+            self.frmHist, text="Save selected", state=DISABLED
+        )
         self.cmdExport["command"] = self.export
         self.cmdExport.grid(row=2, column=0, columnspan=2, sticky=E + W)
 
@@ -780,9 +786,15 @@ class XpecgenGUI(Notebook):
         self.cmbNormCriterion["values"] = self.criteriaList
         self.cmbNormCriterion.grid(row=0, column=1, sticky=E + W)
         self.ParNormValue = ParBox(
-            self.frmOperNorm, self.NormValue, lblText="Value", unitsTxt="", row=1
+            self.frmOperNorm,
+            self.NormValue,
+            lblText="Value",
+            unitsTxt="",
+            row=1,
         )
-        self.cmdNorm = Button(self.frmOperNorm, text="Normalize", state=DISABLED)
+        self.cmdNorm = Button(
+            self.frmOperNorm, text="Normalize", state=DISABLED
+        )
         self.cmdNorm["command"] = self.normalize
         self.cmdNorm.grid(row=2, column=0, columnspan=3, sticky=E + W)
         Grid.columnconfigure(self.frmOperNorm, 0, weight=0)
@@ -795,13 +807,17 @@ class XpecgenGUI(Notebook):
         self.frmPlot = Frame(self.frmSpec)
 
         try:
-            self.fig = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
+            self.fig = Figure(
+                figsize=(5, 4), dpi=100, facecolor=self.master["bg"]
+            )
             self.subfig = self.fig.add_subplot(111)
             self.canvas = FigureCanvasTkAgg(self.fig, master=self.frmPlot)
             self.canvas.draw()
             self.canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar = NavigationToolbar2Tk(self.canvas, self.frmPlot)
+            self.canvasToolbar = NavigationToolbar2Tk(
+                self.canvas, self.frmPlot
+            )
             self.canvasToolbar.update()
             self.canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
@@ -902,10 +918,14 @@ class XpecgenGUI(Notebook):
         self.frmPlotKern = Frame(self.frmKern)
 
         try:
-            self.figKern = Figure(figsize=(8, 4), dpi=100, facecolor=self.master["bg"])
+            self.figKern = Figure(
+                figsize=(8, 4), dpi=100, facecolor=self.master["bg"]
+            )
             self.subfigKern = self.figKern.add_subplot(121)
             self.subfigKern2 = self.figKern.add_subplot(122)
-            self.canvasKern = FigureCanvasTkAgg(self.figKern, master=self.frmPlotKern)
+            self.canvasKern = FigureCanvasTkAgg(
+                self.figKern, master=self.frmPlotKern
+            )
             self.canvasKern.draw()
             self.canvasKern.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
@@ -915,7 +935,9 @@ class XpecgenGUI(Notebook):
             self.canvasToolbarKern.update()
             self.canvasKern._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlotKern.grid(row=0, column=1, rowspan=3, sticky=N + S + E + W)
+            self.frmPlotKern.grid(
+                row=0, column=1, rowspan=3, sticky=N + S + E + W
+            )
 
             self.matplotlib_embedded = True
         except Exception:
@@ -959,7 +981,11 @@ class XpecgenGUI(Notebook):
 
         self.cmbgeofs = Combobox(self.frmGeo, textvariable=self.geo)
         self.cmbgeofs = ParBox(
-            self.frmGeo, self.fs_size, lblText="Focal spot size", unitsTxt="mm", row=2
+            self.frmGeo,
+            self.fs_size,
+            lblText="Focal spot size",
+            unitsTxt="mm",
+            row=2,
         )
         # self.cmbgeofs["values"] = geo_list
         # self.cmbgeofs.grid(row=2, column=0, sticky=W + E)
@@ -1037,7 +1063,9 @@ class XpecgenGUI(Notebook):
             "Change a selected material in the phantom mapping to the material above",
         )
         self.lblChange.grid(row=1, column=0, sticky=W)
-        self.cmbChangeMaterial["values"] = list(map(_add_element_name, mu_list))
+        self.cmbChangeMaterial["values"] = list(
+            map(_add_element_name, mu_list)
+        )
         self.cmbChangeMaterial.grid(row=2, column=0, sticky=E + W)
         self.cmdCleanHistory2 = Button(self.frmHist2, text="Change Selected")
         self.cmdCleanHistory2["command"] = self.update_phan_map
@@ -1063,14 +1091,20 @@ class XpecgenGUI(Notebook):
         self.frmOper2 = LabelFrame(self.frmGeom, text="Operations")
         self.frmOper2.grid(row=1, column=0, sticky=N + S + E + W)
         # --Attenuation
-        self.frmOperAtten2 = LabelFrame(self.frmOper2, text="Simulation Parameters")
+        self.frmOperAtten2 = LabelFrame(
+            self.frmOper2, text="Simulation Parameters"
+        )
         self.frmOperAtten2.grid(row=0, column=0, sticky=N + S + E + W)
 
         self.radio1 = Checkbutton(
-            self.frmOperAtten2, text="Scatter Correction", variable=self.scatter_on
+            self.frmOperAtten2,
+            text="Scatter Correction",
+            variable=self.scatter_on,
         ).pack(anchor=W)
         self.radio2 = Checkbutton(
-            self.frmOperAtten2, text="Detector Convolution", variable=self.det_on
+            self.frmOperAtten2,
+            text="Detector Convolution",
+            variable=self.det_on,
         ).pack(anchor=W)
 
         Grid.columnconfigure(self.frmOperAtten2, 0, weight=0)
@@ -1096,7 +1130,11 @@ class XpecgenGUI(Notebook):
         self.cmbNormCriterion2["values"] = self.criteriaList2
         self.cmbNormCriterion2.grid(row=0, column=1, sticky=E + W)
         self.ParNormValue2 = ParBox(
-            self.frmOperNorm2, self.current, lblText="Value", unitsTxt="", row=1
+            self.frmOperNorm2,
+            self.current,
+            lblText="Value",
+            unitsTxt="",
+            row=1,
         )
         self.cmdNorm = Button(self.frmOperNorm2, text="Update", state=DISABLED)
         self.cmdNorm["command"] = self.normalize2
@@ -1113,18 +1151,24 @@ class XpecgenGUI(Notebook):
         self.frmPlot3 = Frame(self.frmGeom)
 
         try:
-            self.fig3 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
+            self.fig3 = Figure(
+                figsize=(5, 4), dpi=100, facecolor=self.master["bg"]
+            )
             self.subfig3 = self.fig3.add_subplot(121)
             self.subfig4 = self.fig3.add_subplot(122)
             self.canvas3 = FigureCanvasTkAgg(self.fig3, master=self.frmPlot3)
             self.canvas3.draw()
             self.canvas3.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar3 = NavigationToolbar2Tk(self.canvas3, self.frmPlot3)
+            self.canvasToolbar3 = NavigationToolbar2Tk(
+                self.canvas3, self.frmPlot3
+            )
             self.canvasToolbar3.update()
             self.canvas3._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot3.grid(row=0, column=1, rowspan=3, sticky=N + S + E + W)
+            self.frmPlot3.grid(
+                row=0, column=1, rowspan=3, sticky=N + S + E + W
+            )
 
             self.matplotlib_embedded = True
         except Exception:
@@ -1217,11 +1261,17 @@ class XpecgenGUI(Notebook):
 
         """Initialize sino frame"""
 
-        self.frmRecon = LabelFrame(self.frmSino, text="Reconstruction operations")
+        self.frmRecon = LabelFrame(
+            self.frmSino, text="Reconstruction operations"
+        )
         self.frmRecon.grid(row=0, column=0, sticky=N + S + E + W)
-        self.lblReconPar = Label(self.frmRecon, text="Reconstruction Algorithm")
+        self.lblReconPar = Label(
+            self.frmRecon, text="Reconstruction Algorithm"
+        )
         self.lblReconPar.grid(row=2, column=0, sticky=W)
-        self.cmbReconType = Combobox(self.frmRecon, textvariable=self.algorithm)
+        self.cmbReconType = Combobox(
+            self.frmRecon, textvariable=self.algorithm
+        )
         self.cmbReconType.grid(row=3, column=0, sticky=E + W)
         self.cmbReconType2 = Combobox(self.frmRecon, textvariable=self.filt)
         self.lblReconPar2 = Label(self.frmRecon, text="Filter")
@@ -1231,7 +1281,9 @@ class XpecgenGUI(Notebook):
         # row=5, column=0,rowspan=4, sticky=E + W)
         self.cmbReconType2.grid(row=5, column=0, sticky=E + W)
 
-        self.frmReconParameters = LabelFrame(self.frmSino, text="Spectral parameters")
+        self.frmReconParameters = LabelFrame(
+            self.frmSino, text="Spectral parameters"
+        )
         self.frmReconParameters.grid(row=1, column=0, sticky=N + S + E + W)
 
         # self.get_proj = ParBox(
@@ -1287,18 +1339,24 @@ class XpecgenGUI(Notebook):
         self.frmPlot4 = Frame(self.frmSino)
 
         try:
-            self.fig4 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
+            self.fig4 = Figure(
+                figsize=(5, 4), dpi=100, facecolor=self.master["bg"]
+            )
             self.subfig5 = self.fig4.add_subplot(121)
             self.subfig6 = self.fig4.add_subplot(122)
             self.canvas4 = FigureCanvasTkAgg(self.fig4, master=self.frmPlot4)
             self.canvas4.draw()
             self.canvas4.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar4 = NavigationToolbar2Tk(self.canvas4, self.frmPlot4)
+            self.canvasToolbar4 = NavigationToolbar2Tk(
+                self.canvas4, self.frmPlot4
+            )
             self.canvasToolbar4.update()
             self.canvas4._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot4.grid(row=0, column=1, rowspan=5, sticky=N + S + E + W)
+            self.frmPlot4.grid(
+                row=0, column=1, rowspan=5, sticky=N + S + E + W
+            )
 
             self.matplotlib_embedded = True
         except Exception:
@@ -1336,7 +1394,9 @@ class XpecgenGUI(Notebook):
         # self.frmRecon2Par.grid(sticky=E + W)
         self.lblRecon2Par = Label(self.frmRecon2, text="File Type")
         self.lblRecon2Par.grid(row=0, column=0, sticky=E + W)
-        self.cmbRecon2Type = Combobox(self.frmRecon2, textvariable=self.filetype)
+        self.cmbRecon2Type = Combobox(
+            self.frmRecon2, textvariable=self.filetype
+        )
         self.cmbRecon2Type.grid(row=1, column=1, sticky=E + W)
         self.Par1 = ParBox(
             self.frmRecon2,
@@ -1381,18 +1441,24 @@ class XpecgenGUI(Notebook):
         self.frmPlot5 = Frame(self.frmReso)
 
         try:
-            self.fig5 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
+            self.fig5 = Figure(
+                figsize=(5, 4), dpi=100, facecolor=self.master["bg"]
+            )
             self.subfig7 = self.fig5.add_subplot(121)
             self.subfig8 = self.fig5.add_subplot(122)
             self.canvas5 = FigureCanvasTkAgg(self.fig5, master=self.frmPlot5)
             self.canvas5.draw()
             self.canvas5.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar5 = NavigationToolbar2Tk(self.canvas5, self.frmPlot5)
+            self.canvasToolbar5 = NavigationToolbar2Tk(
+                self.canvas5, self.frmPlot5
+            )
             self.canvasToolbar5.update()
             self.canvas5._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot5.grid(row=0, column=1, rowspan=5, sticky=N + S + E + W)
+            self.frmPlot5.grid(
+                row=0, column=1, rowspan=5, sticky=N + S + E + W
+            )
 
             self.matplotlib_embedded = True
         except Exception:
@@ -1416,7 +1482,9 @@ class XpecgenGUI(Notebook):
         """Initialize reso frame"""
 
         # -Operations frame
-        self.frmRecon2 = LabelFrame(self.frmOutp, text="Reconstruction operations")
+        self.frmRecon2 = LabelFrame(
+            self.frmOutp, text="Reconstruction operations"
+        )
         self.frmRecon2.grid(row=0, column=0, sticky=N + S + E + W)
         # self.cmdAtten2.grid(row=2, column=0, columnspan=3, sticky=E + W)
         # --Attenuation
@@ -1425,7 +1493,9 @@ class XpecgenGUI(Notebook):
         # self.frmRecon2Par.grid(sticky=E + W)
         self.lblRecon2Par = Label(self.frmRecon2, text="File Type")
         self.lblRecon2Par.grid(sticky=E + W)
-        self.cmbRecon2Type = Combobox(self.frmRecon2, textvariable=self.filetype)
+        self.cmbRecon2Type = Combobox(
+            self.frmRecon2, textvariable=self.filetype
+        )
         self.cmbRecon2Type.grid(sticky=E + W)
         self.Par1 = ParBox(
             self.frmRecon2,
@@ -1452,18 +1522,24 @@ class XpecgenGUI(Notebook):
         self.frmPlot6 = Frame(self.frmOutp)
 
         try:
-            self.fig6 = Figure(figsize=(5, 4), dpi=100, facecolor=self.master["bg"])
+            self.fig6 = Figure(
+                figsize=(5, 4), dpi=100, facecolor=self.master["bg"]
+            )
             self.subfig9 = self.fig6.add_subplot(121)
             self.subfig10 = self.fig6.add_subplot(122)
             self.canvas6 = FigureCanvasTkAgg(self.fig6, master=self.frmPlot6)
             self.canvas6.draw()
             self.canvas6.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-            self.canvasToolbar6 = NavigationToolbar2Tk(self.canvas6, self.frmPlot6)
+            self.canvasToolbar6 = NavigationToolbar2Tk(
+                self.canvas6, self.frmPlot6
+            )
             self.canvasToolbar6.update()
             self.canvas6._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
 
-            self.frmPlot6.grid(row=0, column=1, rowspan=5, sticky=N + S + E + W)
+            self.frmPlot6.grid(
+                row=0, column=1, rowspan=5, sticky=N + S + E + W
+            )
 
             self.matplotlib_embedded = True
         except Exception:
@@ -1516,7 +1592,9 @@ class XpecgenGUI(Notebook):
         if self.matplotlib_embedded:
             self.subfigKern.clear()
             self.kernel.get_plot(self.subfigKern)
-            self.kernel.get_plot_mtf_real(self.subfigKern2, label=self.load.get())
+            self.kernel.get_plot_mtf_real(
+                self.subfigKern2, label=self.load.get()
+            )
             self.figKern.tight_layout()
             self.canvasKern.draw()
             self.canvasToolbarKern.update()
@@ -1538,9 +1616,15 @@ class XpecgenGUI(Notebook):
                 self.tracker3 = fc.IndexTracker(
                     self.subfig5, self.phantom.proj.transpose([1, 2, 0])
                 )
-                self.fig4.canvas.mpl_connect("scroll_event", self.tracker3.onscroll)
-                self.tracker4 = fc.IndexTracker(self.subfig6, self.phantom.proj)
-                self.fig4.canvas.mpl_connect("scroll_event", self.tracker4.onscroll)
+                self.fig4.canvas.mpl_connect(
+                    "scroll_event", self.tracker3.onscroll
+                )
+                self.tracker4 = fc.IndexTracker(
+                    self.subfig6, self.phantom.proj
+                )
+                self.fig4.canvas.mpl_connect(
+                    "scroll_event", self.tracker4.onscroll
+                )
                 self.fig4.tight_layout()
                 self.canvas4.draw()
                 self.canvasToolbar4.update()
@@ -1560,9 +1644,13 @@ class XpecgenGUI(Notebook):
         if self.matplotlib_embedded:
             print("Starting FDK reconstruction ...")
             self.tracker5 = fc.IndexTracker(self.subfig7, self.phantom.img.T)
-            self.fig5.canvas.mpl_connect("scroll_event", self.tracker5.onscroll)
+            self.fig5.canvas.mpl_connect(
+                "scroll_event", self.tracker5.onscroll
+            )
             self.tracker6 = fc.IndexTracker(self.subfig8, self.phantom.img)
-            self.fig5.canvas.mpl_connect("scroll_event", self.tracker6.onscroll)
+            self.fig5.canvas.mpl_connect(
+                "scroll_event", self.tracker6.onscroll
+            )
             self.canvas5.draw()
             self.canvasToolbar5.update()
 
@@ -1573,10 +1661,14 @@ class XpecgenGUI(Notebook):
 
         """
         if self.matplotlib_embedded:
-            self.tracker = fc.IndexTracker(self.subfig3, self.phantom.phantom.T)
+            self.tracker = fc.IndexTracker(
+                self.subfig3, self.phantom.phantom.T
+            )
             self.fig3.canvas.mpl_connect("scroll_event", self.tracker.onscroll)
             self.tracker2 = fc.IndexTracker(self.subfig4, self.phantom.phantom)
-            self.fig3.canvas.mpl_connect("scroll_event", self.tracker2.onscroll)
+            self.fig3.canvas.mpl_connect(
+                "scroll_event", self.tracker2.onscroll
+            )
             self.canvas3.draw()
             self.canvasToolbar3.update()
 
@@ -1612,17 +1704,25 @@ class XpecgenGUI(Notebook):
             self.HVL4.set("%s" % float("%.3g" % (qvlCu - hvlCu)))
 
             self.number.set(
-                "%s" % float("%.3g" % (self.spectra[self.active_spec].get_norm()))
+                "%s"
+                % float("%.3g" % (self.spectra[self.active_spec].get_norm()))
             )
             self.energy.set(
                 "%s"
-                % float("%.3g" % (self.spectra[self.active_spec].get_norm(lambda x: x)))
+                % float(
+                    "%.3g"
+                    % (self.spectra[self.active_spec].get_norm(lambda x: x))
+                )
             )
             self.dose.set(
                 "%s"
                 % float(
                     "%.3g"
-                    % (self.spectra[self.active_spec].get_norm(self.fluence_to_dose))
+                    % (
+                        self.spectra[self.active_spec].get_norm(
+                            self.fluence_to_dose
+                        )
+                    )
                 )
             )
 
@@ -1779,7 +1879,9 @@ class XpecgenGUI(Notebook):
                 fluence = []
 
                 with open(
-                    os.path.join(fc.data_path, "MV_spectra", f"{self.load.get()}.txt")
+                    os.path.join(
+                        fc.data_path, "MV_spectra", f"{self.load.get()}.txt"
+                    )
                 ) as f:
                     for line in f:
                         # import pdb; pdb.set_trace()
@@ -1859,7 +1961,9 @@ class XpecgenGUI(Notebook):
         if self.matplotlib_embedded:
 
             self.phantom.analyse_515(
-                self.phantom.img[5], [self.subfig9, self.subfig10], self.label.get()
+                self.phantom.img[5],
+                [self.subfig9, self.subfig10],
+                self.label.get(),
             )
             self.canvas6.draw()
             self.canvasToolbar6.update()
@@ -1912,7 +2016,8 @@ class XpecgenGUI(Notebook):
         print("saving reconstruction...")
 
         np.save(
-            os.path.join(fc.data_path, "recons", self.filename.get()), self.phantom.img
+            os.path.join(fc.data_path, "recons", self.filename.get()),
+            self.phantom.img,
         )
 
         print(
@@ -1927,7 +2032,8 @@ class XpecgenGUI(Notebook):
 
         print("saving projections...")
         np.save(
-            os.path.join(fc.data_path, "projs", self.filename.get()), self.phantom.proj
+            os.path.join(fc.data_path, "projs", self.filename.get()),
+            self.phantom.proj,
         )
 
         print(
@@ -1969,7 +2075,10 @@ class XpecgenGUI(Notebook):
                 )
                 # print(self.angles)
                 energy_deposition_file = os.path.join(
-                    fc.data_path, "Detectors", self.det.get(), "EnergyDeposition.npy"
+                    fc.data_path,
+                    "Detectors",
+                    self.det.get(),
+                    "EnergyDeposition.npy",
                 )
                 self.phan_map = ["air", "water", "G4_BONE_COMPACT_ICRU"]
                 # real one ['air','water','G4_LUNG_ICRP',"G4_BONE_COMPACT_ICRU","G4_BONE_CORTICAL_ICRP","G4_ADIPOSE_TISSUE_ICRP","G4_BRAIN_ICRP","G4_B-100_BONE"]
@@ -2074,7 +2183,9 @@ class XpecgenGUI(Notebook):
             self.cmdload["text"] = "Load"
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
-            if self.queue_calculation.get_nowait():  # Calculation ended successfully
+            if (
+                self.queue_calculation.get_nowait()
+            ):  # Calculation ended successfully
                 self.lstHistory.delete(0, END)
                 self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
@@ -2096,7 +2207,9 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["text"] = "Calculate"
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
-            if self.queue_calculation.get_nowait():  # Calculation ended successfully
+            if (
+                self.queue_calculation.get_nowait()
+            ):  # Calculation ended successfully
                 # self.lstHistory.delete(0, END)
                 # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
@@ -2118,7 +2231,9 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["text"] = "Calculate"
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
-            if self.queue_calculation.get_nowait():  # Calculation ended successfully
+            if (
+                self.queue_calculation.get_nowait()
+            ):  # Calculation ended successfully
                 # self.lstHistory.delete(0, END)
                 # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
@@ -2140,7 +2255,9 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["text"] = "Calculate"
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
-            if self.queue_calculation.get_nowait():  # Calculation ended successfully
+            if (
+                self.queue_calculation.get_nowait()
+            ):  # Calculation ended successfully
                 # self.lstHistory.delete(0, END)
                 # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()
@@ -2162,7 +2279,9 @@ class XpecgenGUI(Notebook):
             self.cmdCalculate["text"] = "Calculate"
             self.cmdCalculate["state"] = "normal"
             self.monitor_bar(0, 0)
-            if self.queue_calculation.get_nowait():  # Calculation ended successfully
+            if (
+                self.queue_calculation.get_nowait()
+            ):  # Calculation ended successfully
                 # self.lstHistory.delete(0, END)
                 # self.lstHistory.insert(END, "Calculated")
                 self.enable_analyze_buttons()

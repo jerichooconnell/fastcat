@@ -14,7 +14,9 @@ for element in fetch_elements():
         )
 
 for element in fetch_compounds():  # was fetch_elements() JO
-    if element.short_name not in ["telluride"]:  # Skip those with arbitrary density
+    if element.short_name not in [
+        "telluride"
+    ]:  # Skip those with arbitrary density
         a = np.asarray(element.get_coefficients(use_density=True))
         np.savetxt(
             str(element.short_name) + ".csv",
