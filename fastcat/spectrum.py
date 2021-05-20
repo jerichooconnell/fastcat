@@ -22,7 +22,19 @@ from glob import glob
 import numpy as np
 from scipy import integrate, interpolate, optimize
 
+try:
+    import matplotlib.pyplot as plt
+
+    plt.ion()
+    PLOT_AVAILABLE = True
+except ImportError:
+    warnings.warn("Unable to import matplotlib. Plotting will be disabled.")
+    PLOT_AVAILABLE = False
+
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+__author__ = 'JOC'
+__version__ = "0.0.1"
 
 
 def log_interp_1d(xx, yy, kind="linear"):
@@ -54,7 +66,7 @@ def log_interp_1d(xx, yy, kind="linear"):
 # It was modified to work only in rectangular regions (no g(x) nor h(x))
 # to set the inner integral epsrel
 # and to increase the limit of points taken
-def _infunc(x_val, func, c, d, more_args, epsrel):
+def _infunc(x_val, func, c, d, more_args, epsrel=1.49e-8):
     myargs = (x_val,) + more_args
     return integrate.quad(func, c, d, args=myargs, epsrel=epsrel, limit=2000)[
         0
@@ -305,13 +317,13 @@ class Spectrum:
             block (bool): Whether the plot is blocking or non blocking.
 
         """
-        if plot_available:
+        if PLOT_AVAILABLE:
             plt.clf()
             self.get_plot(plt, show_mesh=show_mesh, prepare_format=False)
             plt.xlabel("E")
             plt.ylabel("f(E)")
             plt.gcf().canvas.set_window_title(
-                "".join(("xpecgen v", __version__))
+                "".join(("fastcat v", __version__))
             )
             plt.show(block=block)
         else:
@@ -340,60 +352,6 @@ class Spectrum:
                 w.writerow(x2)
                 w.writerow(y2)
 
-    #     def export_xlsx(self, route="a.xlsx",
-    #                      peak_shape=triangle, markers=False):
-    #         """
-    #         Export the data to a xlsx file (Excel format).
-
-    #         Args:
-    #             route (str): The route where the file will be saved.
-    #             peak_shape: The window function used to plot the peaks.
-    #                       See :obj:`triangle` for an example.
-    #             markers (bool): Whether to use markers or a continuous
-    #                   line in the plot in the file.
-
-    #         """
-    #         x2, y2 = self.get_points(peak_shape=peak_shape)
-
-    #         workbook = xlsxwriter.Workbook(route)
-    #         worksheet = workbook.add_worksheet()
-    #         bold = workbook.add_format({"bold": 1})
-    #         worksheet.write(0, 0, "Energy (keV)", bold)
-    #         worksheet.write(0, 1, "Photon density (1/keV)", bold)
-    #         worksheet.write_column("A2", x2)
-    #         worksheet.write_column("B2", y2)
-
-    #         # Add a plot
-    #         if markers:
-    #             chart = workbook.add_chart(
-    #                 {"type": "scatter", "subtype": "straight_with_markers"}
-    #             )
-    #         else:
-    #             chart = workbook.add_chart(
-    #                       {"type": "scatter", "subtype": "straight"}
-    #         )
-
-    #         chart.add_series(
-    #             {
-    #                 "name": "=Sheet1!$B$1",
-    #                 "categories": "=Sheet1!$A$2:$A$" + str(len(x2) + 1),
-    #                 "values": "=Sheet1!$B$2:$B$" + str(len(y2) + 1),
-    #             }
-    #         )
-    #         chart.set_title({"name": "Emission spectrum"})
-    #         chart.set_x_axis(
-    #           {"name": "Energy (keV)", "min": 0, "max": str(x2[-1])}
-    #         )
-    #         chart.set_y_axis({"name": "Photon density (1/keV)"})
-    #         chart.set_legend({"position": "none"})
-    #         chart.set_style(11)
-
-    #         worksheet.insert_chart(
-    #               "D3", chart, {"x_offset": 25, "y_offset": 10}
-    #         )
-
-    #         workbook.close()
-
     def get_norm(self, weight=None):
         """
         Return the norm of the spectrum using a weighting function.
@@ -412,13 +370,13 @@ class Spectrum:
 
         """
         if weight is None:
-
-            def w(x):
-                return 1
+            w = 1
+            # def w(x):
+            # return 1
 
         else:
             w = weight
-        y2 = list(map(lambda x, y: w(x) * y, self.x, self.y))
+        y2 = list(map(lambda x, y: w * y, self.x, self.y))
 
         return integrate.simps(y2, x=self.x) + sum(
             [w(a[0]) * a[1] for a in self.discrete]
@@ -437,7 +395,6 @@ class Spectrum:
                 * weight(E)=1 [Photon number]
                 * weight(E)=E [Energy]
                 * weight(E)=fluence2Dose(E) [Dose]
-
         """
         norm = self.get_norm(weight=weight) / value
         self.y = [a / norm for a in self.y]
@@ -464,9 +421,7 @@ class Spectrum:
 
         Returns:
             (float): The generalized hvl in cm.
-
         """
-        # TODO: (?) Cut characteristic if below
         # cutoff. However, such a high cutoff
         # would probably make no sense
 
@@ -501,11 +456,10 @@ class Spectrum:
                     a *= 10.0
                 # Now f(a)<=0 and f(a*0.1)>0
                 return optimize.brentq(f, a * 0.1, a)
-            else:
-                while f(a) < 0:
-                    a *= 0.1
-                # Now f(a)>=0 and f(a*10)<0
-                return optimize.brentq(f, a, a * 10.0)
+            while f(a) < 0:
+                a *= 0.1
+            # Now f(a)>=0 and f(a*10)<0
+            return optimize.brentq(f, a, a * 10.0)
 
         except ValueError:
             warnings.warn("Interpolation boundary error")
@@ -522,8 +476,6 @@ class Spectrum:
             depth: The amount of material (typically in cm).
             mu: The energy-dependent absorption coefficient
             (typically in cm^-1).
-
-
         """
 
         self.y = list(
@@ -537,6 +489,10 @@ class Spectrum:
         )
 
     def load(self, spectrum_file):
+        '''
+        Load spectrum_file from file. Loads one of the text files found in the
+        data/MV_spectra directory do not add file extension to spectrum_file
+        '''
 
         energies = []
         fluence = []
@@ -582,9 +538,6 @@ class Spectrum:
         return self.__mul__(other)
 
 
-# --------------------Spectrum calculation functionality----------------#
-
-
 def get_fluence(e_0=100.0):
     """
     Returns a function representing the electron
@@ -596,7 +549,6 @@ def get_fluence(e_0=100.0):
 
     Returns:
         A function representing fluence(x,u) with x in CSDA units.
-
     """
     # List of available energies
     e0_str_list = list(
@@ -645,7 +597,6 @@ def get_cs(e_0=100, z=74):
     Returns:
         A function representing cross_section(e_g,u)
         in mb/keV, with e_g in keV.
-
     """
     # NOTE: Data is given for E0>1keV. CS values below this
     # level should be used with caution.
@@ -690,7 +641,6 @@ def get_mu(z=74):
     Returns:
         The attenuation coefficient mu(E) in cm^-1 as
         a function of the energy measured in keV.
-
     """
     with open(
         os.path.join(data_path, "mu", "".join([str(z), ".csv"])), "r"
@@ -715,7 +665,6 @@ def get_csda(z=74):
     Returns:
         The CSDA range in cm in tungsten as a
         function of the electron kinetic energy in keV.
-
     """
     with open(os.path.join(data_path, "csda/%d.csv" % z), "r") as csvfile:
         r = csv.reader(
@@ -740,7 +689,6 @@ def get_mu_csda(e_0, z=74):
     Returns:
         The attenuation coefficient mu(E) in CSDA units
         as a function of the energy measured in keV.
-
     """
     mu = get_mu(z)
     csda = get_csda(z=z)(e_0)
@@ -755,7 +703,6 @@ def get_fluence_to_dose():
     Returns:
         A function representing the weighting factor
         which converts fluence to dose in Gy * cm^2.
-
     """
     with open(os.path.join(data_path, "fluence2dose/f2d.csv"), "r") as csvfile:
         r = csv.reader(
@@ -766,32 +713,6 @@ def get_fluence_to_dose():
         t = next(r)
         y = [float(a) for a in t[0].split(",")]
     return interpolate.interp1d(x, y, kind="linear")
-
-
-def update_fluence(mv_file, value):
-
-    # Returns the noise estimate in photons per pixel in ver specific geo
-
-    target_list_load = list(
-        map(
-            lambda x: (os.path.split(x)[1]).split(".txt")[0],
-            glob(os.path.join(data_path, "MV_spectra", "*.txt")),
-        )
-    )
-
-    # photons per coulomb
-    fluences_per_ma = (
-        np.array([413742, 2675367, 2890691, 317988, 1476616, 258593])
-        * 15000000
-        / 6.242e9
-        * value
-    )  #
-
-    logging.info(
-        31 / 50000000 * fluences_per_ma[target_list_load.index(mv_file)]
-    )
-
-    return 31 / 50000000 * fluences_per_ma[target_list_load.index(mv_file)]
 
 
 def get_source_function(fluence, cs, mu, theta, e_g, phi=0.0):
@@ -815,7 +736,6 @@ def get_source_function(fluence, cs, mu, theta, e_g, phi=0.0):
 
     Returns:
         The attenuated source function s(u,x).
-
     """
     factor = (
         -mu(e_g) / math.sin(math.radians(theta)) / math.cos(math.radians(phi))
@@ -963,8 +883,6 @@ def console_monitor(a, b):
         (e.g., a number representing a part...).
         b: An object representing the total amount
         (... of a number representing a total).
-
-
     """
     print("Calculation: ", a, "/", b)
 
@@ -991,7 +909,6 @@ def calculate_spectrum_mesh(
 
     Returns:
         :obj:`Spectrum`: The calculated spectrum
-
     """
     # Prepare spectrum
     s = Spectrum()
@@ -1063,201 +980,3 @@ def calculate_spectrum(
         monitor=monitor,
         z=z,
     )
-
-
-def cli():
-    import argparse
-
-    #     import sys
-
-    parser = argparse.ArgumentParser(
-        description="Calculate a bremsstrahlung spectrum."
-    )
-    parser.add_argument(
-        "--e_0",
-        metavar="E0",
-        type=float,
-        default=100.0,
-        help="Electron kinetic energy in keV",
-    )
-    parser.add_argument(
-        "--theta",
-        metavar="theta",
-        type=float,
-        default=12,
-        help="X-ray emission angle in degrees,"
-        "the anode's normal being at 90º.",
-    )
-
-    parser.add_argument(
-        "--phi",
-        metavar="phi",
-        type=float,
-        default=0,
-        help="X-ray emission altitude in degrees,"
-        "the anode's normal being at 0º.",
-    )
-
-    parser.add_argument(
-        "--z",
-        metavar="z",
-        type=int,
-        default=74,
-        help="Atomic number of the material"
-        "(characteristic radiation is only available for z=74).",
-    )
-
-    parser.add_argument(
-        "--e_min",
-        metavar="e_min",
-        type=float,
-        default=3.0,
-        help="Minimum kinetic energy"
-        "in keV in the bremsstrahlung calculation.",
-    )
-
-    parser.add_argument(
-        "--n_points",
-        metavar="n_points",
-        type=int,
-        default=50,
-        help="Number of points used in the bremsstrahlung calculation.",
-    )
-
-    parser.add_argument(
-        "--mesh",
-        metavar="e_i",
-        type=float,
-        nargs="+",
-        help="Energy mesh where the bremsstrahlung will be calculated. "
-        "Overrides e_min and n_points parameters.",
-    )
-
-    parser.add_argument(
-        "--epsrel",
-        metavar="tolerance",
-        type=float,
-        default=0.5,
-        help="Numerical tolerance in integration.",
-    )
-
-    parser.add_argument(
-        "-o",
-        "--output",
-        metavar="path",
-        type=str,
-        help="Output file. Available formats are csv,"
-        "xlsx, and pkl, selected by the file extension. "
-        "pkl appends objects using the pickle module."
-        "Note you have to import the Spectrum class "
-        " INTO THE NAMESPACE (e.g., from xpecgen.xpecgen"
-        "import Spectrum) to load them. "
-        "If this argument is not provided, points are"
-        "written to the standard output and "
-        "calculation monitor is not displayed.",
-    )
-
-    parser.add_argument(
-        "-s", metavar="spectrum", type=str, help="Spectrum to load"
-    )
-
-    parser.add_argument(
-        "-d", metavar="detector", type=str, help="Detector to use"
-    )
-
-    parser.add_argument(
-        "--fs",
-        metavar="fs",
-        type=int,
-        default=0,
-        help="The size of the focal spot",
-    )
-
-    parser.add_argument(
-        "-phan", metavar="phantom", type=str, help="The phantom to select"
-    )
-
-    parser.add_argument(
-        "--nviews",
-        metavar="nviews",
-        type=int,
-        default=180,
-        help="The phantom to select",
-    )
-
-    # parser.add_argument('-nviews', metavar='nviews', type=int, default=180,
-    #                     help="The phantom to select")
-
-    args = parser.parse_args()
-
-    if args.output is not None:
-        if "." not in args.output:
-            logging.info("Output file format unknown")  # , file=sys.stderr)
-            exit(-1)
-        else:
-            ext = args.output.split(".")[-1].lower()
-            if ext not in ["csv", "xlsx", "pkl"]:
-                logging.info(
-                    "Output file format unknown"
-                )  # , file=sys.stderr)
-                exit(-1)
-        monitor = console_monitor
-    else:
-        monitor = None
-
-    if args.mesh is None:
-        mesh = np.linspace(
-            args.e_min, args.e_0, num=args.n_points, endpoint=True
-        )
-    else:
-        mesh = args.mesh
-
-    if args.s is None:
-        s = calculate_spectrum_mesh(
-            args.e_0,
-            args.theta,
-            mesh,
-            phi=args.phi,
-            epsrel=args.epsrel,
-            monitor=monitor,
-            z=args.z,
-        )
-        x2, y2 = s.get_points()
-    else:
-        s = Spectrum()
-        s.load(args.s)
-        kernel = Detector(s, args.d)
-
-        dispatcher = {"Catphan_515": Catphan_515, "Catphan_MTF": Catphan_MTF}
-        try:
-            function = dispatcher[args.phan]
-        except KeyError:
-            raise ValueError("Invalid phantom module name")
-        phantom = function()
-
-        phantom.return_projs(kernel, s, np.linspace(0, np.pi * 2, args.nviews))
-
-        phantom.reconstruct("FDK")
-
-        np.save(args.output, phantom.img)
-
-    # if args.output is None:
-    #     [logging.info("%.6g, %.6g" % (x, y)) for x, y in zip(x2, y2)]
-    # elif ext == "csv":
-    #     s.export_csv(args.output)
-    # elif ext == "xlsx":
-    #     s.export_xlsx(args.output)
-    # elif ext == "pkl":
-    #     import pickle
-    #     logging.info(args.overwrite)
-    #     if args.overwrite:
-    #         mode = "wb"
-    #     else:
-    #         mode = "ab"
-
-    #     with open(args.output, mode) as output:
-    #         pickle.dump(s, output, pickle.HIGHEST_PROTOCOL)
-
-
-if __name__ == "__main__":
-    cli()

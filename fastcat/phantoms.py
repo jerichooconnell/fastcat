@@ -4,8 +4,8 @@
 """
 Fastcat a rapid and accurate CBCT simulator.
 
-Contains code from xpecgen.py to simulate spectra:
-A module to calculate x-ray spectra generated in tungsten anodes.
+PHANTOMS: CODE CONTAINING PHANTOM PARAMETERS AND ANALYSIS
+
 """
 
 from __future__ import print_function
@@ -18,6 +18,7 @@ import numpy as np
 import tigre
 from numpy import cos, sin
 
+from scipy.signal import filtfilt, butter, find_peaks
 from fastcat.simulate import Phantom
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -1185,6 +1186,12 @@ class XCAT2(Phantom):
         pass
 
     def reconstruct(self, algo, filt="hamming"):
+        '''
+        algo, FDK, CGLS ect.
+
+        filt is one of 'hamming','ram_lak','cosine'
+
+        '''
 
         if algo == "FDK":
             try:

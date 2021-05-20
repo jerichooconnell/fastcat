@@ -13,12 +13,16 @@ from __future__ import print_function
 import logging
 import os
 import sys
-import warnings
 
 import numpy as np
 import tigre
 from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit
+from scipy.signal import fftconvolve
+from scipy.interpolate import interp1d
+from matplotlib import pyplot as plt
+
+from fastcat import spectrum
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -26,17 +30,6 @@ logging.basicConfig(
     "(lineno)d} %(levelname)s - %(message)s",
     level=logging.DEBUG,
 )
-
-logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-
-try:
-    import matplotlib.pyplot as plt
-
-    plt.ion()
-    plot_available = True
-except ImportError:
-    warnings.warn("Unable to import matplotlib. Plotting will be disabled.")
-    plot_available = False
 
 __author__ = "Jericho OConnell"
 __version__ = "0.0.1"
@@ -90,8 +83,9 @@ mu_water = np.array(
 
 
 class Phantom:
-    def __init__(self):
-        pass
+    '''
+    Super that contains the simulation method
+    '''
 
     def return_projs(
         self,
@@ -284,15 +278,15 @@ class Phantom:
 
         # Binning to get the fluence per energy
         large_energies = np.linspace(0, 6000, 3001)
-        f_flu = interpolate.interp1d(
+        f_flu = interp1d(
             np.insert(spectra.x, (0, -1), (0, 6000)),
             np.insert(spectra.y, (0, -1), (0, spectra.y[-1])),
         )
-        f_dep = interpolate.interp1d(
+        f_dep = interp1d(
             np.insert(original_energies_keV, 0, 0),
             np.insert(deposition_summed, 0, 0),
         )
-        f_e = interpolate.interp1d(
+        f_e = interp1d(
             np.insert(original_energies_keV, 0, 0),
             np.insert((deposition[0]), 0, 0),
         )
@@ -316,10 +310,6 @@ class Phantom:
             weights_xray_small[index] += weights_xray[ii]
             weights_energies[index] += weights_e_long[ii]
             fluence_small[index] += fluence_large[ii]
-
-        # Normalize
-        if det_on:
-            weights_xray_small = weights_xray_small
 
         fluence_small /= np.sum(fluence_small)
         weights_xray_small /= np.sum(weights_xray_small)
@@ -367,7 +357,7 @@ class Phantom:
                 factor * 660 * 0.72
             )  # This is the 0.85 efficiency for the ASG
 
-            lead = get_mu(82)
+            lead = spectrum.get_mu(82)
             for jj in range(mc_scatter.shape[1]):
                 # quarter will be let through well 0.75
                 # will be filtered should be 39 microns
@@ -436,7 +426,9 @@ class Phantom:
         # Get the mapping functions for the different
         #  tissues to reconstruct the phantom by energy
         for ii in range(1, len(self.phan_map)):
-            mapping_functions.append(get_mu(self.phan_map[ii].split(":")[0]))
+            mapping_functions.append(
+                spectrum.get_mu(self.phan_map[ii].split(":")[0])
+            )
             masks[ii - 1] = self.phantom == ii
 
         phantom2 = self.phantom.copy().astype(np.float32)
@@ -561,7 +553,7 @@ class Phantom:
             if det_on and convolve_on:
                 for ii in range(len(self.angles)):
 
-                    if kernel.fs_size is not None:
+                    if hasattr(kernel, 'fs_size'):
 
                         # foical spot with geometrical factor
                         fs_real = (
@@ -580,13 +572,12 @@ class Phantom:
                     else:
                         mod_filter = kernel.kernels[jj + 1]
 
-                    kernel.kernels[jj + 1]
                     int_temp[ii, bx:-bx, by:-by] = fftconvolve(
                         int_temp[ii, :, :], mod_filter, mode="same"
                     )[bx:-bx, by:-by]
                     noise_temp[ii, bx:-bx, by:-by] = fftconvolve(
                         noise_temp[ii, :, :],
-                        kernel.kernel[jj + 1],
+                        kernel.kernels[jj + 1],
                         mode="same",
                     )[bx:-bx, by:-by]
 
@@ -692,49 +683,7 @@ class Phantom:
             except Exception:
                 logging.info("WARNING: Tigre GPU not working")
 
-                # sinogram, self.sin_id,
-                # self.proj_id, self.vol_geom = tigre2astra(
-                #     phantom2, self.geomet, self.angles, tile=True
-                # )
                 self.tigre_works = False
-                # return sinogram.transpose([1, 0, 2])
-
-            # else:
-            #     if tile:
-            #         sin_id, sinogram = astra.create_sino(
-            #             np.fliplr(phantom2[0, :, :]), self.proj_id
-            #         )
-
-            #         return np.tile(
-            #             sinogram, [phantom2.shape[0], 1, 1]
-            #         ).transpose([1, 0, 2]) / (
-            #             1.6 * (self.geomet.nDetector[1] / 256)
-            #         )
-            #     else:
-            #         sinogram = np.zeros(
-            #             [
-            #                 phantom2.shape[0],
-            #                 len(angles),
-            #                 self.geomet.nDetector[1],
-            #             ]
-            #         )
-
-    #                 sin_id = None
-
-    #                 for kk in range(tigre_shape[0]):
-
-    #                     if sin_id is not None:
-    #                         astra.data2d.delete(sin_id)
-
-    #                     sin_id, sinogram[kk, :, :] = astra.create_sino(
-    #                         np.fliplr(phantom2[kk, :, :]), self.proj_id
-    #                     )
-
-    #                 astra.data2d.delete(sin_id)
-
-    #                 return sinogram.transpose([1, 0, 2]) / (
-    #                     1.6 * (self.geomet.nDetector[1] / 256)
-    #                 )
 
     def reconstruct(self, algo, filt="hamming"):
 

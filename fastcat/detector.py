@@ -14,8 +14,10 @@ import os
 from glob import glob
 
 import numpy as np
-from matplotlib import cm
+from numpy import cos
 from matplotlib.colors import LogNorm
+from scipy.signal import fftconvolve
+from scipy.ndimage import gaussian_filter
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -26,12 +28,12 @@ class Detector:
 
     """
 
-    def __init__(self, spectrum, detector, Verbose=False):
+    def __init__(self, spectrum, detector):
         """
         The spectrum is used to calculate the MTF for the detector
 
-        Input
-        -----
+        Parameters
+        ----------
 
         spectrum: Fastcat Spectrum Object
             An energy spectrum of a beam for which the MTF is
@@ -40,9 +42,6 @@ class Detector:
             The name of the detector. One of the detector folders
             in data/Detectors. ex. 'CSI-784-micrometer' numbers are
             the pixel pitch
-        Verbose: Bool
-            Handles the output of the function. True prints stuff
-            about the detector.
 
         Returns
         -------
@@ -184,7 +183,7 @@ class Detector:
             place.tick_params(axis="both", which="major", labelsize=10)
             place.tick_params(axis="both", which="minor", labelsize=8)
 
-        place.imshow(self.kernel_show, cmap=cm.jet, norm=LogNorm())
+        place.imshow(self.kernel_show, cmap='jet', norm=LogNorm())
         # place.colorbar()
         place.set_title("Optical Spread Function")
         place.set_xlabel("X [pix]")
@@ -193,7 +192,7 @@ class Detector:
     #         place.colorbar()
 
     def get_plot_mtf_real(
-        self, place, show_mesh=True, prepare_format=True, label=""
+        self, place, label=""
     ):
 
         """
@@ -204,10 +203,6 @@ class Detector:
             place:
             The class whose method plot is called to
             produce the plot (e.g., matplotlib.pyplot).
-            show_mesh (bool):
-            Whether to plot the points over the continuous line as circles.
-            prepare_format (bool): Whether to include ticks
-            and labels in the plot.
             peak_shape: The window function used to plot the peaks.
             See :obj:`triangle` for an example.
 
@@ -319,8 +314,8 @@ class Detector:
         The most basic focal spot one can think of.
         Do better, do better, got it.
 
-        Input
-        -----
+        Parameters
+        ----------
         fs_size_in_pix: float
             The number of pixels the focal spot size is
 
