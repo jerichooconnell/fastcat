@@ -15,7 +15,13 @@ from glob import glob
 
 import numpy as np
 from numpy import cos
-from matplotlib.colors import LogNorm
+
+try:
+    from matplotlib.colors import LogNorm
+    PLOT_AVAILABLE = True
+except ImportError:
+    PLOT_AVAILABLE = False
+
 from scipy.signal import fftconvolve
 from scipy.ndimage import gaussian_filter
 

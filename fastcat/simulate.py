@@ -20,7 +20,13 @@ from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit
 from scipy.signal import fftconvolve
 from scipy.interpolate import interp1d
-from matplotlib import pyplot as plt
+
+
+try:
+    import matplotlib.pyplot as plt
+    PLOT_AVAILABLE = True
+except ImportError:
+    PLOT_AVAILABLE = False
 
 from fastcat import spectrum
 
