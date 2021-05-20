@@ -1,0 +1,15 @@
+name: test_build
+on: [push]
+jobs:
+  run:
+    runs-on: [self-hosted,cml,gpu]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+
+      - name: Run tests
+        run: |
+          pytest
