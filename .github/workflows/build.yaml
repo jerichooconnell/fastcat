@@ -1,4 +1,4 @@
-name: test_build
+name: test_build_local_runner
 on: [push]
 jobs:
   run:
