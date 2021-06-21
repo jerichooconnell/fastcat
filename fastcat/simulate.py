@@ -320,39 +320,46 @@ class Phantom:
         fluence_small /= np.sum(fluence_small)
         weights_xray_small /= np.sum(weights_xray_small)
         weights_energies /= np.sum(weights_energies)
+        
+        if hasattr(self, 'PCD'):
+            if self.PCD == True:
+                weights_energies /= original_energies_keV
 
         fluence_norm = spectra.y / np.sum(spectra.y)
 
         # ----------------------------------------------
         # -------- Scatter Correction ------------------
         # ----------------------------------------------
-
-        if bowtie_on and kwargs["filter"][:3] == "bow":
-            mc_scatter = np.load(
-                os.path.join(data_path, "scatter", "scatter_bowtie.npy")
-            )
-            dist = np.linspace(
-                -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
-            )
-            logging.info("   Scatter is filtered by bowtie")
+        if hasattr(self, 'scatter'):
+            mc_scatter = np.load(os.path.join(data_path,"scatter",self.scatter))
+            dist = self.scatter_coords
         else:
-            scatter = np.load(
-                os.path.join(data_path, "scatter", "scatter_updated.npy")
-            )
-            dist = np.linspace(
-                -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
-            )
-
-            def func(x, a, b):
-                return (-((152 / (np.sqrt(x ** 2 + 152 ** 2))) ** a)) * b
-
-            mc_scatter = np.zeros(scatter.shape)
-
-            for jj in range(mc_scatter.shape[1]):
-                popt, popc = curve_fit(
-                    func, dist, scatter[:, jj], [10, scatter[256, jj]]
+            if bowtie_on and kwargs["filter"][:3] == "bow":
+                mc_scatter = np.load(
+                    os.path.join(data_path, "scatter", "scatter_bowtie.npy")
                 )
-                mc_scatter[:, jj] = func(dist, *popt)
+                dist = np.linspace(
+                    -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
+                )
+                logging.info("   Scatter is filtered by bowtie")
+            else:
+                scatter = np.load(
+                    os.path.join(data_path, "scatter", "scatter_updated.npy")
+                )
+                dist = np.linspace(
+                    -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
+                )
+
+                def func(x, a, b):
+                    return (-((152 / (np.sqrt(x ** 2 + 152 ** 2))) ** a)) * b
+
+                mc_scatter = np.zeros(scatter.shape)
+
+                for jj in range(mc_scatter.shape[1]):
+                    popt, popc = curve_fit(
+                        func, dist, scatter[:, jj], [10, scatter[256, jj]]
+                    )
+                    mc_scatter[:, jj] = func(dist, *popt)
 
         factor = (152 / (np.sqrt(dist ** 2 + 152 ** 2))) ** 3
 
@@ -409,7 +416,7 @@ class Phantom:
         if (
             self.geomet.dDetector[0] != 0.784
             or self.geomet.dDetector[1] != 512
-        ):
+        ) and not hasattr(self, 'scatter'):
             flood_summed = interpolate_pixel(flood_summed)
             mc_scatter = interpolate_pixel(mc_scatter.T).T
 
@@ -456,7 +463,15 @@ class Phantom:
             )
 
         logging.info("Running Simulations")
+        
+        if hasattr(kernel, 'fs_size'):
+            logging.info(
+                f"    {kernel.fs_size*kernel.pitch}"\
+                " mm focal spot added"
+            )
+
         for jj, energy in enumerate(original_energies_keV):
+            
             # Change the phantom values
             if weights_xray_small[jj] == 0:
                 doses.append(0)
@@ -565,10 +580,7 @@ class Phantom:
                         fs_real = (
                             kernel.fs_size * self.geomet.DSO / self.geomet.DSD
                         )
-                        if ii == 10:
-                            logging.info(
-                                f"   {kernel.fs_size} focal spot added"
-                            )
+
                         mod_filter = gaussian_filter(
                             np.pad(
                                 kernel.kernels[jj + 1], ((10, 10), (10, 10))

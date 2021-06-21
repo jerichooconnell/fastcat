@@ -859,7 +859,66 @@ class Catphan_404(Phantom):
                 * (np.array(ci_v)[inds_i_want] / contrasts_i_want),
             )
 
+class Catphan_404_Devon(Phantom):
+    def __init__(self, pitch=0.33, hi_res=True):
+        if hi_res:
+            self.phantom = np.load(
+                os.path.join(
+                    data_path,
+                    "phantoms",
+                    "catphan_sensiometry_512_10cm_mod.npy",
+                )
+            )  # 10cm.npy'))
+        else:
+            self.phantom = np.load(
+                os.path.join(
+                    data_path, "phantoms", "catphan_sensiometry_512_8cm.npy"
+                )
+            )
+            logging.info("Phantom is low resolution")
+        
+        self.scatter = 'devon_total.npy'
+        self.scatter_coords = np.linspace(-288* 0.033 - 0.0165, 288 * 0.033 -0.165, 576)
+        # The 10cm is really the 8cm equivalent
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
+        self.geomet.DSO = 322
+        self.geomet.DSD = 322 + 266  # 1520 JO dec 2020 1500 + 20 for det casing
+        self.geomet.nDetector = np.array([64, 576])
+        self.geomet.dDetector = np.array(
+            [pitch, pitch]
+        )
+        # I think I can get away with this
+        self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector
+        self.geomet.sVoxel = np.array((50, 100, 100))
+        self.geomet.dVoxel = self.geomet.sVoxel / self.geomet.nVoxel
 
+        self.phan_map = [
+            "air",
+            "G4_POLYSTYRENE",
+            "G4_POLYVINYL_BUTYRAL",
+            "G4_POLYVINYL_BUTYRAL",
+            "CATPHAN_Delrin",
+            "G4_POLYVINYL_BUTYRAL",
+            "CATPHAN_Teflon_revised",
+            "air",
+            "CATPHAN_PMP",
+            "G4_POLYVINYL_BUTYRAL",
+            "CATPHAN_LDPE",
+            "G4_POLYVINYL_BUTYRAL",
+            "CATPHAN_Polystyrene",
+            "air",
+            "CATPHAN_Acrylic",
+            "air",
+            "CATPHAN_Teflon",
+            "air",
+            "air",
+            "air",
+            "air",
+        ]
+
+    def analyse_515(self, recon_slice, place=None, run_name=""):
+        pass
+    
 class Catphan_MTF(Phantom):
     def __init__(self):
         self.phantom = np.load(

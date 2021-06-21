@@ -68,7 +68,7 @@ class Detector:
             if ii == 0:
 
                 # Make the first entry zeros
-                first_kernel = np.load(file)
+                first_kernel = np.load(file).squeeze()
                 kernels = np.zeros(
                     [
                         len(files) + 1,
@@ -77,7 +77,7 @@ class Detector:
                     ]
                 )
 
-            kernels[ii + 1] = np.load(file)
+            kernels[ii + 1] = np.load(file).squeeze()
 
         fluence = spectrum.y / np.sum(spectrum.y)
 
@@ -86,9 +86,9 @@ class Detector:
         )
         deposition_summed = np.insert(deposition_summed[0], 0, 0)
 
-        if len(deposition_summed) == 16:
-            deposition_summed = np.insert(deposition_summed, 0, 0)
-
+#         if len(deposition_summed) == 16:
+#             deposition_summed = np.insert(deposition_summed, 0, 0)
+        
         if len(deposition_summed) == 19:
             original_energies_keV = np.array(
                 [
@@ -135,7 +135,8 @@ class Detector:
                     6000,
                 ]
             )
-
+        
+#         print(len(deposition_summed),len(original_energies_keV),kernels.shape)
         # Divide by the energy to get the photon count
         # plus a factor 355000 for the original number of photons
         deposition_summed[1:] /= (
@@ -322,13 +323,14 @@ class Detector:
 
         Parameters
         ----------
-        fs_size_in_pix: float
-            The number of pixels the focal spot size is
+        fs_size_in_mm: float
+            The focal spot size
 
         """
         self.fs_size = fs_size_in_mm / self.pitch
 
         if self.kernel.shape[0] < 30:
+            print(self.kernel.shape[0])
             self.kernel_show = gaussian_filter(
                 np.pad(self.kernel, ((15, 15), (15, 15))), sigma=self.fs_size
             )
