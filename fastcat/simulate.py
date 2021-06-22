@@ -707,7 +707,7 @@ class Phantom:
 
         if algo == "FDK":
             try:
-                self.img = tigre.algorithms.FDK(
+                self.img = tigre.algorithms.fdk(
                     self.proj, self.geomet, self.angles, filter=filt
                 )
             except Exception:
