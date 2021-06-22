@@ -316,14 +316,14 @@ class Phantom:
             weights_xray_small[index] += weights_xray[ii]
             weights_energies[index] += weights_e_long[ii]
             fluence_small[index] += fluence_large[ii]
-
-        fluence_small /= np.sum(fluence_small)
-        weights_xray_small /= np.sum(weights_xray_small)
-        weights_energies /= np.sum(weights_energies)
         
         if hasattr(self, 'PCD'):
             if self.PCD == True:
                 weights_energies /= original_energies_keV
+                
+        fluence_small /= np.sum(fluence_small)
+        weights_xray_small /= np.sum(weights_xray_small)
+        weights_energies /= np.sum(weights_energies)
 
         fluence_norm = spectra.y / np.sum(spectra.y)
 
