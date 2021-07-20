@@ -78,7 +78,9 @@ class FastcatTest(unittest.TestCase):
             else:
                 s.load(spectrum)
 
-            kernel = fc.Detector(s, "CuGOS-784-micrometer")
+            kernel = fc.Detector(s, "CWO-784-micrometer")
+            # No noise special call of this function to return profile and not
+            # The projection which would be log(I/I_0)
             counts = np.mean(
                 phantom.return_projs(kernel, s, angles, det_on=False, mgy=0.0)[
                     0

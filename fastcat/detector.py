@@ -312,7 +312,6 @@ class Detector:
             place.legend()
             place.grid(True)
 
-        print("I got here")
         self.mtf = mtf_final[mm + 1 :] / mtf_final[mm + 1]
         self.freq = xf / 10
 

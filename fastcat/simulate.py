@@ -274,15 +274,18 @@ class Phantom:
         # Set the last value to zero so that
         # the linear interpolation doesn't mess up
         spectra.y[-1] = 0
-
+        
         # Loading the file from the monte carlo
         # This is a scaling factor that I found
         # to work to convert energy deposition to photon probability eta
         deposition_summed = (
             deposition[0] / (original_energies_keV / 1000) / 1000000
         )
-
+        
         # Binning to get the fluence per energy
+        # Done on two keV intervals so that the rounding is even
+        # between 10 keV bins 2 4 go down 6 8 go up. With 1 keV
+        # it would lead to rounding errors
         large_energies = np.linspace(0, 6000, 3001)
         f_flu = interp1d(
             np.insert(spectra.x, (0, -1), (0, 6000)),
@@ -324,7 +327,8 @@ class Phantom:
         fluence_small /= np.sum(fluence_small)
         weights_xray_small /= np.sum(weights_xray_small)
         weights_energies /= np.sum(weights_energies)
-
+        
+#         import ipdb; ipdb.set_trace()
         fluence_norm = spectra.y / np.sum(spectra.y)
 
         # ----------------------------------------------
@@ -360,7 +364,8 @@ class Phantom:
                         func, dist, scatter[:, jj], [10, scatter[256, jj]]
                     )
                     mc_scatter[:, jj] = func(dist, *popt)
-
+        
+        
         factor = (152 / (np.sqrt(dist ** 2 + 152 ** 2))) ** 3
 
         if ASG:
@@ -371,7 +376,7 @@ class Phantom:
             )  # This is the 0.85 efficiency for the ASG
 
             lead = spectrum.get_mu(82)
-            for jj in range(mc_scatter.shape[1]):
+            for jj in range(-len(original_energies_keV),0):
                 # quarter will be let through well 0.75
                 # will be filtered should be 39 microns
                 # but made it bigger for the angle
@@ -385,8 +390,10 @@ class Phantom:
 
             bowtie_coef = np.load(
                 os.path.join(data_path, "filters", kwargs["filter"] + ".npy")
-            )  # **1.1#**(2)*3
-            flood_summed = (bowtie_coef.T) * flood_summed.squeeze()
+            ) 
+            flood_summed = ((bowtie_coef.T) * flood_summed.squeeze())[-len(original_energies_keV):]
+            
+        self.intensities = []
 
         self.flood_summed = flood_summed
 
@@ -404,7 +411,6 @@ class Phantom:
             pts2 = np.linspace(0, np2 * no2, np2) - np2 / 2 * no2
             pts = np.linspace(0, npt * no, npt) - npt / 2 * no
 
-            #             import ipdb;ipdb.set_trace()
             if len(series.shape) > 1:
                 for ii in range(series.shape[0]):
                     series[ii] = np.interp(pts2, pts, series[ii])
@@ -490,7 +496,6 @@ class Phantom:
                 projection = self.ray_trace(phantom2, tile)
 
             kernel.kernels[jj + 1] /= np.sum(kernel.kernels[jj + 1])
-
             if bowtie_on:
                 # Calculate a dose contribution by
                 # dividing by 10 since tigre has projections
@@ -539,10 +544,6 @@ class Phantom:
                         jj
                     ]  # 0.97 JO
             else:
-                #                 int_temp =
-                #  ((np.exp(-0.97*np.array(projection)/10)*(flood_summed)))
-                # *weights_xray_small[jj]
-                # # !!This took out the scatter for test
                 if scat_on:
                     int_temp = (
                         (
@@ -602,14 +603,21 @@ class Phantom:
             intensity += (
                 int_temp * weights_energies[jj] / weights_xray_small[jj]
             )
+#             edep = 
             noise += noise_temp * weights_energies[jj] / weights_xray_small[jj]
+            
+            # I want the edep in MeV
+            self.intensities.append(int_temp * weights_energies[jj] / weights_xray_small[jj])
 
         self.weights_small = weights_energies
-        self.weights_small2 = weights_xray_small
-        self.weights_small3 = weights_energies[jj] / weights_xray_small[jj]
+        self.weights_small2 = (weights_energies/ weights_xray_small)/np.nansum(weights_energies / weights_xray_small)
+        self.weights_small3 = weights_xray_small
         self.mc_scatter = mc_scatter
+        self.dep = deposition[0]
 
         logging.info("Weighting simulations")
+        
+        # This shouldn't work as the profiles should be weighted by the detector response already?
         if not det_on:
             return intensity
 
@@ -653,10 +661,13 @@ class Phantom:
             deposition[0] / (original_energies_keV / 1000) / 1000000,
         )
         nphotons_at_energy = fluence_norm * deposition_long
+#         nphotons_at_energy = fluence_summed * deposition_summed 
 
-        self.nphotons_at = deposition_long
         nphotons_av = np.sum(nphotons_at_energy)
-
+        self.nphoton_av = nphotons_av
+        self.nphotons_at = np.array(doses)@fluence_small
+        self.ratio = ratio
+        
         if return_dose:
             pp = np.array([0.87810143, 0.01136471])
             return (
@@ -667,13 +678,13 @@ class Phantom:
             )
 
         # ----------------------------------------------
-        # ----------- Add Noise ------------------------ # Delete? -Emily
+        # ----------- Add Noise ------------------------
         # ----------------------------------------------
 
         if ratio is not None:
 
             adjusted_ratio = ratio * nphotons_av
-            logging.info(f"    Added noise {adjusted_ratio} times ref")
+            logging.info(f"    Added noise {adjusted_ratio} times reference")
             # This is a moderately iffy approximation,
             # but probably not too bad except in the
             # large and small limit cases
@@ -681,18 +692,19 @@ class Phantom:
                 intensity * adjusted_ratio
                 + noise * (adjusted_ratio ** (1 / 2))
             ) / adjusted_ratio
-            # Why did I do this again? 2021
         else:
             logging.info("    No noise was added")
 
         if return_intensity:
             return intensity
-
+        
         if bowtie_on:
             flood_summed = (weights_energies) @ flood_summed
 
         self.proj = -10 * np.log(intensity / (flood_summed))
-
+        
+        self.proj[~np.isfinite(self.proj)] = 1000
+        
     def ray_trace(self, phantom2, tile):
 
         if self.tigre_works:  # resort to astra if tigre doesn't work

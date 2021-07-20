@@ -23,7 +23,7 @@ from matplotlib.backends.backend_tkagg import (
 )
 from matplotlib.figure import Figure
 
-import fastcat.fastcat as fc
+import fastcat as fc
 
 __author__ = "Dih5"
 

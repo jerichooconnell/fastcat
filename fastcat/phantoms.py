@@ -623,6 +623,7 @@ class Catphan_515(Phantom):
 
 class Catphan_404(Phantom):
     def __init__(self, pitch=0.784, hi_res=True):  # ,det):
+        # Two options for phantoms here
         if hi_res:
             self.phantom = np.load(
                 os.path.join(
@@ -631,17 +632,27 @@ class Catphan_404(Phantom):
                     "catphan_sensiometry_512_10cm_mod.npy",
                 )
             )  # 10cm.npy'))
+            self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
+            self.geomet.sVoxel = np.array((160, 200, 200)) #160 ????
+#             self.scatter = 'scatter_updated.npy'
+            self.geomet.DSD = 1500  # 1520 JO dec 2020 1500 + 20 for det casing
         else:
             self.phantom = np.load(
                 os.path.join(
                     data_path, "phantoms", "catphan_sensiometry_512_8cm.npy"
                 )
             )  # 10cm.npy'))
+            self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
+            self.geomet.sVoxel = np.array((160, 200, 200)) #160 ????
+            self.scatter = 'scatter_updated.npy'
+            self.geomet.DSD = 1520  # 1520 JO dec 2020 1500 + 20 for det casing
             logging.info("Phantom is low resolution")
+            
+        self.scatter_coords = np.linspace(
+            -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
+        )
         # The 10cm is really the 8cm equivalent
-        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.DSO = 1000
-        self.geomet.DSD = 1500  # 1520 JO dec 2020 1500 + 20 for det casing
         self.geomet.nDetector = np.array([64, 512])
         self.geomet.dDetector = np.array(
             [pitch, pitch]
@@ -649,7 +660,6 @@ class Catphan_404(Phantom):
 
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector
-        self.geomet.sVoxel = np.array((160, 200, 200))
         self.geomet.dVoxel = self.geomet.sVoxel / self.geomet.nVoxel
 
         self.phan_map = [
