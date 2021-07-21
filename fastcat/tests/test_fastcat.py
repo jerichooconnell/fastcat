@@ -82,7 +82,7 @@ class FastcatTest(unittest.TestCase):
             # No noise special call of this function to return profile and not
             # The projection which would be log(I/I_0)
             counts = np.mean(
-                phantom.return_projs(kernel, s, angles, det_on=False, mgy=0.0)[
+                phantom.return_projs(kernel, s, angles, return_intensity=True, mgy=0.0)[
                     0
                 ],
                 0,
@@ -164,7 +164,8 @@ class FastcatTest(unittest.TestCase):
         profile from Varian Truebeam within
         0.1, this is some error from geometrical distortion in the exp image
         """
-        s = fc.calculate_spectrum(100, 14, 5, 200, monitor=None)
+        s = fc.calculate_spectrum(100, 14, 5, 100, monitor=None)
+        s.attenuate
         MV_detectors = ["CsI-784-micrometer"]
         angles = np.linspace(np.pi / 2, np.pi * 2, 2)
         phantom = fc.Catphan_404()
