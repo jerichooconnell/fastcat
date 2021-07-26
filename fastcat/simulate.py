@@ -20,7 +20,7 @@ from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit
 from scipy.signal import fftconvolve
 from scipy.interpolate import interp1d
-
+from scipy.stats import poisson
 
 try:
     import matplotlib.pyplot as plt
@@ -310,23 +310,6 @@ class Phantom:
             np.insert(spectra.x, (0, -1), (0, 6000)),
             np.insert(spectra.y, (0, -1), (0, spectra.y[-1])),
         )
-        f_p_photon_detected_times_energy = interp1d(
-            np.insert(MC_energies_keV, 0, 0),
-            np.insert(p_photon_detected_times_energy, 0, 0),
-        )
-        f_energy = interp1d(
-            np.insert(MC_energies_keV, 0, 0),
-            np.insert((deposition[0]), 0, 0),
-        )
-
-        if not return_intensity:
-            fluence_times_p_detected_times_energy_long = f_fluence(long_energies_keV) * f_p_photon_detected_times_energy(long_energies_keV)# * f_energy(long_energies_keV)
-            fluence_times_energy_long = f_fluence(long_energies_keV) * f_energy(long_energies_keV)
-        else:
-            # If we return_intensity we only care about the counts reaching the detector
-            # and not the probability of detection or the energy imparted through detection
-            fluence_times_p_detected_times_energy_long = f_fluence(long_energies_keV)
-            fluence_times_energy_long = f_fluence(long_energies_keV)
     
         fluence_long = f_fluence(long_energies_keV)
 
@@ -335,16 +318,24 @@ class Phantom:
 
         # These are the weights as they will be normalized
         # compared to the 
-        w_fluence_times_p_detected_energy = np.zeros(len(MC_energies_keV))
-        w_fluence_times_energy = np.zeros(len(MC_energies_keV))
         w_fluence = np.zeros(len(MC_energies_keV))
         
         for ii, val in enumerate(long_energies_keV):
             index = np.argmin(np.abs(MC_energies_keV - val))
-            w_fluence_times_p_detected_energy[index] += fluence_times_p_detected_times_energy_long[ii]
-            w_fluence_times_energy[index]     += fluence_times_energy_long[ii]
-            w_fluence[index]                  += fluence_long[ii]
+            w_fluence[index] += fluence_long[ii]
         
+        # Fluence is normalized, it only weights the composition of 
+        # a reference beam that has about 660 photons per pixels
+        # using this reference we can know the noise and dose
+        w_fluence /= np.sum(w_fluence)
+        
+        if not return_intensity:
+            w_fluence_times_p_detected_energy = w_fluence*deposition[0]
+        else:
+            # If we return_intensity we only care about the counts reaching the detector
+            # and not the probability of detection or the energy imparted through detection
+            w_fluence_times_p_detected_energy = w_fluence
+
         # -----------------------------------------
         # -------------- PCD Detector -------------
         # -----------------------------------------
@@ -352,14 +343,14 @@ class Phantom:
         # the weighting is divided by the energy
         
         if hasattr(self, 'PCD'):
-            if self.PCD == True:
-                w_fluence_times_energy /= MC_energies_keV
+            if self.PCD:
+                w_fluence_times_p_detected_energy /= MC_energies_keV
+
         
         # Normalize all the weights
-        w_fluence /= np.sum(w_fluence)
-        w_fluence_times_p_detected_energy /= np.sum(w_fluence_times_p_detected_energy)
-        w_fluence_times_energy /= np.sum(w_fluence_times_energy)
-
+        weight_scale = np.sum(w_fluence_times_p_detected_energy)
+        w_fluence_times_p_detected_energy /= weight_scale
+        self.weight_scale = weight_scale
         # ----------------------------------------------
         # -------- Scatter Correction ------------------
         # ----------------------------------------------
@@ -444,8 +435,7 @@ class Phantom:
                 os.path.join(data_path, "filters", kwargs["filter"] + ".npy")
             ) 
             flood_field_profile = ((bowtie_coef.T) * flood_field_profile.squeeze())[-len(MC_energies_keV):]
-            
-#         self.intensities = []
+            self.bowtie_coef = bowtie_coef 
         self.flood_field_profile = flood_field_profile
         
         # --------------------------------------------
@@ -502,7 +492,7 @@ class Phantom:
                 self.phantom.shape[0],
                 self.phantom.shape[1],
                 self.phantom.shape[2],
-            ]
+            ], dtype=np.bool
         )
         energy2mu_functions = []
         doses = []
@@ -548,7 +538,7 @@ class Phantom:
             
             # We don't simulate energies that have no
             # fluence so this ignores these energies
-            if w_fluence_times_p_detected_energy[jj] == 0:
+            if w_fluence[jj] == 0:
                 doses.append(0)
                 continue
 
@@ -557,7 +547,7 @@ class Phantom:
             # Update the phantom attenuation values based
             # on the energy.
             for ii in range(0, len(self.phan_map) - 1):
-                phantom2[masks[ii].astype(bool)] = energy2mu_functions[ii](
+                phantom2[masks[ii]] = energy2mu_functions[ii](
                     energy
                 )
             
@@ -568,15 +558,14 @@ class Phantom:
             # but changing the spectrum and the detector
             if load_proj:
                 attenuation = np.load(
-                    os.path.join(user_data_path, "raw_proj", kwargs['proj_file']+'_'+energy+'.npy')
+                    os.path.join(user_data_path, "raw_proj", kwargs['proj_file']+'_'+f'{energy}'+'.npy')
                 )
             else:
                 attenuation = self.ray_trace(phantom2, tile)
                 
             if save_proj:
                 np.save(
-                    os.path.join(user_data_path, "raw_proj", kwargs['proj_file']+'_'+energy+'.npy',attenuation)
-                )
+                    os.path.join(user_data_path, "raw_proj", kwargs['proj_file']+'_'+f'{energy}'+'.npy'),attenuation)
 
             kernel.kernels[jj + 1] /= np.sum(kernel.kernels[jj + 1])
             
@@ -588,7 +577,7 @@ class Phantom:
             # the mass energy absorbtion coefficient for the energy
             # We then use an empirical relation to the MC dose to get a
             # dose estimate. It is a bit confusing and is in the fastcat paper
-            
+             
             if bowtie_on:
                 # Calculate a dose contribution by
                 # dividing by 10 since tigre has attenuations
@@ -597,9 +586,9 @@ class Phantom:
                 doses.append(
                     np.mean(
                         (energy)
-                        * (
+                        * bowtie_coef[:, jj]
+                        * (1 
                             -np.exp(-(attenuation * 0.997) / 10)
-                            + bowtie_coef[:, jj]
                         )
                         * mu_en_water2[jj]
                         / mu_water2[jj]
@@ -630,7 +619,7 @@ class Phantom:
                 if scat_on:
                     int_temp = (
                         (
-                            np.exp(-0.97 * np.array(attenuation) / 10)
+                            np.exp(-0.97 * attenuation / 10)
                             * (flood_field_profile[jj])
                         )
                         + mc_scatter[:, jj]
@@ -640,7 +629,7 @@ class Phantom:
                 else:
                     int_temp = (
                         (
-                            np.exp(-0.97 * np.array(attenuation) / 10)
+                            np.exp(-0.97 * attenuation / 10)
                             * (flood_field_profile[jj])
                         )
                     ) * w_fluence_times_p_detected_energy[
@@ -650,7 +639,7 @@ class Phantom:
                 if scat_on:
                     int_temp = (
                         (
-                            np.exp(-0.97 * np.array(attenuation) / 10)
+                            np.exp(-0.97 * attenuation / 10)
                             * (flood_field_profile)
                         )
                         + mc_scatter[:, jj]
@@ -660,7 +649,7 @@ class Phantom:
                 else:
                     int_temp = (
                         (
-                            np.exp(-0.97 * np.array(attenuation) / 10)
+                            np.exp(-0.97 * attenuation / 10)
                             * (flood_field_profile)
                         )
                     ) * w_fluence_times_p_detected_energy[
@@ -678,10 +667,18 @@ class Phantom:
             # To avoid this we make a reference noise that weights the
             # noise according to energy and fluence and scale it later.
             
-            noise_temp = np.random.poisson(np.abs(int_temp)) - int_temp
+            # Generate random numbers along axial slice and then choose from
+            # a sample of 200 rather than generating a million poisson 
+            # variables, may not want to do this in some cases.
+            fast_noise = True
+            if fast_noise:
+                noise_first = np.random.poisson(np.abs(np.mean(np.mean(int_temp[:,:,:],0),0)),[400,int_temp.shape[2]])
+                noise_temp = noise_first[np.random.choice(noise_first.shape[0],
+                             int_temp.shape[:2])] - int_temp
+            else:
+                noise_temp = poisson.rvs(np.abs(int_temp)) - int_temp
 
             (bx, by) = self.geomet.nDetector
-
             bx //= 1  # 16 # These are the boundaries for the convolution
             by //= 1  # 16 # This avoids some artifacts that creep in from
             # bounday effects
@@ -720,21 +717,14 @@ class Phantom:
             # I'm not sure why I do this but usually these changes came
             # from fitting analytical results.
             
-            if return_intensity:
-                intensity += (
-                    int_temp * w_fluence_times_energy[jj] / w_fluence_times_p_detected_energy[jj]
-                )
-                noise += noise_temp * w_fluence_times_energy[jj] / w_fluence_times_p_detected_energy[jj]
-            else:
-                intensity += int_temp #* energy/np.sum(MC_energies_keV)
-                noise += noise_temp #* energy/np.sum(MC_energies_keV)
+            intensity += int_temp #* energy/np.sum(MC_energies_keV)
+            noise += noise_temp #* energy/np.sum(MC_energies_keV)
             
             # I want the edep in MeV
 #             self.intensities.append(int_temp * w_fluence_times_energy[jj] / w_fluence_times_p_detected_energy[jj])
 
-        self.weights_small = w_fluence_times_energy
-        self.weights_small2 = (w_fluence_times_energy/ w_fluence_times_p_detected_energy)/np.nansum(w_fluence_times_energy / w_fluence_times_p_detected_energy)
         self.weights_small3 = w_fluence_times_p_detected_energy
+        self.weights_small2 = w_fluence
         self.mc_scatter = mc_scatter
         self.dep = deposition[0]
 
@@ -768,7 +758,8 @@ class Phantom:
             return ((np.array(doses) / 1000) @ (w_fluence)) * pp[0] + pp[1]
 
         ratio = None
-
+        
+        self.doses = doses
         # Dose in micro grays
         if mgy != 0.0:
             ratio = get_dose_mgy(mgy, np.array(doses), w_fluence)
@@ -807,18 +798,28 @@ class Phantom:
         # ----------------------------------------------
 
         if ratio is not None:
-
+            
+            # The noise scales in quadrature while the intensity
+            # scales linearly to give the right noise level
+            
+            # The real noise level is the ratio of the calculated dose
+            # to the reference dose data from MC times nphotons_av which
+            # is a factor accounting for the detector efficiency.
             adjusted_ratio = ratio * nphotons_av
             logging.info(f"    Added noise {adjusted_ratio} times reference")
             intensity = (
                 intensity * adjusted_ratio
-                + noise * (adjusted_ratio ** (1 / 2))
+                + noise * (adjusted_ratio) ** (1 / 2)
             ) / adjusted_ratio
         else:
             logging.info("    No noise was added")
+
+        self.noise = noise
         
         if bowtie_on:
-            flood_field_profile = (w_fluence_times_energy) @ flood_field_profile
+            # w_fluence_times_energy = w_fluence*MC_energies_keV
+            # w_fluence_times_energy /= np.sum(w_fluence_times_energy)
+            flood_field_profile = w_fluence_times_p_detected_energy @ flood_field_profile
 
         self.proj = -10 * np.log(intensity / (flood_field_profile))
         

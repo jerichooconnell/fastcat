@@ -165,7 +165,7 @@ class FastcatTest(unittest.TestCase):
         0.1, this is some error from geometrical distortion in the exp image
         """
         s = fc.calculate_spectrum(100, 14, 5, 100, monitor=None)
-        s.attenuate
+        s.attenuate(0.3,fc.get_mu(z=13))
         MV_detectors = ["CsI-784-micrometer"]
         angles = np.linspace(np.pi / 2, np.pi * 2, 2)
         phantom = fc.Catphan_404()
