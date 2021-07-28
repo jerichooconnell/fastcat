@@ -19,7 +19,7 @@
 
 ## Installation
 
-Dear intrepid hypothetical user, Fastcat requires a few dependencies to run. Most importantly you need a cuda capable GPU.
+Fastcat requires a few dependencies to run. Most importantly you need a cuda capable GPU.
 
 ### Dependencies
 
