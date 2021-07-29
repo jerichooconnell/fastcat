@@ -643,7 +643,8 @@ class Catphan_404(Phantom):
                 )
             )  # 10cm.npy'))
             self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
-            self.geomet.sVoxel = np.array((160, 200, 200)) #160 ????
+            self.geomet.sVoxel = np.array((160, 160, 160)) #160 ????
+            self.geomet.dVoxel = self.geomet.sVoxel/self.geomet.nVoxel
             self.scatter = 'scatter_updated.npy'
             self.geomet.DSD = 1520  # 1520 JO dec 2020 1500 + 20 for det casing
             logging.info("Phantom is low resolution")
