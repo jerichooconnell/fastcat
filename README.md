@@ -19,7 +19,26 @@
 
 ## Installation
 
-This package is not currently released. A release will be made after supporting papers are published.
+Fastcat requires a few dependencies to run. Most importantly you need a cuda capable GPU.
+
+### Dependencies
+
+* CUDA
+* TIGRE
+* Scientific python installation (anaconda ect.)
+
+Fastcat requires TIGRE which can be installed using directions here:
+
+https://github.com/CERN/TIGRE/blob/master/Frontispiece/python_installation.md
+
+After installing TIGRE I recommend cloning the repository and installing it in developer mode so that you can access the files
+
+`git clone https://github.com/jerichooconnell/fastcat`
+
+`cd fastcat && python setup.py develop`
+
+Fastcat is a work in progress and there are quite a few bugs to work out. So feel free to file issues and I'll take a look.
+
 
 <!-- Badges -->
 
