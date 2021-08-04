@@ -549,6 +549,11 @@ class Phantom:
         # TIGRE gives the attenuation along a ray from
         # source to detector.
         
+        fast_noise = False #False #True
+
+        if fast_noise:
+            logging.info('    Fast Noise algo! Beware of innacurate results') 
+                
         for jj, energy in enumerate(MC_energies_keV):
             
             # We don't simulate energies that have no
@@ -685,11 +690,9 @@ class Phantom:
             # Generate random numbers along axial slice and then choose from
             # a sample of 200 rather than generating a million poisson 
             # variables, may not want to do this in some cases.
-            fast_noise = True #False #True
+#             fast_noise = True #False #True
             
             if fast_noise:
-                if jj == 0:
-                    logging.info('    Fast Noise algo! Beware of innacurate results')
                 noise_first = np.random.poisson(np.abs(np.mean(np.mean(int_temp[:,:,:],0),0)),[400,int_temp.shape[2]])
                 noise_temp = noise_first[np.random.choice(noise_first.shape[0],
                              int_temp.shape[:2])] - int_temp

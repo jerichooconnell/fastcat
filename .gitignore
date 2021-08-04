@@ -1,5 +1,6 @@
 # Large files for now
 ct_*.npy
+papers/*
 tests/*.npy
 *.mp4
 fastcat/user_data

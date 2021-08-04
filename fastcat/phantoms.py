@@ -1283,3 +1283,115 @@ class XCAT2(Phantom):
             except Exception:
                 logging.info("WARNING: Tigre failed during recon using Astra")
                 self.img = self.astra_recon(self.proj.transpose([1, 0, 2]))
+                
+class XCAT_mandible(Phantom):
+    def __init__(self):
+
+        head = True
+        if head:
+            self.phantom = np.load(
+                os.path.join(data_path, "phantoms", "ct_scan_head_mandible.npy")
+            )
+        else:
+            self.phantom = np.load(
+                os.path.join(data_path, "phantoms", "ct_scan_smaller.npy")
+            )
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
+        self.geomet.nDetector = np.array([124, 512])
+        self.geomet.dDetector = np.array([0.784, 0.784])
+
+        if head:
+            self.phan_map = [
+                "air",
+                "G4_LUNG_LD_ICRP",
+                "G4_ADIPOSE_TISSUE_ICRP2",
+                "water",
+                "RED_MARROW_ICRP",
+                "G4_BRAIN_ICRP",
+                "G4_MUSCLE_SKELETAL_ICRP",
+                "THYROID_ICRP",
+                "blood",
+                "G4_EYE_LENS_ICRP",
+                "CARTILAGE_ICRP",
+                "C4_Vertebra_ICRP",
+                "SKULL_ICRP",
+                'air',
+                '47'
+            ]
+        else:
+            self.phan_map = [
+                "air",
+                "air",
+                "G4_LUNG_LD_ICRP",
+                "G4_ADIPOSE_TISSUE_ICRP2",
+                "water",
+                "RED_MARROW_ICRP",
+                "INTESTINE_ICRP",
+                "PANCREAS_ICRP",
+                "G4_MUSCLE_SKELETAL_ICRP",
+                "KIDNEY_ICRP",
+                "HEART_ICRP",
+                "THYROID_ICRP",
+                "LIVER_ICRP",
+                "blood",
+                "SPLEEN_ICRP",
+                "CARTILAGE_ICRP",
+                "C4_Vertebra_ICRP",
+                "SKULL_ICRP",
+                "RIB_BONE_ICRP",
+            ]
+
+        self.geomet.DSD = 1500
+        # I think I can get away with this
+        self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector
+
+        if head:
+            self.geomet.sVoxel = np.array(
+                (
+                    self.phantom.shape[0] * 3.125,
+                    self.phantom.shape[1] / 2,
+                    self.phantom.shape[2] / 2,
+                )
+            )
+        else:
+            self.geomet.sVoxel = np.array(
+                (
+                    self.phantom.shape[0] * 3.125,
+                    self.phantom.shape[1],
+                    self.phantom.shape[2],
+                )
+            )
+        self.geomet.dVoxel = self.geomet.sVoxel / self.geomet.nVoxel
+
+    def analyse_515(self, slc, place, fmt="-"):
+
+        pass
+
+    def reconstruct(self, algo, filt="hamming"):
+        '''
+        algo, FDK, CGLS ect.
+
+        filt is one of 'hamming','ram_lak','cosine'
+
+        '''
+
+        if algo == "FDK":
+            try:
+                self.img = tigre.algorithms.FDK(
+                    self.proj, self.geomet, self.angles, filter=filt
+                )
+            except Exception:
+                logging.info("WARNING: Tigre failed during recon using Astra")
+                self.img = self.astra_recon(self.proj.transpose([1, 0, 2]))
+
+        if algo == "CGLS":
+            try:
+                self.img = tigre.algorithms.cgls(
+                    self.proj.astype(np.float32),
+                    self.geomet,
+                    self.angles,
+                    niter=20,
+                )
+            except Exception:
+                logging.info("WARNING: Tigre failed during recon using Astra")
+                self.img = self.astra_recon(self.proj.transpose([1, 0, 2]))
