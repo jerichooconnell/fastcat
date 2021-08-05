@@ -193,6 +193,7 @@ class Phantom:
         filter_on = False
         load_proj = False
         save_proj = False
+        fast_noise = False
         
         if "test" in kwargs.keys():
             if kwargs["test"] == 1:
@@ -209,20 +210,20 @@ class Phantom:
                     handler.setLevel(level)
         
         if "bowtie" in kwargs.keys():
-            if kwargs["bowtie"]:
-                filter_on = True
-                logging.info(f'Initializing filter {kwargs["filter"]}')
+            filter_on = kwargs["bowtie"]
+            logging.info(f'Initializing filter {kwargs["filter"]}')
                 
         if "load_proj" in kwargs.keys():
-            if kwargs["load_proj"]:
-                load_proj = True
-                logging.info(f'Loading attenuations from {kwargs["proj_file"]}')
+            load_proj = kwargs["load_proj"]
+            logging.info(f'Loading attenuations from {kwargs["proj_file"]}')
                 
         if "save_proj" in kwargs.keys():
-            if kwargs["save_proj"]:
-                save_proj = True
-                logging.info(f'Saving attenuations to {kwargs["proj_file"]}')
-        
+            save_proj = kwargs["save_proj"]
+            logging.info(f'Saving attenuations to {kwargs["proj_file"]}')
+                
+        if "fast_noise" in kwargs.keys():
+            fast_noise = kwargs["fast_noise"]
+                
         if return_intensity:
             # This will return photon counts rather than energy detected
             # photon counts is what 'intensity' refers to
@@ -368,10 +369,11 @@ class Phantom:
         # default 10cm scatter or 10cm bowtie scatter from
         # file.
         # The scatter corresponds to 512 pixel detector
-        # but will be rebinned later to detector specifications
+        # but will be rebinned later to detector specifitions
         if hasattr(self, 'scatter'):
             mc_scatter = np.load(os.path.join(data_path,"scatter",self.scatter))
             dist = self.scatter_coords
+            logging.info(f'    Loading scatter from file {self.scatter}')
         else:
             if filter_on and kwargs["filter"][:3] == "bow":
                 mc_scatter = np.load(
@@ -380,7 +382,7 @@ class Phantom:
                 dist = np.linspace(
                     -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
                 )
-                logging.info("   Scatter is filtered by bowtie")
+                logging.info("   Scatter is modified by bowtie")
             else:
                 scatter = np.load(
                     os.path.join(data_path, "scatter", "scatter_updated.npy")
@@ -549,7 +551,6 @@ class Phantom:
         # TIGRE gives the attenuation along a ray from
         # source to detector.
         
-        fast_noise = False #False #True
 
         if fast_noise:
             logging.info('    Fast Noise algo! Beware of innacurate results') 
