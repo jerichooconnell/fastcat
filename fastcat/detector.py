@@ -216,14 +216,14 @@ class Detector:
         """
 
         h, w = (
-            1024 * 4,
-            2 * 1024,
+            1024 * 16,
+            8 * 1024,
         )  # Wouldn't change tbh for building lsf # used to be 4
         step = 16 * 2  # Wouldn't change tbh for building lsf
         pitch = self.pitch  # mm
-        angle = 2.3  # deg
-        lsf_width = 0.3  # mm Wouldn't change tbh
-        nbins = 818
+        angle =8  # deg
+        lsf_width = 0.4  # mm Wouldn't change tbh
+        nbins = 818*8
 
         # --- Make a high res line ---
 
@@ -271,6 +271,9 @@ class Detector:
         line = dist_from_line[10:-10, :].flatten()[inds]
         lsf = lsf_image[10:-10, :].flatten()[inds]
         n, bins = np.histogram(line, nbins, weights=lsf, density=True)
+        
+        self.n = n
+        self.bins = bins
 
         # if plot_stuff:
         #     plt.figure()

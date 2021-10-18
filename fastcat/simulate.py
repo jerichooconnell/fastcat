@@ -102,7 +102,7 @@ class Phantom:
         nphoton=None,
         mgy=0.0,
         return_dose=False,
-        return_intensity=False,
+        test_intensity=False,
         scat_on=True,
         tigre_works=True,
         convolve_on=True,
@@ -141,7 +141,7 @@ class Phantom:
             return_dose: Bool
                 This is an option mostly for tests.
                 Returns some partial dose calculations.
-            return_intensity: Bool
+            test_intensity: Bool
                 This is an option to turn the detector
                 off which will give perfect energy
                 absorption. Default True (on)
@@ -189,7 +189,7 @@ class Phantom:
         # ------------------------------------------
         # kwargs map to a few variables that I set
         
-#         return_intensity = False
+#         test_intensity = False
         filter_on = False
         load_proj = False
         save_proj = False
@@ -197,9 +197,9 @@ class Phantom:
         
         if "test" in kwargs.keys():
             if kwargs["test"] == 1:
-                return_intensity = False
+                test_intensity = False
             if kwargs["test"] == 2:
-                return_intensity = True
+                test_intensity = True
 
         if "verbose" in kwargs.keys():
             if kwargs["verbose"] == 0:
@@ -224,7 +224,7 @@ class Phantom:
         if "fast_noise" in kwargs.keys():
             fast_noise = kwargs["fast_noise"]
                 
-        if return_intensity:
+        if test_intensity:
             # This will return photon counts rather than energy detected
             # photon counts is what 'intensity' refers to
             logging.info('    Detector is photon counting')
@@ -307,7 +307,7 @@ class Phantom:
         p_photon_detected_times_energy = (
             deposition[0] / (MC_energies_keV / 1000) / 1000000
         )
-        
+        print(deposition[1])
         # Binning to get the fluence per energy
         # Done on two keV intervals so that the rounding is even
         # between 10 keV bins 2 4 go down 6 8 go up. With 1 keV
@@ -336,11 +336,11 @@ class Phantom:
         # using this reference we can know the noise and dose
         w_fluence /= np.sum(w_fluence)
         
-        if not return_intensity:
+        if not test_intensity:
             w_fluence_times_p_detected_energy = w_fluence*deposition[0]
             w_fluence_times_p_detected = w_fluence_times_p_detected_energy / MC_energies_keV
         else:
-            # If we return_intensity we only care about the counts reaching the detector
+            # If we test_intensity we only care about the counts reaching the detector
             # and not the probability of detection or the energy imparted through detection
             w_fluence_times_p_detected_energy = w_fluence
             w_fluence_times_p_detected = w_fluence
@@ -362,7 +362,7 @@ class Phantom:
         
         self.weight_scale = weight_scale
         # ----------------------------------------------
-        # -------- Scatter Correction ------------------
+        # -------- Adding Scatter ------------------
         # ----------------------------------------------
         # Loads the scatter from file. The scatter can
         # be specified in the phantom. Otherwise it is the
@@ -491,8 +491,13 @@ class Phantom:
             #flood profile is the same for all energies without filter
             flood_photon_counts = np.tile(flood_photon_counts,[len(MC_energies_keV),1])
             
+        self.flood_photon_counts = flood_photon_counts
+        self.energies = MC_energies_keV
+        self.w_fluence_times_p_detected = w_fluence_times_p_detected
+            
         tile = True # Legacy variable that doesn't do anything
         
+        self.mc_scatter = mc_scatter
         # ----------------------------------------------------
         # ----------- Phantom Initialization -----------------
         # ----------------------------------------------------
@@ -720,12 +725,12 @@ class Phantom:
             by //= 1  # 16 # This avoids some artifacts that creep in from
             # bounday effects
 
-            if not return_intensity and convolve_on:
+            if not test_intensity and convolve_on:
                 for ii in range(len(self.angles)):
 
                     if hasattr(kernel, 'fs_size'):
 
-                        # foical spot with geometrical curvature
+                        # focal spot with geometrical curvature
                         fs_real = (
                             kernel.fs_size * self.geomet.DSO / self.geomet.DSD
                         )
@@ -757,20 +762,19 @@ class Phantom:
             intensity += int_temp #* energy/np.sum(MC_energies_keV)
             noise += noise_temp #* energy/np.sum(MC_energies_keV)
             flood_energy_abs += flood_energy_abs_temp
-            
+        
             # I want the edep in MeV
 #             self.intensities.append(int_temp * w_fluence_times_energy[jj] / w_fluence_times_p_detected_energy[jj])
 
         logging.info("Weighting simulations")
-        
-        # This shouldn't work as the profiles should be weighted by the detector response already?
-        if return_intensity:
-            return intensity
 
         # ----------------------------------------------
         # ----------- Dose calculation -----------------
         # ----------------------------------------------
-
+        # This shouldn't work as the profiles should be weighted by the detector response already?
+        if test_intensity:
+            return intensity
+        
         # Sum over the image dimesions to get the energy
         # intensity and multiply by fluence, 2e7 was number
         # in reference MC simulations
@@ -847,18 +851,56 @@ class Phantom:
         else:
             logging.info("    No noise was added")
 
-        self.noise = noise
+#         self.noise = noise
         
 #         if filter_on:
 #             # w_fluence_times_energy = w_fluence*MC_energies_keV
 #             # w_fluence_times_energy /= np.sum(w_fluence_times_energy)
 #             flood_energy_abs = w_fluence_times_p_detected_energy @ flood_photon_counts
-
+        
+        return_intensity = True
+        
+        if return_intensity:
+            self.intensity = intensity
+            self.flood = flood_energy_abs
+        
         self.proj = -10 * np.log(intensity / (flood_energy_abs))
         
         # Check for bad values
         self.proj[~np.isfinite(self.proj)] = 1000
         
+    def get_scatter_contrib(self):
+        '''
+        Small function for returning the scatter intensity
+        profile from fastcat simulation
+        
+        Can only be run after a simulation has been performed
+        otherwise the variables won't be recognized
+        '''
+        
+        scatter_int_profile = np.zeros(self.flood_photon_counts[0].shape[0])
+        
+        for jj in range(len(self.w_fluence_times_p_detected)):
+            
+            scatter_int_profile += (
+                self.mc_scatter[:,jj]*
+                self.w_fluence_times_p_detected[jj] *
+                self.energies[jj]
+            )
+        
+        return scatter_int_profile
+
+    def invert_fastcat_parameters(self,kernel):
+
+        self.improved_images = np.zeros_like(self.intensity)
+
+        for ii in range(self.intensity.shape[0]):
+
+            denoised = denoise_tv_chambolle(projection)
+            deconvolved_RL = richardson_lucy(denoised, kernel.kernel, iterations=30, clip=False)
+            scatter = phantom.get_scatter_contrib()
+            self.improved[ii]  = deconvolved_RL - scatter
+
     def ray_trace(self, phantom2, tile):
 
         if self.tigre_works:  # resort to astra if tigre doesn't work

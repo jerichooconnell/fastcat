@@ -1928,7 +1928,7 @@ class XpecgenGUI(Notebook):
         def callback():  # Carry the calculation in a different thread to avoid blocking
             try:
 
-                self.kernel = fc.Kernel(self.spectra[-1], self.det.get())
+                self.kernel = fc.Detector(self.spectra[-1], self.det.get())
 
                 self.queue_calculation.put(True)
 
@@ -1993,7 +1993,7 @@ class XpecgenGUI(Notebook):
                 self.queue_calculation.put(False)
                 messagebox.showerror(
                     "Error",
-                    "An error occurred during the calculation:\n%s\nTigre not working resorting to astra"
+                    "An error occurred during the calculation:\n%s\n Tigre call to FDK failed"
                     % str(e),
                 )
 
