@@ -1,5 +1,7 @@
 name: test_build
-on: [push]
+push:
+  branches:
+    - master
 jobs:
   run:
     runs-on: [self-hosted,cml,gpu]
