@@ -336,6 +336,10 @@ class Phantom:
         # using this reference we can know the noise and dose
         w_fluence /= np.sum(w_fluence)
         
+        self.weights_fluence = w_fluence
+        
+#         return
+    
         if not test_intensity:
             w_fluence_times_p_detected_energy = w_fluence*deposition[0]
             w_fluence_times_p_detected = w_fluence_times_p_detected_energy / MC_energies_keV

@@ -34,7 +34,7 @@ class Detector:
 
     """
 
-    def __init__(self, spectrum, detector):
+    def __init__(self, spectrum, detector,specify_file=False,file=None):
         """
         The spectrum is used to calculate the MTF for the detector
 
@@ -57,9 +57,12 @@ class Detector:
         dump_files = os.path.join(
             data_path, "Detectors", detector, "*phsp.npy"
         )
-        self.deposition_efficiency_file = os.path.join(
-            data_path, "Detectors", detector, "EnergyDeposition.npy"
-        )
+        if specify_file:
+            self.deposition_efficiency_file = file
+        else:
+            self.deposition_efficiency_file = os.path.join(
+                data_path, "Detectors", detector, "EnergyDeposition.npy"
+            )
 
         files = sorted(glob(dump_files))
 
