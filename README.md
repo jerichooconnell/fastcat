@@ -48,10 +48,10 @@ Please cite the two publications on the development of fastcat so that I can cli
 
 <!-- Badges -->
 
-[pypi-image]: https://img.shields.io/pypi/v/podsearch
-[pypi-url]: https://pypi.org/project/podsearch/
-[build-image]: https://github.com/nalgeon/podsearch-py/actions/workflows/build.yml/badge.svg
-[build-url]: https://github.com/nalgeon/podsearch-py/actions/workflows/build.yml
+[pypi-image]: https://img.shields.io/pypi/v/fastcat
+[pypi-url]: https://pypi.org/project/fastcat/
+[build-image]: https://github.com/jerichooconnell/fastcat/actions/workflows/build.yml/badge.svg
+[build-url]: https://github.com/jerichooconnell/fastcat/actions/workflows/build.yml
 
 <!-- ## Documentation
 The updated API documentation is available [here](http://xpecgen.readthedocs.io/en/latest/).
