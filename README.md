@@ -40,11 +40,11 @@ After installing TIGRE I recommend cloning the repository and installing it in d
 Fastcat is a work in progress and there are quite a few bugs to work out. So feel free to file issues and I'll take a look.
 
 ## Citation
-If you use this application in a publication please cite the two publications on the development of fastcat so that I can climb rungs in the academic rat race please and thanks. Also have a read if you like, there are preprints on arxiv if you can't get through the paywall:
+Please cite the two publications on the development of fastcat so that I can climb rungs in the academic rat race. Also have a read for more info, there are preprints on arxiv as well:
 
-<a name="Ref1">\[1\]</a> O'Connell, J. and Bazalova-Carter, M. (2021), fastCAT: Fast cone beam CT (CBCT) simulation. Med. Phys., 48: 4448-4458. [doi.org/10.1002/mp.15007](https://doi.org/10.1002/mp.15007).
+* <a name="Ref1">\[1\]</a> O'Connell, J. and Bazalova-Carter, M. (2021), fastCAT: Fast cone beam CT (CBCT) simulation. Med. Phys., 48: 4448-4458. [doi.org/10.1002/mp.15007](https://doi.org/10.1002/mp.15007).
 
-<a name="Ref2">\[2\]</a>  O’Connell, J, Lindsay, C, Bazalova-Carter, M. Experimental validation of Fastcat kV and MV cone beam CT (CBCT) simulator. Med. Phys. 2021; 48: 6869– 6880. [doi.org/10.1002/mp.15243](https://doi.org/10.1002/mp.15243).
+* <a name="Ref2">\[2\]</a>  O’Connell, J, Lindsay, C, Bazalova-Carter, M. Experimental validation of Fastcat kV and MV cone beam CT (CBCT) simulator. Med. Phys. 2021; 48: 6869– 6880. [doi.org/10.1002/mp.15243](https://doi.org/10.1002/mp.15243).
 
 <!-- Badges -->
 
