@@ -39,13 +39,19 @@ After installing TIGRE I recommend cloning the repository and installing it in d
 
 Fastcat is a work in progress and there are quite a few bugs to work out. So feel free to file issues and I'll take a look.
 
+## Citation
+Please cite the two publications on the development of fastcat so that I can climb rungs in the academic rat race. Also have a read for more info, there are preprints on arxiv as well:
+
+* <a name="Ref1">\[1\]</a> O'Connell, J. and Bazalova-Carter, M. (2021), fastCAT: Fast cone beam CT (CBCT) simulation. Med. Phys., 48: 4448-4458. [doi.org/10.1002/mp.15007](https://doi.org/10.1002/mp.15007).
+
+* <a name="Ref2">\[2\]</a>  O’Connell, J, Lindsay, C, Bazalova-Carter, M. Experimental validation of Fastcat kV and MV cone beam CT (CBCT) simulator. Med. Phys. 2021; 48: 6869– 6880. [doi.org/10.1002/mp.15243](https://doi.org/10.1002/mp.15243).
 
 <!-- Badges -->
 
-[pypi-image]: https://img.shields.io/pypi/v/podsearch
-[pypi-url]: https://pypi.org/project/podsearch/
-[build-image]: https://github.com/nalgeon/podsearch-py/actions/workflows/build.yml/badge.svg
-[build-url]: https://github.com/nalgeon/podsearch-py/actions/workflows/build.yml
+[pypi-image]: https://img.shields.io/pypi/v/fastcat
+[pypi-url]: https://pypi.org/project/fastcat/
+[build-image]: https://github.com/jerichooconnell/fastcat/actions/workflows/build.yaml/badge.svg
+[build-url]: https://github.com/jerichooconnell/fastcat/actions/workflows/build.yaml
 
 <!-- ## Documentation
 The updated API documentation is available [here](http://xpecgen.readthedocs.io/en/latest/).
@@ -73,4 +79,4 @@ If you use this application to make use of the models in [\[1\]](#Ref1), you sho
 ## References
 <a name="Ref1">\[1\]</a> Hernández, G., Fernández F. 2016. "A model of tungsten x-ray anode spectra." Medical Physics, *43* 4655. [doi:10.1118/1.4955120](http://dx.doi.org/10.1118/1.4955120).
 
-<a name="Ref2">\[2\]</a> Hernández, G., Fernández F. 2016. "xpecgen: A program to calculate x-ray spectra generated in tungsten anodes." The Journal of Open Source Software, *00062*. [doi:10.21105/joss.00062](http://dx.doi.org/10.21105/joss.00062). -->
+ -->
