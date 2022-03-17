@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+# !/usr/bin/env python 
 # -*- coding: UTF-8 -*-
 
 """
 Fastcat a rapid and accurate CBCT simulator.
 
-Contains code from xpecgen.py to simulate spectra:
-A module to calculate x-ray spectra generated in tungsten anodes.
+Contains code from xpecgen.py to simulate spectrum:
+A module to calculate x-ray spectrum generated in tungsten anodes.
 """
 
 from __future__ import print_function
@@ -24,6 +24,8 @@ except ImportError:
 
 from scipy.signal import fftconvolve
 from scipy.ndimage import gaussian_filter
+from scipy.stats import norm
+from scipy.optimize import curve_fit
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -53,6 +55,12 @@ class Detector:
         -------
         Fastcat Detector object
         """
+        self.name = detector
+
+        if hasattr(spectrum,'get_points'):
+            spectrum.x, spectrum.y = spectrum.get_points() #! This might throw errors!
+        else:
+            spectrum.x, spectrum.y = spectrum.get_spectrum() #! This might throw errors!
 
         dump_files = os.path.join(
             data_path, "Detectors", detector, "*phsp.npy"
@@ -200,9 +208,9 @@ class Detector:
         place.set_ylabel("Y [pix]")
 
     #         place.colorbar()
-
-    def get_plot_mtf_real(
-        self, place, label=""
+    
+    def calc_mtf(
+        self, h=4096, w=2048, step=32, angle=2.3, lsf_width=0.3, nbins=818,gauss_fit=False
     ):
 
         """
@@ -218,16 +226,6 @@ class Detector:
 
         """
 
-        h, w = (
-            1024 * 16,
-            8 * 1024,
-        )  # Wouldn't change tbh for building lsf # used to be 4
-        step = 16 * 2  # Wouldn't change tbh for building lsf
-        pitch = self.pitch  # mm
-        angle =8  # deg
-        lsf_width = 0.4  # mm Wouldn't change tbh
-        nbins = 818*8
-
         # --- Make a high res line ---
 
         high_res = np.zeros([h, w])
@@ -237,7 +235,7 @@ class Detector:
         )
         # The MTF is from a 0.3 mm pixel times
         # the angle times 16 since it will be averaged over 32 pix
-        num_pix = lsf_width * 1 / cos(angle * np.pi / 180) / pitch * 16
+        num_pix = lsf_width * 1 / cos(angle * np.pi / 180) / self.pitch * 16
         high_res[dist_from_line < num_pix] = 1
 
         # --- Average to make low res line ---
@@ -266,60 +264,77 @@ class Detector:
         center = int(lsf_image.shape[1] / 2)
         # pitch needs to convert to cm from mm
         dist_from_line = (
-            (X + Y * np.tan(angle * np.pi / 180) - center + 0.5) * pitch / 10
+            (X + Y * np.tan(angle * np.pi / 180) - center + 0.5) * self.pitch / 10
         )
 
         # --- Crop the convolved edges ---
         inds = np.argsort(dist_from_line[10:-10, :].flatten())
         line = dist_from_line[10:-10, :].flatten()[inds]
         lsf = lsf_image[10:-10, :].flatten()[inds]
-        n, bins = np.histogram(line, nbins, weights=lsf, density=True)
+        self.lsf = lsf
+        self.line = line
+        self.n, self.bins = np.histogram(line, nbins, weights=lsf, density=True)
         
-        self.n = n
-        self.bins = bins
+        if gauss_fit:
+            x = self.bins[1:]
+            y = self.n
 
-        # if plot_stuff:
-        #     plt.figure()
-        #     plt.plot(bins[1:],n/(np.sum(n)),'x-',
-        #              linewidth= 1.1,markersize=5,color='cornflowerblue')
-        #     plt.title('LSF')
-        #     plt.legend(['fastCAT','geant4'])
-        #     plt.xlabel('[mm]')
-        #     plt.ylabel('Normalized Amplitude')
-        #     plt.xlim([-0.5,0.5])
-        #     plt.savefig('LSF_good')
+            # weighted arithmetic mean (corrected - check the section below)
+            mean = sum(x * y) / sum(y)
+            sigma = np.sqrt(sum(y * (x - mean)**2) / sum(y))
 
-        # --- fft to get mtf ---
-        #         n,bins = np.histogram(line,818,weights=lsf,density=True)
-        # xnew = np.linspace(bins[1:].min(), bins[1:].max(), 5000)
-        # spl = interpolate.make_interp_spline(
-        #     bins[1:], n / (np.sum(n)), k=3
-        # )  # type is BSpline
-        # power_smooth = spl(xnew)
-        mtf = np.absolute(np.fft.fft(n))
+            def Gauss(x, a, x0, sigma):
+                    return a * np.exp(-(x - x0)**2 / (2 * sigma**2))
+            
+            self.bins = np.linspace(-1.5,1.5,1000)
+            popt,pcov = curve_fit(Gauss, x, y, p0=[max(y), mean, sigma])
+
+            self.n = Gauss(self.bins, *popt) 
+
+        # mean, std = norm.fit(line)
+        mtf = np.absolute(np.fft.fft(self.n))
         mtf_final = np.fft.fftshift(mtf)
         N = len(mtf)
-        T = np.mean(np.diff(bins))
+        T = np.mean(np.diff(self.bins))
         xf = np.linspace(0.0, 1.0 / (2.0 * T), int((N - 1) / 2))
         mm = np.argmax(mtf_final)
 
+        self.mtf = mtf_final[mm + 1 :] / mtf_final[mm + 1]
+        self.freq = xf / 10
+
+    def get_plot_mtf_real(
+        self, place, label=""
+    ):
+
+        """
+        Prepare a plot of the data in the given place of the MTF
+        Also performs the MTF calulation
+
+        Args:
+            place:
+            The class whose method plot is called to
+            produce the plot (e.g., matplotlib.pyplot).
+            peak_shape: The window function used to plot the peaks.
+            See :obj:`triangle` for an example.
+
+        """
+
+        self.calc_mtf()
+
         if place is not None:
             place.plot(
-                xf / 10,
-                mtf_final[mm + 1 :] / mtf_final[mm + 1],
+                self.freq,
+                self.mtf,
                 "--",
                 linewidth=1.1,
                 markersize=2,
                 label=label,
             )
-            place.set_xlim((0, 1 / (2 * pitch)))
+            place.set_xlim((0, 1 / (2 * self.pitch)))
             place.set_xlabel("Spatial Frequency [1/mm]")
             place.set_ylabel("MTF")
             place.legend()
             place.grid(True)
-
-        self.mtf = mtf_final[mm + 1 :] / mtf_final[mm + 1]
-        self.freq = xf / 10
 
     def add_focal_spot(self, fs_size_in_mm):
         """
@@ -341,3 +356,17 @@ class Detector:
             )
         else:
             self.kernel_show = gaussian_filter(self.kernel, sigma=self.fs_size)
+
+    def __str__(self):
+        str_det = f'''
+Fastcat Detector Object
+------------------------
+
+    Detector:    {self.name}
+    Pitch:       {self.pitch}
+    Focal spot:  {self.fs_size if hasattr(self,'fs_size') else None}
+
+    Parameter files at:
+    {self.deposition_efficiency_file[:-20]}
+        '''
+        return str_det

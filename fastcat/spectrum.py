@@ -36,6 +36,44 @@ data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 __author__ = 'JOC'
 __version__ = "0.0.1"
 
+# Some functions to avoid peaking at the directory structure
+def print_dirs(mypath):
+    onlyfiles = sorted([f.split('.')[0] for f in os.listdir(mypath) if os.path.isdir(os.path.join(mypath, f))])
+    print(*onlyfiles, sep='\n')
+
+def print_files(mypath):
+    onlyfiles = sorted([f.split('.')[0] for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f))])
+    print(*onlyfiles, sep='\n')
+
+def list_detectors():
+    print('''
+AVAILABLE DETECTORS (for fc.detector(s,'DETECTOR')):
+''')
+    print_dirs(os.path.join(data_path,'Detectors'))
+
+def list_materials():
+    print('''
+AVAILABLE MATERIALS (for fc.Phantom.phan_map = ['MATERIAL']:
+Integers are atomic numbers
+''')
+    print_files(os.path.join(data_path,'mu'))
+def list_spectra_files():
+    print('''
+AVAILABLE Saved SPECTRA (for fc.Spectrum.load('SPECTRA'):
+Can also use an analytical spectra
+''')
+    print_files(os.path.join(data_path,'MV_spectra'))
+def list_filters():
+    print('''
+AVAILABLE Saved FILTERS:
+''')
+    print_files(os.path.join(data_path,'filters'))
+# def list_phantoms():
+#     print('''
+# AVAILABLE Saved Phantoms (for fc.Phantom.phan_map = ['MATERIAL']:
+# ''')
+#     print_files(os.path.join(data_path,'MV_spectra'))
+# # def list_saved_sims():
 
 def log_interp_1d(xx, yy, kind="linear"):
     """
@@ -493,7 +531,8 @@ class Spectrum:
         Load spectrum_file from file. Loads one of the text files found in the
         data/MV_spectra directory do not add file extension to spectrum_file
         '''
-
+        self.from_file = True
+        self.file = spectrum_file
         energies = []
         fluence = []
 
@@ -536,6 +575,21 @@ class Spectrum:
 
     def __rmul__(self, other):
         return self.__mul__(other)
+
+    def __str__(self):
+        str_det = f'''
+Fastcat Spectrum Object
+------------------------
+
+    kV:          {str(self.kvp) + ' kVp' if hasattr(self,'kvp') else None}
+    Anode Angle: {str(self.th) + ' deg' if hasattr(self,'th') else None}
+
+    From file:   {self.from_file if hasattr(self,'from_file') else False}
+    File location:     {self.file if hasattr(self,'file') else None}
+        '''
+        return str_det
+
+
 
 
 def get_fluence(e_0=100.0):
@@ -912,6 +966,8 @@ def calculate_spectrum_mesh(
     """
     # Prepare spectrum
     s = Spectrum()
+    s.kvp = e_0
+    s.th = theta
     s.x = mesh
     mesh_len = len(mesh)
     # Prepare integrand function
@@ -938,6 +994,71 @@ def calculate_spectrum_mesh(
 
     return s
 
+def Spekpy(
+    kvp,
+    th,
+    dk=None,
+    mu_data_source=None,
+    physics=None,
+    x=None,
+    y=None,
+    z=None,
+    mas=None,
+    brem=None,
+    char=None,
+    obli=None,
+    comment=None,
+    targ=None,
+    init_default=True,
+):
+    '''
+    Calls spekpy spectrum and use that for the energy and the fluence of
+    fastcat spectrum
+    
+    Wrapper for spekpy
+    '''
+
+
+    try:
+        import spekpy as spek
+    except ImportError as error:
+        # Output expected ImportErrors.
+        print(error.__class__.__name__ + ": " + error.message)
+        print(
+            'You can install spekpy following instructions at https://bitbucket.org/spekpy'
+        )
+    except Exception as exception:
+        # Output unexpected Exceptions.
+        print(exception, False)
+        print(exception.__class__.__name__ + ": " + exception.message)
+        
+    s = Spectrum()
+    
+    s_spek = spek.Spek(
+    kvp,
+    th,
+    dk,
+    mu_data_source,
+    physics,
+    x,
+    y,
+    z,
+    mas,
+    brem,
+    char,
+    obli,
+    comment,
+    targ,
+    init_default)
+    
+    s.x, s.y = s_spek.get_spectrum()
+    
+    s.spekpy = True
+    s.kV = True
+    s.kvp = kvp
+    s.th = th
+    
+    return s
 
 def calculate_spectrum(
     e_0,

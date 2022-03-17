@@ -624,6 +624,8 @@ class Catphan_515(Phantom):
 class Catphan_404(Phantom):
     def __init__(self, pitch=0.784, hi_res=True):  # ,det):
         # Two options for phantoms here
+        
+        self.is_non_integer = False
         if hi_res:
             self.phantom = np.load(
                 os.path.join(
@@ -871,32 +873,38 @@ class Catphan_404(Phantom):
             )
 
 class Catphan_404_Devon(Phantom):
-    def __init__(self, pitch=0.33, hi_res=True):
+
+
+    def __init__(self, pitch=0.33, hi_res=True,atomic_number=26):
+        self.is_non_integer = False
         if hi_res:
             self.phantom = np.load(
                 os.path.join(
                     data_path,
                     "phantoms",
-                    "catphan_sensiometry_512_10cm_mod.npy",
+                    "devon_phantom.npy",
                 )
             )  # 10cm.npy'))
         else:
             self.phantom = np.load(
                 os.path.join(
-                    data_path, "phantoms", "catphan_sensiometry_512_8cm.npy"
+                    data_path, "phantoms", "catphan_sensiometry_512_10cm_mod.npy"
                 )
             )
             logging.info("Phantom is low resolution")
         
-        self.scatter = 'devon_total.npy'
-        self.scatter_coords = np.linspace(-288* 0.033 - 0.0165, 288 * 0.033 -0.165, 576)
+        self.scatter = 'CZT_tabletop_scatter.npy'
+        # self.scatter_coords = np.linspace(-288* 0.033 - 0.0165, 288 * 0.033 -0.165, 576)
+        self.scatter_coords = np.linspace(
+                    -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
+                )
         # The 10cm is really the 8cm equivalent
         self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
         self.geomet.DSO = 322
-        self.geomet.DSD = 322 + 266  # 1520 JO dec 2020 1500 + 20 for det casing
-        self.geomet.nDetector = np.array([64, 576])
+        self.geomet.DSD = 578 # 1520 JO dec 2020 1500 + 20 for det casing
+        self.geomet.nDetector = np.array([64, 512])
         self.geomet.dDetector = np.array(
-            [pitch, pitch]
+            [0.381, 0.381]
         )
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector
@@ -908,11 +916,11 @@ class Catphan_404_Devon(Phantom):
             "G4_POLYSTYRENE",
             "G4_POLYVINYL_BUTYRAL",
             "G4_POLYVINYL_BUTYRAL",
-            "CATPHAN_Delrin",
+            "{}".format(atomic_number),
             "G4_POLYVINYL_BUTYRAL",
             "CATPHAN_Teflon_revised",
             "air",
-            "CATPHAN_PMP",
+            "{}".format(atomic_number),
             "G4_POLYVINYL_BUTYRAL",
             "CATPHAN_LDPE",
             "G4_POLYVINYL_BUTYRAL",
@@ -1178,6 +1186,7 @@ class XCAT2(Phantom):
     def __init__(self):
 
         head = True
+        self.is_non_integer = False
         if head:
             self.phantom = np.load(
                 os.path.join(data_path, "phantoms", "ct_scan_head_small.npy")
@@ -1288,6 +1297,7 @@ class XCAT_mandible(Phantom):
     def __init__(self):
 
         head = True
+        self.is_non_integer = False
         if head:
             self.phantom = np.load(
                 os.path.join(data_path, "phantoms", "ct_scan_head_mandible.npy")
@@ -1361,6 +1371,80 @@ class XCAT_mandible(Phantom):
                     self.phantom.shape[2],
                 )
             )
+        self.geomet.dVoxel = self.geomet.sVoxel / self.geomet.nVoxel
+
+    def analyse_515(self, slc, place, fmt="-"):
+
+        pass
+
+    def reconstruct(self, algo, filt="hamming"):
+        '''
+        algo, FDK, CGLS ect.
+
+        filt is one of 'hamming','ram_lak','cosine'
+
+        '''
+
+        if algo == "FDK":
+            try:
+                self.img = tigre.algorithms.FDK(
+                    self.proj, self.geomet, self.angles, filter=filt
+                )
+            except Exception:
+                logging.info("WARNING: Tigre failed during recon using Astra")
+                self.img = self.astra_recon(self.proj.transpose([1, 0, 2]))
+
+        if algo == "CGLS":
+            try:
+                self.img = tigre.algorithms.cgls(
+                    self.proj.astype(np.float32),
+                    self.geomet,
+                    self.angles,
+                    niter=20,
+                )
+            except Exception:
+                logging.info("WARNING: Tigre failed during recon using Astra")
+                self.img = self.astra_recon(self.proj.transpose([1, 0, 2]))
+
+class Anthropomorphic_Breast(Phantom):
+    def __init__(self,microcal=False):
+        
+        if microcal:
+            self.phantom = np.load(
+                os.path.join(data_path, "phantoms", "breast_phantom_20x20x15cm_512x512x156_microcal.npy")
+            )
+        else:
+            self.phantom = np.load(
+                os.path.join(data_path, "phantoms", "breast_phantom_20x20x15cm_512x512x156.npy")
+            )
+        self.is_non_integer = True
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
+        self.geomet.nDetector = np.array([256, 512])
+        self.geomet.dDetector = np.array([0.784, 0.784])
+        self.phan_map = [
+            "air",
+            "G4_ADIPOSE_TISSUE_ICRP",
+            "G4_SKIN_ICRP",
+            "G4_SKIN_ICRP",
+            "G4_ADIPOSE_TISSUE_ICRP",
+            "G4_BONE_CORTICAL_ICRP"
+        ]
+
+        self.scatter = 'CZT_tabletop_scatter.npy'
+        # self.scatter_coords = np.linspace(-288* 0.033 - 0.0165, 288 * 0.033 -0.165, 576)
+        self.scatter_coords = np.linspace(
+                    -256 * 0.0784 - 0.0392, 256 * 0.0784 - 0.0392, 512
+                )
+        # The 10cm is really the 8cm equivalent
+        self.geomet = tigre.geometry_default(nVoxel=self.phantom.shape)
+        self.geomet.DSO = 422
+        self.geomet.DSD = 778 # 1520 JO dec 2020 1500 + 20 for det casing
+        self.geomet.dDetector = np.array(
+            [0.784, 0.784]
+        )
+        # I think I can get away with this
+        self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector
+        self.geomet.sVoxel = np.array((124.8,204.8, 204.8))
         self.geomet.dVoxel = self.geomet.sVoxel / self.geomet.nVoxel
 
     def analyse_515(self, slc, place, fmt="-"):
