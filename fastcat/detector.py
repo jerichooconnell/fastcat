@@ -150,6 +150,7 @@ class Detector:
 #         print(len(deposition_summed),len(original_energies_keV),kernels.shape)
         # Divide by the energy to get the photon count
         # plus a factor 355000 for the original number of photons
+        
         deposition_summed[1:] /= (
             original_energies_keV[1:] / 355
         )  # I took this out and put it back in again
@@ -201,11 +202,12 @@ class Detector:
             place.tick_params(axis="both", which="major", labelsize=10)
             place.tick_params(axis="both", which="minor", labelsize=8)
 
-        place.imshow(self.kernel_show, cmap='jet', norm=LogNorm())
+        im = place.imshow(self.kernel_show, cmap='jet', norm=LogNorm())
         # place.colorbar()
         place.set_title("Optical Spread Function")
         place.set_xlabel("X [pix]")
         place.set_ylabel("Y [pix]")
+        return im
 
     #         place.colorbar()
     
@@ -237,7 +239,6 @@ class Detector:
         # the angle times 16 since it will be averaged over 32 pix
         num_pix = lsf_width * 1 / cos(angle * np.pi / 180) / self.pitch * 16
         high_res[dist_from_line < num_pix] = 1
-
         # --- Average to make low res line ---
         # Ugly sorry
         low_res = np.array(
@@ -350,7 +351,7 @@ class Detector:
         self.fs_size = fs_size_in_mm / self.pitch
 
         if self.kernel.shape[0] < 30:
-            print(self.kernel.shape[0])
+            # print(self.kernel.shape[0])
             self.kernel_show = gaussian_filter(
                 np.pad(self.kernel, ((15, 15), (15, 15))), sigma=self.fs_size
             )

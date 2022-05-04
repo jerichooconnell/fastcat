@@ -315,7 +315,7 @@ class Spectrum:
         return x2, y2
 
     def get_plot(
-        self, place, show_mesh=True, prepare_format=True, peak_shape=triangle
+        self, place, show_mesh=True, prepare_format=True, peak_shape=triangle,c='b'
     ):
         """
         Prepare a plot of the data in the given place
@@ -341,9 +341,9 @@ class Spectrum:
 
         x2, y2 = self.get_points(peak_shape=peak_shape)
         if show_mesh:
-            place.plot(self.x, self.y, "bo", x2, y2, "b-")
+            place.plot(self.x, self.y/np.max(self.y), f"{c}.", x2, y2/max(y2), f"{c}-")
         else:
-            place.plot(x2, y2, "b-")
+            place.plot(x2, y2/max(y2), f"{c}-")
 
     def show_plot(self, show_mesh=True, block=True):
         """

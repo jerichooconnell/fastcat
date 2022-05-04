@@ -82,7 +82,7 @@ class FastcatTest(unittest.TestCase):
             # No noise special call of this function to return profile and not
             # The projection which would be log(I/I_0)
             counts = np.mean(
-                phantom.return_projs(kernel, s, angles, return_intensity=True, mgy=0.0)[
+                phantom.return_projs(kernel, s, angles, test_intensity=True, mgy=0.0)[
                     0
                 ],
                 0,

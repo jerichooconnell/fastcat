@@ -163,6 +163,8 @@ class Phantom:
                 String which specifies one of the
                 filters in data/filters/ these filter
                 the beam before it hits the phantom.
+            silent: Bool
+                True silences the logger.
 
         Example (MV CBCT)
         -------

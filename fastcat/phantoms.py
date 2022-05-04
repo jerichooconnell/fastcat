@@ -41,10 +41,9 @@ class Catphan_515(Phantom):
         self.geomet.dDetector = np.array(
             [0.784, 0.784]
         )  # det.pitch, det.pitch]) #TODO: Change this to get phantom
-
+        self.is_non_integer = False
         # I think I can get away with this
         self.geomet.sDetector = self.geomet.dDetector * self.geomet.nDetector
-
         self.geomet.sVoxel = np.array((160, 160, 160))
         self.geomet.dVoxel = self.geomet.sVoxel / self.geomet.nVoxel
         self.phan_map = [
