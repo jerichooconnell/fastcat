@@ -997,19 +997,7 @@ def calculate_spectrum_mesh(
 def Spekpy(
     kvp,
     th,
-    dk=None,
-    mu_data_source=None,
-    physics=None,
-    x=None,
-    y=None,
-    z=None,
-    mas=None,
-    brem=None,
-    char=None,
-    obli=None,
-    comment=None,
-    targ=None,
-    init_default=True,
+    **kwargs
 ):
     '''
     Calls spekpy spectrum and use that for the energy and the fluence of
@@ -1037,19 +1025,7 @@ def Spekpy(
     s_spek = spek.Spek(
     kvp,
     th,
-    dk,
-    mu_data_source,
-    physics,
-    x,
-    y,
-    z,
-    mas,
-    brem,
-    char,
-    obli,
-    comment,
-    targ,
-    init_default)
+    **kwargs)
     
     s.x, s.y = s_spek.get_spectrum()
     

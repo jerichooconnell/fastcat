@@ -34,8 +34,10 @@ logging.basicConfig(
     stream=sys.stdout,
     format="[%(asctime)s] {%(filename)s:%"
     "(lineno)d} %(levelname)s - %(message)s",
-    level=logging.DEBUG,
+    level=logging.WARNING,
 )
+
+logging.getLogger('fastcat.simulate').setLevel(logging.DEBUG)
 
 __author__ = "Jericho OConnell"
 __version__ = "0.0.1"
@@ -524,7 +526,7 @@ class Phantom:
                     self.phantom.shape[0],
                     self.phantom.shape[1],
                     self.phantom.shape[2],
-                ], dtype=np.bool
+                ], dtype=bool
             )
         else:
             masks = np.zeros(
@@ -533,7 +535,7 @@ class Phantom:
                     self.phantom.shape[0],
                     self.phantom.shape[1],
                     self.phantom.shape[2],
-                ], dtype=np.bool
+                ], dtype=bool
             )
         energy2mu_functions = []
         doses = []
