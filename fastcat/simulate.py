@@ -34,10 +34,11 @@ logging.basicConfig(
     stream=sys.stdout,
     format="[%(asctime)s] {%(filename)s:%"
     "(lineno)d} %(levelname)s - %(message)s",
-    level=logging.WARNING,
+    level=logging.DEBUG,
 )
+# Set the logger to be more verbose for only this module
 
-logging.getLogger('fastcat.simulate').setLevel(logging.DEBUG)
+# logging.getLogger('fastcat.simulate').setLevel(logging.DEBUG)
 
 __author__ = "Jericho OConnell"
 __version__ = "0.0.1"
@@ -483,9 +484,16 @@ class Phantom:
             pts2 = np.linspace(0, np2 * no2, np2) - np2 / 2 * no2
             pts = np.linspace(0, npt * no, npt) - npt / 2 * no
 
+            # Make a blank array to interpolate into
+
             if len(series.shape) > 1:
+                series2 = np.zeros(
+                    [series.shape[0], np2]
+                )
                 for ii in range(series.shape[0]):
-                    series[ii] = np.interp(pts2, pts, series[ii])
+                    series2[ii] = np.interp(pts2, pts, series[ii])
+                
+                series = series2
             else:
                 series = np.interp(pts2, pts, series)
 
