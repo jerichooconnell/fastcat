@@ -25,8 +25,11 @@ def read_range_file(filename):
     high_range = []
     with open(filename) as f:
         for line in f:
-            words = line.split(' ')
+            words = line.split()
             if len(words) == 3:
+                # Check if the material is caesium
+                if words[2].lower() == 'caesium':
+                    words[2] = 'cesium'
                 materials.append(words[2])
                 low_range.append(float(words[0]))
                 high_range.append(float(words[1]))
@@ -37,6 +40,9 @@ def get_phantom_from_mhd(filename, range_file, material_file=None):
     """Reads an mhd file and returns a phantom object"""
     numpyImage, numpyOrigin, numpySpacing = read_mhd(filename)
     phantom = phantoms.Phantom()
+    phantom.mhd_file = filename
+    phantom.range_file = range_file
+    phantom.material_file = material_file
     phantom.phantom = numpyImage
     phantom.geomet = tigre.geometry_default(nVoxel=phantom.phantom.shape)
     phantom.geomet.DSD = 1510
@@ -50,7 +56,8 @@ def get_phantom_from_mhd(filename, range_file, material_file=None):
     if range_file is not None:
         materials, low_range, high_range = read_range_file(range_file)
         phantom.phan_map = materials
-        if low_range != high_range:
+        # check if all ranges are the same
+        if np.any(low_range != high_range):
             print('Warning: range file contains ranges. Using low range for all materials')
     
     if material_file is not None:
@@ -63,7 +70,12 @@ def name_to_atomic_number(name):
     element_base = get_element_base()
     # Search for a match
     for atomic_number, element in element_base.items():
-        if name.lower().split(' ')[0] in element[0].lower():
+        #Check if the element is 'Cesium' or 'Caesium'
+        temp_name = name.lower().split(' ')[0]
+        if temp_name == 'cesium':
+            temp_name = 'caesium'
+        
+        if temp_name in element[0].lower():
             return atomic_number
     # If no match was found, return None
     return None

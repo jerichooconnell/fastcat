@@ -536,12 +536,21 @@ class Spectrum:
         energies = []
         fluence = []
 
-        with open(
-            os.path.join(data_path, "MV_spectra", f"{spectrum_file}.txt")
-        ) as f:
-            for line in f:
-                energies.append(float(line.split()[0]))
-                fluence.append(float(line.split()[1]))
+        # Check if spectrum_file has a .dat extension
+        if spectrum_file[-4:] == '.dat':
+            with open(
+                os.path.join(spectrum_file)
+            ) as f:
+                for line in f:
+                    energies.append(float(line.split()[0]))
+                    fluence.append(float(line.split()[1]))
+        else:
+            with open(
+                os.path.join(data_path, "MV_spectra", spectrum_file + '.txt')
+            ) as f:
+                for line in f:
+                    energies.append(float(line.split()[0]))
+                    fluence.append(float(line.split()[1]))
 
         # Check if MV
 
@@ -1036,6 +1045,48 @@ def Spekpy(
     
     return s
 
+def Spekpy(
+    kvp,
+    th,
+    **kwargs
+):
+    '''
+    Calls spekpy spectrum and use that for the energy and the fluence of
+    fastcat spectrum
+    
+    Wrapper for spekpy
+    '''
+
+
+    try:
+        import spekpy as spek
+    except ImportError as error:
+        # Output expected ImportErrors.
+        print(error.__class__.__name__ + ": " + error.message)
+        print(
+            'You can install spekpy following instructions at https://bitbucket.org/spekpy'
+        )
+    except Exception as exception:
+        # Output unexpected Exceptions.
+        print(exception, False)
+        print(exception.__class__.__name__ + ": " + exception.message)
+        
+    s = Spectrum()
+    
+    s_spek = spek.Spek(
+    kvp,
+    th,
+    **kwargs)
+    
+    s.x, s.y = s_spek.get_spectrum()
+    
+    s.spekpy = True
+    s.kV = True
+    s.kvp = kvp
+    s.th = th
+    
+    return s
+    
 def calculate_spectrum(
     e_0,
     theta,
