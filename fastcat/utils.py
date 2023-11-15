@@ -14,6 +14,7 @@ def read_mhd(filename):
     """Reads an mhd file and returns a numpy array"""
     itkimage = sitk.ReadImage(filename)
     numpyImage = sitk.GetArrayFromImage(itkimage)
+    numpyImage = np.flip(np.flipud(numpyImage),axis=2)
     numpyOrigin = np.array(list(reversed(itkimage.GetOrigin())))
     numpySpacing = np.array(list(reversed(itkimage.GetSpacing())))
     return numpyImage, numpyOrigin, numpySpacing

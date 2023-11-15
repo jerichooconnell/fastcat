@@ -105,7 +105,6 @@ def run_ogate_scatter_simulation(phantom, detector_material,material_file,
     source.n = int(nparticles / (nt)) 
     # source.rotation = Rotation.from_euler('x', 90, degrees=True).as_matrix()
 
-
     if spectrum is not None:
         w = spectrum.y
         en = spectrum.x
@@ -119,7 +118,6 @@ def run_ogate_scatter_simulation(phantom, detector_material,material_file,
     else:
         source.energy.mono = 0.1 * MeV
 
-    # add phsp actor detector 1 (overlap!)
     # add phsp actor detector 1 (overlap!)
     dose = sim.add_actor("DoseActor", "edep")
     dose.output = output_file + '.mhd'
