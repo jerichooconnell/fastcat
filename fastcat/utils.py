@@ -5,7 +5,7 @@ import SimpleITK as sitk
 import os
 import tigre
 from fastcat.simulate import data_path
-from fastcat.spectrum import log_interp_1d
+from fastcat.spectrum import Spectrum, log_interp_1d
 from fastcat import phantoms
 
 import logging
@@ -80,6 +80,41 @@ def name_to_atomic_number(name):
             return atomic_number
     # If no match was found, return None
     return None
+
+def init_ggems_scatter_simulation(simulation_directory=None, phantom_name=None, **kwargs):
+    '''
+    Small function for returning the scatter intensity
+    profile from ggems simulation
+    
+    Can only be run after a simulation has been performed
+    otherwise the variables won't be recognized
+    '''
+
+    if simulation_directory is None:
+        range_file = kwargs['range_file']
+        mhd_file = kwargs['mhd_file']
+        material_file = kwargs['material_file']
+        spectrum_file = kwargs['spectrum_file']
+    else:
+        range_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_range.txt')
+        mhd_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_phantom.mhd')
+        material_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_materials.txt')
+        spectrum_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_spectrum.dat')
+
+    out_dir = os.path.join(simulation_directory, phantom_name, 'out')
+    os.makedirs(out_dir, exist_ok=True)
+
+    phantom = get_phantom_from_mhd(mhd_file,range_file,material_file)
+    phantom.out_dir = out_dir
+    phantom.is_ggems = True
+
+    if os.path.exists(spectrum_file):
+        s = Spectrum()
+        s.load(spectrum_file=spectrum_file)
+        return phantom, s
+    else:
+        return phantom, None
+    
 # %%
 def get_element_base():
     element_base = {

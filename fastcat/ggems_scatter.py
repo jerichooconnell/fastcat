@@ -5,7 +5,7 @@ import os
 
 def run_ggems_scatter_simulation(phantom, detector_material, 
                                  nparticles, output_file='', output_dir=None,
-                                 vis=False,
+                                 vis=False, angle=0,
                                  spectrum=None, 
                                  s_max=None,
                                  edep_detector=False):
@@ -81,11 +81,23 @@ def run_ggems_scatter_simulation(phantom, detector_material,
     # Loading phantom
     ggphantom = gg.GGEMSVoxelizedPhantom('phantom')
     ggphantom.set_phantom(phantom.mhd_file, phantom.range_file)
-    ggphantom.set_rotation(90., 0.0, 00.0, 'deg')
+    ggphantom.set_rotation(90., angle, 00.0, 'deg')
     ggphantom.set_position(0.0, 0.0, 0, 'mm')
     ggphantom.set_visible(True)
     # ggphantom.set_material_visible('Air', True)
     ggphantom.set_material_color('Water', color_name='blue')
+
+    if get_phantom_dose:
+        dosimetry = gg.GGEMSDosimetryCalculator()
+        dosimetry.attach_to_navigator('phantom')
+        dosimetry.set_output_basename(output_file)
+        dosimetry.water_reference(False)
+        dosimetry.set_tle(False)
+        dosimetry.set_dosel_size(1, 1, 1, 'mm')
+        dosimetry.uncertainty(True)
+        dosimetry.edep(True)
+        dosimetry.hit(True)
+        dosimetry.edep_squared(False)
 
     # ------------------------------------------------------------------------------
     # STEP 6: Physics
