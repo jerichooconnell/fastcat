@@ -21,6 +21,7 @@ from scipy.optimize import curve_fit
 from scipy.signal import fftconvolve
 from scipy.interpolate import interp1d
 from scipy.stats import poisson
+from fastcat import spectrum
 
 from fastcat.ggems_scatter import run_ggems_scatter_simulation
 

@@ -12,6 +12,7 @@ from __future__ import print_function
 
 import logging
 import os
+import pickle
 import sys
 
 import numpy as np
@@ -21,6 +22,8 @@ from scipy.optimize import curve_fit
 from scipy.signal import fftconvolve
 from scipy.interpolate import interp1d
 from scipy.stats import poisson
+
+from fastcat.ggems_scatter import save_ggems_simulation_parameters
 
 try:
     import matplotlib.pyplot as plt
@@ -986,6 +989,10 @@ class Phantom:
                 logging.info("WARNING: Tigre failed during recon using Astra")
                 self.img = self.astra_recon(self.proj.transpose([1, 0, 2]))
 
+    # def from_file(self, file_name):
+    #     # Load a phantom from a pickle file
+    #     with open(file_name, "rb") as f:
+    #         self.img = pickle.load(f)
     def plot_projs(self, fig):
 
         subfig1 = fig.add_subplot(121)
@@ -996,6 +1003,79 @@ class Phantom:
         tracker2 = IndexTracker(subfig2, self.proj.transpose([0, 2, 1]))
         fig.canvas.mpl_connect("scroll_event", tracker2.onscroll)
         fig.tight_layout()
+
+    def from_pickle(self, file_name):
+        # Load a phantom from a pickle file
+        with open(file_name, "rb") as f:
+            return pickle.load(f)
+
+    def generate_ggems_bash_script(self, output_dir, detector_material,
+                                    nparticles, spectrum=None, s_max=None,
+                                    edep_detector=False, dli=False, **kwargs):
+        '''
+        Generate a bash script to give the scatter at angles
+        '''
+
+        fname = save_ggems_simulation_parameters(self,output_dir, detector_material,
+                                         nparticles, spectrum, s_max, edep_detector, dli, **kwargs)
+        
+
+        # Write a bash script with each entry calling ggems_scatter script
+        # with a different angle
+
+        with open(os.path.join(output_dir, 'ggems_scatter.sh'), 'w') as f:
+            # Write the header
+            f.write('#!/bin/bash\n\n')
+            # Write a for loop over the angles
+            for ii, angle in enumerate(self.angles):
+                f.write(f'python ggems_scatter_script.py {fname} --angle {angle} --number {ii}\n')
+
+        self.bash_scipt = os.path.join(output_dir, 'ggems_scatter.sh')
+
+    def save_ggems_simulation_parameters(self, output_dir, detector_material,
+                                    nparticles, spectrum=None, s_max=None,
+                                    edep_detector=False, dli=False, **kwargs):
+        '''
+        Saves the parameters of the ggems simulation into a dictionary in the simulation
+        object. This is used to save the parameters of the simulation to a pickle file
+        '''
+        simulation_parameters = {}
+        # simulation_parameters['output_file'] = output_file
+        # simulation_parameters['output_dir'] = output_dir
+        simulation_parameters['detector_material'] = detector_material
+        simulation_parameters['nparticles'] = nparticles
+        simulation_parameters['spectrum'] = spectrum
+        simulation_parameters['s_max'] = s_max
+        simulation_parameters['edep_detector'] = edep_detector
+        simulation_parameters['dli'] = dli
+        # simulation_parameters['phantom'] = phantom
+        simulation_parameters['kwargs'] = kwargs
+
+        output_file = os.path.join(output_dir,f'ggems_{f"{nparticles:.0e}".replace("+", "")}_{s_max:.0f}kVp')
+
+        self.simulation_parameters = simulation_parameters
+
+        # Create a new directory for the simulation
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        # Print the data to be saved
+        print(f"Data to be saved: {simulation_parameters}")
+        with open(os.path.join(output_file + '.pkl'), 'wb') as f:
+            pickle.dump(self, f)
+            print('Done saving simulation parameters to ' + os.path.join(output_file + '.pkl'))
+
+        return output_file + '.pkl'
+
+    def run_ggems_bash_script(self):
+        # Check if the bash script exists
+        if not hasattr(self, 'bash_scipt'):
+            logging.info('No bash script to run')
+            return
+        
+        # Run the bash script
+        os.system(self.bash_scipt)
+    
 
     def plot_recon(self, ind, vmin_max=None):
         """

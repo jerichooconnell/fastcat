@@ -1,14 +1,76 @@
 # A method to transform a fastcat simulation into a ggems simulation
 
+import pickle
 import ggems as gg
 import os
 
+
+def save_ggems_simulation_parameters(phantom, output_dir, detector_material,
+                                    nparticles, angles, spectrum=None, s_max=None,
+                                    edep_detector=False, dli=False, **kwargs):
+    '''
+    Saves the parameters of the ggems simulation into a dictionary in the simulation
+    object. This is used to save the parameters of the simulation to a pickle file
+    '''
+    phantom.angles = angles
+    simulation_parameters = {}
+    # simulation_parameters['output_file'] = output_file
+    # simulation_parameters['output_dir'] = output_dir
+    simulation_parameters['detector_material'] = detector_material
+    simulation_parameters['nparticles'] = nparticles
+    simulation_parameters['spectrum'] = spectrum
+    simulation_parameters['s_max'] = s_max
+    simulation_parameters['edep_detector'] = edep_detector
+    simulation_parameters['dli'] = dli
+    # simulation_parameters['phantom'] = phantom
+    simulation_parameters['kwargs'] = kwargs
+
+    output_file = os.path.join(output_dir,f'ggems_{f"{nparticles:.0e}".replace("+", "")}_{s_max:.0f}kVp')
+
+    phantom.simulation_parameters = simulation_parameters
+
+    # Create a new directory for the simulation
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Print the data to be saved
+    print(f"Data to be saved: {simulation_parameters}")
+    with open(os.path.join(output_file + '.pkl'), 'wb') as f:
+        pickle.dump(phantom, f)
+        print('Done saving simulation parameters to ' + os.path.join(output_file + '.pkl'))
+
+    return output_file + '.pkl'
+
+def generate_ggems_bash_script(phantom, output_dir,angles, detector_material,
+                                nparticles, spectrum=None, s_max=None,
+                                edep_detector=False, dli=False, **kwargs):
+    '''
+    Generate a bash script to give the scatter at angles
+    '''
+
+    fname = save_ggems_simulation_parameters(phantom,output_dir, detector_material,
+                                        nparticles, spectrum, s_max, edep_detector, dli, angles=angles, **kwargs)
+    
+
+    # Write a bash script with each entry calling ggems_scatter script
+    # with a different angle
+
+    with open(os.path.join(output_dir, 'ggems_scatter.sh'), 'w') as f:
+        # Write the header
+        f.write('#!/bin/bash\n\n')
+        # Write a for loop over the angles
+        for ii, angle in enumerate(angles):
+            f.write(f'python ggems_scatter_script.py {fname} --angle {angle} --number {ii}\n')
+
+    phantom.bash_scipt = os.path.join(output_dir, 'ggems_scatter.sh')
+    
 def run_ggems_scatter_simulation(phantom, detector_material, 
                                  nparticles, output_file='', output_dir=None,
-                                 vis=False, angle=0,
-                                 spectrum=None, 
+                                 vis=False, thickness = 1,
+                                 spectrum=None, angle = 0,
                                  s_max=None,
-                                 edep_detector=False):
+                                 edep_detector=False,
+                                 dli=False, **kwargs):
       
     
     if spectrum is not None:
@@ -18,9 +80,10 @@ def run_ggems_scatter_simulation(phantom, detector_material,
     
 
     if output_dir is None:
-        file_name = f'{output_file}ggems_{f"{nparticles:.0e}".replace("+", "")}_{kv_max:.0f}kVp_edep{edep_detector}'
+        file_name = f'ggems_{f"{nparticles:.0e}".replace("+", "")}_{kv_max:.0f}kVp_{output_file}'
     else:
-        file_name = os.path.join(output_dir,f'{output_file}ggems_{f"{nparticles:.0e}".replace("+", "")}_{kv_max:.0f}kVp_edep{edep_detector}')
+        file_name = os.path.join(output_dir,f'ggems_{f"{nparticles:.0e}".replace("+", "")}_{kv_max:.0f}kVp_{output_file}')
+    
     output_file = file_name
     
     # Getting arguments
@@ -74,7 +137,10 @@ def run_ggems_scatter_simulation(phantom, detector_material,
     # STEP 5: Phantoms and systems
 
     if edep_detector:
-        initialize_ct_edep_detector(phantom,detector_material,output_file)
+        if dli:
+            initialize_dli_edep(phantom,detector_material,output_file,thickness=thickness)  
+        else:              
+            initialize_ct_edep_detector(phantom,detector_material,output_file,thickness=thickness)
     else:
         initialize_ct_counts_detector(phantom,detector_material,output_file)
         
@@ -86,18 +152,6 @@ def run_ggems_scatter_simulation(phantom, detector_material,
     ggphantom.set_visible(True)
     # ggphantom.set_material_visible('Air', True)
     ggphantom.set_material_color('Water', color_name='blue')
-
-    if get_phantom_dose:
-        dosimetry = gg.GGEMSDosimetryCalculator()
-        dosimetry.attach_to_navigator('phantom')
-        dosimetry.set_output_basename(output_file)
-        dosimetry.water_reference(False)
-        dosimetry.set_tle(False)
-        dosimetry.set_dosel_size(1, 1, 1, 'mm')
-        dosimetry.uncertainty(True)
-        dosimetry.edep(True)
-        dosimetry.hit(True)
-        dosimetry.edep_squared(False)
 
     # ------------------------------------------------------------------------------
     # STEP 6: Physics
@@ -131,7 +185,12 @@ def run_ggems_scatter_simulation(phantom, detector_material,
         point_source.set_monoenergy(100, 'keV')
         print('Using monoenergy at 100 keV')
     # point_source.set_polyenergy('data/spectrum_120kVp_2mmAl.dat')
-
+    
+    # Check if the keywoard 'return_dose' is in kwargs
+    if 'return_dose' in kwargs:
+        if kwargs['return_dose']:
+            initialize_phantom_dose(output_file,phantom)
+    
     # ------------------------------------------------------------------------------
     # STEP 9: GGEMS simulation
     ggems = gg.GGEMS()
@@ -160,6 +219,19 @@ def run_ggems_scatter_simulation(phantom, detector_material,
     ggems.delete()
     gg.clean_safely()
     exit()
+
+def initialize_phantom_dose(output_file,phantom):
+
+    dosimetry = gg.GGEMSDosimetryCalculator()
+    dosimetry.attach_to_navigator('phantom')
+    dosimetry.set_output_basename(output_file +'_phantom_dose')
+    dosimetry.water_reference(False)
+    dosimetry.set_tle(False)
+    dosimetry.set_dosel_size(phantom.sVoxel[0], phantom.sVoxel[1], phantom.sVoxel[2], 'mm')
+    dosimetry.uncertainty(True)
+    dosimetry.edep(False)
+    dosimetry.hit(False)
+    dosimetry.edep_squared(False)
 
 def initialize_ct_counts_detector(phantom,detector_material,output_file):
 
@@ -195,14 +267,14 @@ def initialize_ct_edep_detector(phantom,detector_material,output_file,thickness=
     volume_creator_manager.write()
 
     # Loading phantom
-    ggphantom = gg.GGEMSVoxelizedPhantom('phantom')
+    ggphantom = gg.GGEMSVoxelizedPhantom('phantom1')
     ggphantom.set_phantom('data/volume3.mhd', 'data/range_volume3.txt')
     ggphantom.set_rotation(0.0, 0.0, 0.0, 'deg')
     ggphantom.set_position(phantom.geomet.DSD - phantom.geomet.DSO, 0.0, 0, 'mm')
     ggphantom.set_visible(True)
 
     dosimetry = gg.GGEMSDosimetryCalculator()
-    dosimetry.attach_to_navigator('phantom')
+    dosimetry.attach_to_navigator('phantom1')
     dosimetry.set_output_basename(output_file)
     dosimetry.water_reference(False)
     dosimetry.set_tle(False)
@@ -211,3 +283,65 @@ def initialize_ct_edep_detector(phantom,detector_material,output_file,thickness=
     dosimetry.edep(True)
     dosimetry.hit(True)
     dosimetry.edep_squared(False)
+
+def initialize_dli_edep(phantom,detector_material,output_file, thickness=1):
+
+    volume_creator_manager = gg.GGEMSVolumeCreatorManager()
+    a, b = phantom.geomet.nDetector
+    d, e = phantom.geomet.dDetector
+    volume_creator_manager.set_dimensions(1, a, b)
+    volume_creator_manager.set_element_sizes(thickness, d, e, 'mm')
+    volume_creator_manager.set_output('data/volume3.mhd')
+    volume_creator_manager.set_range_output('data/range_volume3.txt')
+    volume_creator_manager.set_material(detector_material)
+    volume_creator_manager.set_data_type('MET_INT')
+    volume_creator_manager.initialize()
+    volume_creator_manager.write()
+
+    # Loading phantom
+    ggphantom = gg.GGEMSVoxelizedPhantom('phantom1')
+    ggphantom.set_phantom('data/volume3.mhd', 'data/range_volume3.txt')
+    ggphantom.set_rotation(0.0, 0.0, 0.0, 'deg')
+    ggphantom.set_position(phantom.geomet.DSD - phantom.geomet.DSO, 0.0, 0.0, 'mm')
+    ggphantom.set_visible(True)
+
+    dosimetry = gg.GGEMSDosimetryCalculator()
+    dosimetry.attach_to_navigator('phantom1')
+    dosimetry.set_output_basename(output_file +'1')
+    dosimetry.water_reference(False)
+    dosimetry.set_tle(False)
+    dosimetry.set_dosel_size(thickness, d, e,  'mm')
+    dosimetry.uncertainty(True)
+    dosimetry.edep(True)
+    dosimetry.hit(True)
+    dosimetry.edep_squared(False)
+
+    volume_creator_manager2 = gg.GGEMSVolumeCreatorManager()
+    a, b = phantom.geomet.nDetector
+    d, e = phantom.geomet.dDetector
+    volume_creator_manager2.set_dimensions(1, a, b)
+    volume_creator_manager2.set_element_sizes(thickness, d, e, 'mm')
+    volume_creator_manager2.set_output('data/volume4.mhd')
+    volume_creator_manager2.set_range_output('data/range_volume4.txt')
+    volume_creator_manager2.set_material(detector_material)
+    volume_creator_manager2.set_data_type('MET_INT')
+    volume_creator_manager2.initialize()
+    volume_creator_manager2.write()
+
+    # Loading phantom
+    ggphantom2 = gg.GGEMSVoxelizedPhantom('phantom2')
+    ggphantom2.set_phantom('data/volume4.mhd', 'data/range_volume4.txt')
+    ggphantom2.set_rotation(0.0, 0.0, 0.0, 'deg')
+    ggphantom2.set_position(phantom.geomet.DSD - phantom.geomet.DSO + 1.5, 0.0, 0.0, 'mm')
+    ggphantom2.set_visible(True)
+
+    dosimetry2 = gg.GGEMSDosimetryCalculator()
+    dosimetry2.attach_to_navigator('phantom2')
+    dosimetry2.set_output_basename(output_file + '2')
+    dosimetry2.water_reference(False)
+    dosimetry2.set_tle(False)
+    dosimetry2.set_dosel_size(thickness, d, e,  'mm')
+    dosimetry2.uncertainty(True)
+    dosimetry2.edep(True)
+    dosimetry2.hit(True)
+    dosimetry2.edep_squared(False)
