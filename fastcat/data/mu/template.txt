@@ -1,0 +1,71 @@
+Air: d=0.00129 g/cm3 ; n=4; state=gas
+    +el: name=Argon; f=0.012827
+    +el: name=Carbon; f=0.000124
+    +el: name=Nitrogen; f=0.755268
+    +el: name=Oxygen; f=0.231781
+    
+polyurethane: d=1.0600 g/cm3 ; n=4;
+    +el: name=Carbon; f=0.5909
+    +el: name=Hydrogen; f=0.0662
+    +el: name=Nitrogen; f=0.0511
+    +el: name=Oxygen; f=0.2918
+
+teflon: d=2.1600 g/cm3 ; n=2;
+    +el: name=Carbon; f=0.2400
+    +el: name=Fluorine; f=0.7600
+
+pmp: d=0.8300 g/cm3 ; n=2;
+    +el: name=Carbon; f=0.8562
+    +el: name=Hydrogen; f=0.1438
+
+bone50: d=1.4000 g/cm3 ; n=6;
+    +el: name=Carbon; f=0.3500
+    +el: name=Calcium; f=0.1400
+    +el: name=Hydrogen; f=0.0500
+    +el: name=Nitrogen; f=0.0600
+    +el: name=Oxygen; f=0.3400
+    +el: name=Phosphor; f=0.0600
+
+ldpe: d=0.9200 g/cm3 ; n=2;
+    +el: name=Carbon; f=0.8562
+    +el: name=Hydrogen; f=0.1438
+
+polystyrene: d=1.0300 g/cm3 ; n=2;
+    +el: name=Carbon; f=0.9225
+    +el: name=Hydrogen; f=0.0775
+
+acrylic: d=1.1800 g/cm3 ; n=3;
+    +el: name=Carbon; f=0.5996
+    +el: name=Hydrogen; f=0.0806
+    +el: name=Oxygen; f=0.3198
+
+bone20: d=1.1400 g/cm3 ; n=6;
+    +el: name=Carbon; f=0.5100
+    +el: name=Calcium; f=0.0600
+    +el: name=Hydrogen; f=0.0600
+    +el: name=Nitrogen; f=0.0600
+    +el: name=Oxygen; f=0.3000
+    +el: name=Phosphor; f=0.0300
+
+pom: d=1.4150 g/cm3 ; n=3;
+    +el: name=Carbon; f=0.3998
+    +el: name=Hydrogen; f=0.0672
+    +el: name=Oxygen; f=0.5330
+
+Tungsten: d=19.3 g/cm3; n=1;
+        +el: name=Tungsten; f=1
+
+GOS: d=7.44 g/cm3; n=3;
+    +el: name=Sulfur; f=0.084704
+    +el: name=Oxygen; f=0.084527
+    +el: name=Gadolinium; f=0.830769
+
+CsI: d=4.51 g/cm3; n=2;  state=solid
+    +el: name=Caesium ; f=0.512
+    +el: name=Iodine ; f=0.488
+
+Aluminium: d=2.699 g/cm3; n=1;
+	+el: name=Aluminium ; f=1.0
+
+Copper: d=8.96 g/cm3; n=1;  state=solid
+    +el: name=Copper ; f=1

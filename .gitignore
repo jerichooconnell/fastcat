@@ -7,6 +7,8 @@ fastcat/user_data
 fastcat/data/Detectors/perovskite*
 fastcat/data/Detectors/*_no_*
 fastcat/data/phantoms/breast*
+*.raw
+*.npy
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

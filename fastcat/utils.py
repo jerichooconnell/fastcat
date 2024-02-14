@@ -6,18 +6,28 @@ import os
 import tigre
 from fastcat.simulate import data_path
 from fastcat.spectrum import Spectrum, log_interp_1d
-from fastcat import phantoms
+from fastcat.ggems_simulate import Phantom
 
 import logging
+
 
 def read_mhd(filename):
     """Reads an mhd file and returns a numpy array"""
     itkimage = sitk.ReadImage(filename)
     numpyImage = sitk.GetArrayFromImage(itkimage)
-    numpyImage = np.flip(np.flipud(numpyImage),axis=2)
+    numpyImage = np.flip(np.flipud(numpyImage), axis=2)
     numpyOrigin = np.array(list(reversed(itkimage.GetOrigin())))
     numpySpacing = np.array(list(reversed(itkimage.GetSpacing())))
     return numpyImage, numpyOrigin, numpySpacing
+
+
+def read_mhd2(filename):
+    """Reads an mhd file and returns a numpy array"""
+    itkimage = sitk.ReadImage(filename)
+    numpyImage = sitk.GetArrayFromImage(itkimage)
+    numpyImage = np.flip(np.flipud(numpyImage), axis=2)
+    return numpyImage.squeeze()
+
 
 def read_range_file(filename):
     """Reads a range file and returns a list of ranges"""
@@ -37,10 +47,21 @@ def read_range_file(filename):
 
     return np.array(materials), np.array(low_range), np.array(high_range)
 
+
+def write_range_file(filename, materials):
+    """Writes a range file"""
+
+    range_file = os.path.join(
+        data_path, 'user_phantoms', f'{filename.split(".")[0]}_range.txt')
+    with open(range_file, 'wt') as f:
+        for i in range(len(materials)):
+            f.write(f'{i} {i} {materials[i]}\n')
+
+
 def get_phantom_from_mhd(filename, range_file, material_file=None):
     """Reads an mhd file and returns a phantom object"""
     numpyImage, numpyOrigin, numpySpacing = read_mhd(filename)
-    phantom = phantoms.Phantom()
+    phantom = Phantom()
     phantom.mhd_file = filename
     phantom.range_file = range_file
     phantom.material_file = material_file
@@ -49,8 +70,8 @@ def get_phantom_from_mhd(filename, range_file, material_file=None):
     phantom.geomet.DSD = 1510
     phantom.geomet.dVoxel = numpySpacing
     phantom.geomet.sVoxel = phantom.geomet.dVoxel*phantom.geomet.nVoxel
-    phantom.geomet.dDetector = np.array([0.784,0.784])
-    phantom.geomet.nDetector = np.array([512,512])
+    phantom.geomet.dDetector = np.array([0.784, 0.784])
+    phantom.geomet.nDetector = np.array([512, 512])
     phantom.geomet.sDetector = phantom.geomet.dDetector*phantom.geomet.nDetector
     phantom.is_non_integer = False
 
@@ -59,33 +80,37 @@ def get_phantom_from_mhd(filename, range_file, material_file=None):
         phantom.phan_map = materials
         # check if all ranges are the same
         if np.any(low_range != high_range):
-            print('Warning: range file contains ranges. Using low range for all materials')
-    
+            print(
+                'Warning: range file contains ranges. Using low range for all materials')
+
     if material_file is not None:
         make_material_mu_files(material_file)
 
     return phantom
 
 # A function that fetches element atomic number from the element name
+
+
 def name_to_atomic_number(name):
     element_base = get_element_base()
     # Search for a match
     for atomic_number, element in element_base.items():
-        #Check if the element is 'Cesium' or 'Caesium'
+        # Check if the element is 'Cesium' or 'Caesium'
         temp_name = name.lower().split(' ')[0]
         if temp_name == 'cesium':
             temp_name = 'caesium'
-        
+
         if temp_name in element[0].lower():
             return atomic_number
     # If no match was found, return None
     return None
 
+
 def init_ggems_scatter_simulation(simulation_directory=None, phantom_name=None, **kwargs):
     '''
     Small function for returning the scatter intensity
     profile from ggems simulation
-    
+
     Can only be run after a simulation has been performed
     otherwise the variables won't be recognized
     '''
@@ -96,15 +121,23 @@ def init_ggems_scatter_simulation(simulation_directory=None, phantom_name=None, 
         material_file = kwargs['material_file']
         spectrum_file = kwargs['spectrum_file']
     else:
-        range_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_range.txt')
-        mhd_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_phantom.mhd')
-        material_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_materials.txt')
-        spectrum_file = os.path.join(simulation_directory, phantom_name, f'{phantom_name}_spectrum.dat')
+        range_file = os.path.join(
+            simulation_directory, phantom_name, f'{phantom_name}_range.txt')
+        mhd_file = os.path.join(simulation_directory,
+                                phantom_name, f'{phantom_name}_phantom.mhd')
+        material_file = os.path.join(
+            simulation_directory, phantom_name, f'{phantom_name}_materials.txt')
+        spectrum_file = os.path.join(
+            simulation_directory, phantom_name, f'{phantom_name}_spectrum.dat')
+
+    if simulation_directory is None:
+        simulation_directory = os.path.dirname('.')
+        phantom_name = mhd_file.split('/')[-1].split('.')[0]
 
     out_dir = os.path.join(simulation_directory, phantom_name, 'out')
     os.makedirs(out_dir, exist_ok=True)
 
-    phantom = get_phantom_from_mhd(mhd_file,range_file,material_file)
+    phantom = get_phantom_from_mhd(mhd_file, range_file, material_file)
     phantom.out_dir = out_dir
     phantom.is_ggems = True
 
@@ -114,15 +147,17 @@ def init_ggems_scatter_simulation(simulation_directory=None, phantom_name=None, 
         return phantom, s
     else:
         return phantom, None
-    
 # %%
+
+
 def get_element_base():
     element_base = {
         # number: name symbol common_ions uncommon_ions
         # ion info comes from Wikipedia: list of oxidation states of the elements.
         0: ['Neutron',     'n',  [],         []],
         1: ['Hydrogen',    'H',  [-1, 1],    []],
-        2: ['Helium',      'He', [],         [1, 2]],  # +1,+2  http://periodic.lanl.gov/2.shtml
+        # +1,+2  http://periodic.lanl.gov/2.shtml
+        2: ['Helium',      'He', [],         [1, 2]],
         3: ['Lithium',     'Li', [1],        []],
         4: ['Beryllium',   'Be', [2],        [1]],
         5: ['Boron',       'B',  [3],        [-5, -1, 1, 2]],
@@ -133,7 +168,7 @@ def get_element_base():
         10: ['Neon',       'Ne', [],         []],
         11: ['Sodium',     'Na', [1],        [-1]],
         12: ['Magnesium',  'Mg', [2],        [1]],
-        13: ['Aluminum',   'Al', [3],        [-2, -1, 1, 2]],
+        13: ['Aluminium',   'Al', [3],        [-2, -1, 1, 2]],
         14: ['Silicon',    'Si', [-4, 4],    [-3, -2, -1, 1, 2, 3]],
         15: ['Phosphorus', 'P',  [-3, 3, 5], [-2, -1, 1, 2, 4]],
         16: ['Sulfur',     'S',  [-2, 2, 4, 6],    [-1, 1, 3, 5]],
@@ -200,7 +235,8 @@ def get_element_base():
         77: ['Iridium',    'Ir', [3, 4],     [-3, -1, 1, 2, 5, 6, 7, 8, 9]],
         78: ['Platinum',   'Pt', [2, 4],     [-3, -2, -1, 1, 3, 5, 6]],
         79: ['Gold',       'Au', [3],        [-3, -2, -1, 1, 2, 5]],
-        80: ['Mercury',    'Hg', [1, 2],     [-2, 4]],  # +4  doi:10.1002/anie.200703710
+        # +4  doi:10.1002/anie.200703710
+        80: ['Mercury',    'Hg', [1, 2],     [-2, 4]],
         81: ['Thallium',   'Tl', [1, 3],     [-5, -2, -1, 2]],
         82: ['Lead',       'Pb', [2, 4],     [-4, -2, -1, 1, 3]],
         83: ['Bismuth',    'Bi', [3],        [-3, -2, -1, 1, 2, 4, 5]],
@@ -242,9 +278,10 @@ def get_element_base():
     }
     return element_base
 
+
 def get_element_density():
     # Get the path to the density data file
-    density_file = os.path.join(data_path,'density.npy')
+    density_file = os.path.join(data_path, 'density.npy')
 
     # Check if a file containing the density data exists
     if not os.path.isfile(density_file):
@@ -253,11 +290,12 @@ def get_element_density():
         try:
             from physdata.xray import fetch_elements  # pip install physdata
         except:
-            print('Could not import physdata. Please install it with "pip install physdata"')
+            print(
+                'Could not import physdata. Please install it with "pip install physdata"')
             return
         element_density = []
 
-        for element in fetch_elements():   
+        for element in fetch_elements():
             element_density.append(element.density)
 
         # Save the data to a file
@@ -266,8 +304,9 @@ def get_element_density():
         # If it does, load the data from the file
         logging.info('Loading density data from file')
         element_density = np.load(density_file)
-    
+
     return element_density
+
 
 def make_material_mu_files(material_file):
 
@@ -278,80 +317,163 @@ def make_material_mu_files(material_file):
     elements = []
     densities = []
 
-    with open(material_file,'r') as f:
-        
+    with open(material_file, 'r') as f:
+
         lines = f.readlines()
-            
+
         for ii in range(len(lines)):
-            
+
             line = lines[ii]
-            
+
             if 'd=' in line:
-                
+
                 name = line.split(':')[0]
                 rest = line.split(':')[1]
 
                 density = float(rest.split(';')[0].split('=')[1].split(' ')[0])
 
                 jj = ii + 1
-                
+
                 weight = []
                 element = []
-                
+
                 while jj < len(lines) and '+el' in lines[jj]:
-                    
+
                     element.append(lines[jj].split('=')[1].split(';')[0])
                     weight.append(float(lines[jj].split('=')[-1]))
-                    
+
                     jj += 1
-                
+
                 elements.append(element)
-                weights.append(weight)   
+                weights.append(weight)
                 names.append(name)
                 densities.append(density)
 
-    H = np.loadtxt(os.path.join(data_path,'mu','1.csv'),delimiter=',')
+    H = np.loadtxt(os.path.join(data_path, 'mu', '1.csv'), delimiter=',')
 
     for kk, name in enumerate(names):
-        
+
         attenuations = []
         energies = []
         lens = []
-                            
-        for weight, element in zip(weights[kk],elements[kk]):
-            
+
+        for weight, element in zip(weights[kk], elements[kk]):
+
             atomic_number = name_to_atomic_number(element)
 
-            attenuation = np.loadtxt(os.path.join(data_path,'mu',str(atomic_number)+'.csv'),delimiter=',')[1]
+            attenuation = np.loadtxt(os.path.join(
+                data_path, 'mu', str(atomic_number)+'.csv'), delimiter=',')[1]
             attenuation = attenuation/element_density[atomic_number-1]*weight
-            
+
             attenuations.append(attenuation)
-            energies.append(np.loadtxt(os.path.join(data_path,'mu',str(atomic_number)+'.csv'),delimiter=',')[0])
+            energies.append(np.loadtxt(os.path.join(
+                data_path, 'mu', str(atomic_number)+'.csv'), delimiter=',')[0])
             lens.append(len(attenuation))
-            
+
         if max(lens) == 36:
-            
-            attenuation_all = np.zeros([2,len(H[0])])
+
+            attenuation_all = np.zeros([2, len(H[0])])
             attenuation_all[0] = H[0]
-            
+
             for ii in range(len(attenuations)):
-                
+
                 attenuation_all[1] += attenuations[ii]
-            
+
         else:
-            
+
             energies_larger = np.unique(np.hstack(energies))
-            
-            attenuation_all = np.zeros([2,len(energies_larger)])
+
+            attenuation_all = np.zeros([2, len(energies_larger)])
             attenuation_all[0] = energies_larger
-            
+
             for ii in range(len(attenuations)):
-                
-                f = log_interp_1d(energies[ii],attenuations[ii])
-                
+
+                f = log_interp_1d(energies[ii], attenuations[ii])
+
                 attenuation_all[1] += f(energies_larger)
-                
-            
+
         attenuation_all[1] *= densities[kk]
-        np.savetxt(os.path.join(data_path,'mu',name+".csv"),attenuation_all, fmt="%.8G",delimiter=",")
+        np.savetxt(os.path.join(data_path, 'mu', name+".csv"),
+                   attenuation_all, fmt="%.8G", delimiter=",")
         logging.info(f'    Saved {name} atten to file in data/mu/{name}.csv')
+
+
+def write_material_file(material_file, names, densities, elements, weights):
+
+    template_file = os.path.join(data_path, 'mu', 'template.txt')
+
+    with open(material_file, 'w') as f:
+        # Write the contents of the template file to the new material file
+        with open(template_file, 'r') as f_template:
+            f.write(f_template.read())
+
+        f.write('\n')
+
+        for ii in range(len(names)):
+
+            print(
+                f'name: {names[ii]}; d={densities[ii]:.4f} g/cm3 ; n={len(elements)};')
+            f.write(
+                f'name: {names[ii]}; d={densities[ii]:.4f} g/cm3 ; n={len(elements)};\n')
+
+            for jj in range(len(elements)):
+
+                f.write(
+                    f'\t+el={elements[jj]};{weights[ii][jj]:.4f}\n')
+
+            f.write('\n')
+
+
+def make_material_mu_files_schneider_all(names, elements, weights, material_file=None, densities=None):
+
+    for name, weight in zip(names, weights):
+        make_material_mu_files_schneider(name, elements, weight)
+    if material_file is not None:
+        write_material_file(material_file, names, densities, elements, weights)
+
+
+def make_material_mu_files_schneider(name, elements, weights):
+
+    element_density = get_element_density()
+
+    H = np.loadtxt(os.path.join(data_path, 'mu', '1.csv'), delimiter=',')
+
+    attenuations = []
+    energies = []
+    lens = []
+
+    for weight, element in zip(weights, elements):
+        atomic_number = name_to_atomic_number(element)
+        attenuation = np.loadtxt(os.path.join(
+            data_path, 'mu', str(atomic_number)+'.csv'), delimiter=',')[1]
+        attenuation = attenuation/element_density[atomic_number-1]*weight
+
+        attenuations.append(attenuation)
+        energies.append(np.loadtxt(os.path.join(
+            data_path, 'mu', str(atomic_number)+'.csv'), delimiter=',')[0])
+        lens.append(len(attenuation))
+
+    if max(lens) == 36:
+
+        attenuation_all = np.zeros([2, len(H[0])])
+        attenuation_all[0] = H[0]
+
+        for ii in range(len(attenuations)):
+            attenuation_all[1] += attenuations[ii]
+
+    else:
+
+        energies_larger = np.unique(np.hstack(energies))
+        attenuation_all = np.zeros([2, len(energies_larger)])
+        attenuation_all[0] = energies_larger
+
+        for ii in range(len(attenuations)):
+
+            f = log_interp_1d(energies[ii], attenuations[ii])
+            attenuation_all[1] += f(energies_larger)
+
+        # attenuation_all[1] *= densities[kk]
+        np.savetxt(os.path.join(data_path, 'mu_over_rho', name+".csv"),
+                   attenuation_all, fmt="%.8G", delimiter=",")
+        logging.info(
+            f'    Saved {name} atten to file in data/mu_over_rho/{name}.csv')

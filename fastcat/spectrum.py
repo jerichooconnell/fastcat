@@ -28,52 +28,66 @@ try:
     plt.ion()
     PLOT_AVAILABLE = True
 except ImportError:
-    warnings.warn("Unable to import matplotlib. Plotting will be disabled.")
+    warnings.warn(
+        "Unable to import matplotlib. Plotting will be disabled.")
     PLOT_AVAILABLE = False
 
-data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+data_path = os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "data")
 
 __author__ = 'JOC'
 __version__ = "0.0.1"
 
 # Some functions to avoid peaking at the directory structure
+
+
 def print_dirs(mypath):
-    onlyfiles = sorted([f.split('.')[0] for f in os.listdir(mypath) if os.path.isdir(os.path.join(mypath, f))])
+    onlyfiles = sorted([f.split('.')[0] for f in os.listdir(
+        mypath) if os.path.isdir(os.path.join(mypath, f))])
     print(*onlyfiles, sep='\n')
 
+
 def print_files(mypath):
-    onlyfiles = sorted([f.split('.')[0] for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f))])
+    onlyfiles = sorted([f.split('.')[0] for f in os.listdir(
+        mypath) if os.path.isfile(os.path.join(mypath, f))])
     print(*onlyfiles, sep='\n')
+
 
 def list_detectors():
     print('''
 AVAILABLE DETECTORS (for fc.detector(s,'DETECTOR')):
 ''')
-    print_dirs(os.path.join(data_path,'Detectors'))
+    print_dirs(os.path.join(data_path, 'Detectors'))
+
 
 def list_materials():
     print('''
 AVAILABLE MATERIALS (for fc.Phantom.phan_map = ['MATERIAL']:
 Integers are atomic numbers
 ''')
-    print_files(os.path.join(data_path,'mu'))
+    print_files(os.path.join(data_path, 'mu'))
+
+
 def list_spectra_files():
     print('''
 AVAILABLE Saved SPECTRA (for fc.Spectrum.load('SPECTRA'):
 Can also use an analytical spectra
 ''')
-    print_files(os.path.join(data_path,'MV_spectra'))
+    print_files(os.path.join(data_path, 'MV_spectra'))
+
+
 def list_filters():
     print('''
 AVAILABLE Saved FILTERS:
 ''')
-    print_files(os.path.join(data_path,'filters'))
+    print_files(os.path.join(data_path, 'filters'))
 # def list_phantoms():
 #     print('''
 # AVAILABLE Saved Phantoms (for fc.Phantom.phan_map = ['MATERIAL']:
 # ''')
 #     print_files(os.path.join(data_path,'MV_spectra'))
 # # def list_saved_sims():
+
 
 def log_interp_1d(xx, yy, kind="linear"):
     """
@@ -94,7 +108,8 @@ def log_interp_1d(xx, yy, kind="linear"):
     log_y = np.log(yy)
     # No big difference in efficiency was found when replacing interp1d by
     # UnivariateSpline
-    lin_interp = interpolate.interp1d(log_x, log_y, kind=kind)
+    lin_interp = interpolate.interp1d(
+        log_x, log_y, kind=kind)
     return lambda zz: np.exp(lin_interp(np.log(zz)))
 
 
@@ -315,7 +330,7 @@ class Spectrum:
         return x2, y2
 
     def get_plot(
-        self, place, show_mesh=True, prepare_format=True, peak_shape=triangle,c='b'
+        self, place, show_mesh=True, prepare_format=True, peak_shape=triangle, c='b'
     ):
         """
         Prepare a plot of the data in the given place
@@ -334,14 +349,19 @@ class Spectrum:
 
         """
         if prepare_format:
-            place.tick_params(axis="both", which="major", labelsize=10)
-            place.tick_params(axis="both", which="minor", labelsize=8)
-            place.set_xlabel("E", fontsize=10, fontweight="bold")
-            place.set_ylabel("f(E)", fontsize=10, fontweight="bold")
+            place.tick_params(
+                axis="both", which="major", labelsize=10)
+            place.tick_params(
+                axis="both", which="minor", labelsize=8)
+            place.set_xlabel(
+                "E", fontsize=10, fontweight="bold")
+            place.set_ylabel(
+                "f(E)", fontsize=10, fontweight="bold")
 
         x2, y2 = self.get_points(peak_shape=peak_shape)
         if show_mesh:
-            place.plot(self.x, self.y/np.max(self.y), f"{c}.", x2, y2/max(y2), f"{c}-")
+            place.plot(self.x, self.y/np.max(self.y),
+                       f"{c}.", x2, y2/max(y2), f"{c}-")
         else:
             place.plot(x2, y2/max(y2), f"{c}-")
 
@@ -357,7 +377,8 @@ class Spectrum:
         """
         if PLOT_AVAILABLE:
             plt.clf()
-            self.get_plot(plt, show_mesh=show_mesh, prepare_format=False)
+            self.get_plot(
+                plt, show_mesh=show_mesh, prepare_format=False)
             plt.xlabel("E")
             plt.ylabel("f(E)")
             plt.gcf().canvas.set_window_title(
@@ -385,10 +406,23 @@ class Spectrum:
         with open(route, "w") as csvfile:
             w = csv.writer(csvfile, dialect="excel")
             if transpose:
-                w.writerows([list(a) for a in zip(*[x2, y2])])
+                w.writerows([list(a)
+                            for a in zip(*[x2, y2])])
             else:
                 w.writerow(x2)
                 w.writerow(y2)
+
+    def write_dat_file(self, filename):
+        # Write the spectrum to a text file
+        with open(filename, "w") as f:
+
+            self.y = self.y/np.sum(self.y)
+
+            for i in range(len(self.x)):
+                # Print the spectrum file to a text file
+                # with self.y normalized, and printed with 20 decimal places
+                f.write(
+                    f"{self.x[i]/1000:.3f} {self.y[i]:.20f}\n")
 
     def get_norm(self, weight=None):
         """
@@ -436,7 +470,8 @@ class Spectrum:
         """
         norm = self.get_norm(weight=weight) / value
         self.y = [a / norm for a in self.y]
-        self.discrete = [[a[0], a[1] / norm, a[2]] for a in self.discrete]
+        self.discrete = [[a[0], a[1] / norm, a[2]]
+                         for a in self.discrete]
 
     def hvl(self, value=0.5, weight=lambda x: 1, mu=lambda x: 1, energy_min=0):
         """
@@ -470,7 +505,8 @@ class Spectrum:
             y = self.y[low_index:]
             # Normalize to 1 with weighting function
             y2 = list(map(lambda a, b: weight(a) * b, x, y))
-            discrete2 = [weight(a[0]) * a[1] for a in self.discrete]
+            discrete2 = [weight(a[0]) * a[1]
+                         for a in self.discrete]
             n2 = integrate.simps(y2, x=x) + sum(discrete2)
             y3 = [a / n2 for a in y2]
             discrete3 = [
@@ -479,10 +515,12 @@ class Spectrum:
             # Now we only need to add attenuation as a function of depth
             f = (
                 lambda t: integrate.simps(
-                    list(map(lambda a, b: b * math.exp(-mu(a) * t), x, y3)),
+                    list(map(lambda a, b: b *
+                         math.exp(-mu(a) * t), x, y3)),
                     x=x,
                 )
-                + sum([c[1] * math.exp(-mu(c[0]) * t) for c in discrete3])
+                + sum([c[1] * math.exp(-mu(c[0]) * t)
+                      for c in discrete3])
                 - value
             )
             # Search the order of magnitude of
@@ -517,11 +555,13 @@ class Spectrum:
         """
 
         self.y = list(
-            map(lambda x, y: y * math.exp(-mu(x) * depth), self.x, self.y)
+            map(lambda x, y: y *
+                math.exp(-mu(x) * depth), self.x, self.y)
         )
         self.discrete = list(
             map(
-                lambda l: [l[0], l[1] * math.exp(-mu(l[0]) * depth), l[2]],
+                lambda l: [
+                    l[0], l[1] * math.exp(-mu(l[0]) * depth), l[2]],
                 self.discrete,
             )
         )
@@ -546,7 +586,8 @@ class Spectrum:
                     fluence.append(float(line.split()[1]))
         else:
             with open(
-                os.path.join(data_path, "MV_spectra", spectrum_file + '.txt')
+                os.path.join(
+                    data_path, "MV_spectra", spectrum_file + '.txt')
             ) as f:
                 for line in f:
                     energies.append(float(line.split()[0]))
@@ -579,7 +620,8 @@ class Spectrum:
         """Multiply the counts by an scalar."""
         s2 = self.clone()
         s2.y = [a * other for a in self.y]
-        s2.discrete = [[a[0], a[1] * other, a[2]] for a in self.discrete]
+        s2.discrete = [[a[0], a[1] * other, a[2]]
+                       for a in self.discrete]
         return s2
 
     def __rmul__(self, other):
@@ -599,8 +641,6 @@ Fastcat Spectrum Object
         return str_det
 
 
-
-
 def get_fluence(e_0=100.0):
     """
     Returns a function representing the electron
@@ -616,11 +656,13 @@ def get_fluence(e_0=100.0):
     # List of available energies
     e0_str_list = list(
         map(
-            lambda x: (os.path.split(x)[1]).split(".csv")[0],
+            lambda x: (os.path.split(
+                x)[1]).split(".csv")[0],
             glob(os.path.join(data_path, "fluence", "*.csv")),
         )
     )
-    e0_list = sorted(list(map(int, list(filter(str.isdigit, e0_str_list)))))
+    e0_list = sorted(
+        list(map(int, list(filter(str.isdigit, e0_str_list)))))
 
     e_closest = min(e0_list, key=lambda x: abs(x - e_0))
 
@@ -634,7 +676,8 @@ def get_fluence(e_0=100.0):
         u = np.array([float(a) for a in t[0].split(",")])
     t = []
     with open(
-        os.path.join(data_path, "fluence", "".join([str(e_closest), ".csv"])),
+        os.path.join(data_path, "fluence", "".join(
+            [str(e_closest), ".csv"])),
         "r",
     ) as csvfile:
         r = csv.reader(
@@ -681,7 +724,8 @@ def get_cs(e_0=100, z=74):
         for row in r:
             t.append([float(a) for a in row[0].split(",")])
     t = np.array(t)
-    scaled = interpolate.RectBivariateSpline(log_e_e, k, t, kx=3, ky=1)
+    scaled = interpolate.RectBivariateSpline(
+        log_e_e, k, t, kx=3, ky=1)
     m_electron = 511
     z2 = z * z
     return (
@@ -706,7 +750,8 @@ def get_mu(z=74):
         a function of the energy measured in keV.
     """
     with open(
-        os.path.join(data_path, "mu", "".join([str(z), ".csv"])), "r"
+        os.path.join(data_path, "mu", "".join(
+            [str(z), ".csv"])), "r"
     ) as csvfile:
         r = csv.reader(
             csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
@@ -801,7 +846,8 @@ def get_source_function(fluence, cs, mu, theta, e_g, phi=0.0):
         The attenuated source function s(u,x).
     """
     factor = (
-        -mu(e_g) / math.sin(math.radians(theta)) / math.cos(math.radians(phi))
+        -mu(e_g) / math.sin(math.radians(theta)) /
+        math.cos(math.radians(phi))
     )
     return lambda u, x: fluence(x, u) * cs(e_g, u) * math.exp(factor * x)
 
@@ -848,7 +894,8 @@ def integrate_source(
     """
     if e_g >= e_0:
         return 0
-    f = get_source_function(fluence, cs, mu, theta, e_g, phi=phi)
+    f = get_source_function(
+        fluence, cs, mu, theta, e_g, phi=phi)
     (y, y_err) = custom_dblquad(
         f, x_min, x_max, e_g / e_0, 1, epsrel=epsrel, limit=100
     )
@@ -883,12 +930,16 @@ def add_char_radiation(s, method="fraction_above_poly"):
 
     f = s.get_continuous_function()
     norm = integrate.quad(f, s.x[0], s.x[-1], limit=2000)[0]
-    fraction_above = integrate.quad(f, 74, s.x[-1], limit=2000)[0] / norm
+    fraction_above = integrate.quad(
+        f, 74, s.x[-1], limit=2000)[0] / norm
 
     if method == "fraction_above_linear":
-        s.discrete.append([58.65, 0.1639 * fraction_above * norm, 1])
-        s.discrete.append([67.244, 0.03628 * fraction_above * norm, 1])
-        s.discrete.append([69.067, 0.01410 * fraction_above * norm, 1])
+        s.discrete.append(
+            [58.65, 0.1639 * fraction_above * norm, 1])
+        s.discrete.append(
+            [67.244, 0.03628 * fraction_above * norm, 1])
+        s.discrete.append(
+            [69.067, 0.01410 * fraction_above * norm, 1])
     else:
         if method != "fraction_above_poly":
             logging.info(
@@ -947,6 +998,7 @@ def console_monitor(a, b):
         b: An object representing the total amount
         (... of a number representing a total).
     """
+
     print("Calculation: ", a, "/", b)
 
 
@@ -1003,47 +1055,6 @@ def calculate_spectrum_mesh(
 
     return s
 
-def Spekpy(
-    kvp,
-    th,
-    **kwargs
-):
-    '''
-    Calls spekpy spectrum and use that for the energy and the fluence of
-    fastcat spectrum
-    
-    Wrapper for spekpy
-    '''
-
-
-    try:
-        import spekpy as spek
-    except ImportError as error:
-        # Output expected ImportErrors.
-        print(error.__class__.__name__ + ": " + error.message)
-        print(
-            'You can install spekpy following instructions at https://bitbucket.org/spekpy'
-        )
-    except Exception as exception:
-        # Output unexpected Exceptions.
-        print(exception, False)
-        print(exception.__class__.__name__ + ": " + exception.message)
-        
-    s = Spectrum()
-    
-    s_spek = spek.Spek(
-    kvp,
-    th,
-    **kwargs)
-    
-    s.x, s.y = s_spek.get_spectrum()
-    
-    s.spekpy = True
-    s.kV = True
-    s.kvp = kvp
-    s.th = th
-    
-    return s
 
 def Spekpy(
     kvp,
@@ -1053,40 +1064,86 @@ def Spekpy(
     '''
     Calls spekpy spectrum and use that for the energy and the fluence of
     fastcat spectrum
-    
+
     Wrapper for spekpy
     '''
-
 
     try:
         import spekpy as spek
     except ImportError as error:
         # Output expected ImportErrors.
-        print(error.__class__.__name__ + ": " + error.message)
+        print(error.__class__.__name__ +
+              ": " + error.message)
         print(
             'You can install spekpy following instructions at https://bitbucket.org/spekpy'
         )
     except Exception as exception:
         # Output unexpected Exceptions.
         print(exception, False)
-        print(exception.__class__.__name__ + ": " + exception.message)
-        
+        print(exception.__class__.__name__ +
+              ": " + exception.message)
+
     s = Spectrum()
-    
+
     s_spek = spek.Spek(
-    kvp,
-    th,
-    **kwargs)
-    
+        kvp,
+        th,
+        **kwargs)
+
     s.x, s.y = s_spek.get_spectrum()
-    
+
     s.spekpy = True
     s.kV = True
     s.kvp = kvp
     s.th = th
-    
+
     return s
-    
+
+
+def Spekpy(
+    kvp,
+    th,
+    **kwargs
+):
+    '''
+    Calls spekpy spectrum and use that for the energy and the fluence of
+    fastcat spectrum
+
+    Wrapper for spekpy
+    '''
+
+    try:
+        import spekpy as spek
+    except ImportError as error:
+        # Output expected ImportErrors.
+        print(error.__class__.__name__ +
+              ": " + error.message)
+        print(
+            'You can install spekpy following instructions at https://bitbucket.org/spekpy'
+        )
+    except Exception as exception:
+        # Output unexpected Exceptions.
+        print(exception, False)
+        print(exception.__class__.__name__ +
+              ": " + exception.message)
+
+    s = Spectrum()
+
+    s_spek = spek.Spek(
+        kvp,
+        th,
+        **kwargs)
+
+    s.x, s.y = s_spek.get_spectrum()
+
+    s.spekpy = True
+    s.kV = True
+    s.kvp = kvp
+    s.th = th
+
+    return s
+
+
 def calculate_spectrum(
     e_0,
     theta,
