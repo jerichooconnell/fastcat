@@ -1,7 +1,6 @@
 # Fastcat
 
 [![PyPI Version][pypi-image]][pypi-url]
-[![Build Status][build-image]][build-url]
 
 ![anim](anim.gif)
 
