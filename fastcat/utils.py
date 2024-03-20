@@ -9,6 +9,7 @@ from fastcat.spectrum import Spectrum, log_interp_1d
 from fastcat.ggems_simulate import Phantom
 
 import logging
+import nrrd
 
 
 def read_mhd(filename):
@@ -52,11 +53,24 @@ def write_range_file(filename, materials):
     """Writes a range file"""
 
     range_file = os.path.join(
-        data_path, 'user_phantoms', f'{filename.split(".")[0]}_range.txt')
+        data_path, 'user_phantoms', filename.split(".")[0], f'{filename.split(".")[0]}_range.txt')
+    
+    # Check if the directory exists
+    if not os.path.exists(os.path.dirname(range_file)):
+        os.makedirs(os.path.dirname(range_file))
+    
     with open(range_file, 'wt') as f:
         for i in range(len(materials)):
             f.write(f'{i} {i} {materials[i]}\n')
 
+def write_mhd_file(filename, numpyImage, numpyOrigin, numpySpacing):
+    """Writes a numpy array to an mhd file"""
+    itkimage = sitk.GetImageFromArray(numpyImage)
+    itkimage.SetOrigin(numpyOrigin[::-1])
+    itkimage.SetSpacing(numpySpacing[::-1])
+    mhd_file = os.path.join(
+        data_path, 'user_phantoms', filename.split(".")[0], f'{filename.split(".")[0]}_phantom.mhd')
+    sitk.WriteImage(itkimage, mhd_file)
 
 def get_phantom_from_mhd(filename, range_file, material_file=None):
     """Reads an mhd file and returns a phantom object"""
@@ -397,12 +411,89 @@ def make_material_mu_files(material_file):
                    attenuation_all, fmt="%.8G", delimiter=",")
         logging.info(f'    Saved {name} atten to file in data/mu/{name}.csv')
 
+def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_arrays=False):
+
+    conv_file = os.path.join(data_path, 'user_phantoms', conversion_file)
+    # Read the text file
+    with open(conv_file, 'r') as f:
+        lines = f.readlines()
+    # remove the newline character
+    lines = [line.strip() for line in lines]
+    # remove empty lines
+    lines = [line for line in lines if line]
+    # remove comments
+    lines = [line for line in lines if not line.startswith('#')]
+    # Parse the lines into variables
+    HU_sections = list(map(int, lines[0].split('=')[1].split()[1:]))
+    density_offset = list(map(float, lines[1].split('=')[1].split()[1:]))
+    density_factor = list(map(float, lines[2].split('=')[1].split()[1:]))
+    density_factor_offset = list(map(float, lines[3].split('=')[1].split()[1:]))
+    elements = [el.split('"')[1] for el in lines[4].split('=')[1].split()[1:]]
+    HU_to_material_sections = list(map(int, lines[5].split('=')[1].split()[1:]))
+    materials_weight = [list(map(float, line.split('=')[1].split()[1:])) for line in lines[6:-1]]
+    density_correction = list(map(float, lines[-1].split('=')[1].split()[1:-1]))
+    names = [f"SchneiderMaterialsWeight{i+1}" for i in range(len(materials_weight))]
+
+    # Define the function to decompose a DICOM array into a binary array of 25 materials
+    def decompose_dicom(dicom_array):
+        # Calculate the density array
+        arr_clipped = np.clip(dicom_array, -1000, 2995)
+        HU_vals = np.arange(-1000, 2996)
+        density_map = np.zeros_like(density_correction)
+        for ii, HU_section in enumerate(HU_sections[:-1] ):
+            # print(ii,HU_sections[ii])
+            # Formula: Density = (Offset + (Factor*(FactorOffset + HU[-1000,2995] ))) * DensityCorrection
+            density_map[HU_sections[ii] + 1000:HU_sections[ii+1]+ 1000] = (
+                density_offset[ii] + 
+                (density_factor[ii] * (density_factor_offset[ii] +
+                                    HU_vals[HU_sections[ii] + 1000:
+                                            HU_sections[ii+1]+ 1000]))) * density_correction[HU_sections[ii] + 1000:
+                                            HU_sections[ii+1]+ 1000]
+
+        # Initialize the binary array
+        binary_array = np.zeros_like(arr_clipped, dtype=int)
+
+        # # Decompose the DICOM array into the binary array
+        for i in range(25):
+            inds = (HU_to_material_sections[i] <= arr_clipped) & (arr_clipped < HU_to_material_sections[i+1])
+            binary_array[inds] = i
+
+        # Map the HU values to density using the density map
+        arr_clipped = arr_clipped + 1000
+
+        # Map the HU values to the density values using the density map as a lookup table
+        density_array = density_map[arr_clipped]
+
+        return density_map, binary_array, density_array
+       
+    # Read the nrrd file
+    nrrd_data, nrrd_header = nrrd.read(nrrd_file)
+    numpyOrigin = nrrd_header['space origin']
+    numpySpacing = nrrd_header['space directions']
+    # Decompose the DICOM array
+    density_map, binary_array, density_array = decompose_dicom(nrrd_data)
+    average_densities = [np.mean(density_map[HU_to_material_sections[i]+1000:HU_to_material_sections[i+1]+1000]) for i in range(len(HU_to_material_sections[:-1]))]
+
+    phantom_name = nrrd_file.split('/')[-1].split('.')[0]
+
+    make_material_mu_files_schneider_all(names, elements, materials_weight, phantom_name, average_densities)
+    write_range_file(phantom_name,names)
+    write_mhd_file(phantom_name, binary_array.astype(np.uint32), numpyOrigin, np.abs(numpySpacing).max(axis=0))
+
+    if return_arrays:
+        return density_map, binary_array, density_array
 
 def write_material_file(material_file, names, densities, elements, weights):
 
     template_file = os.path.join(data_path, 'mu', 'template.txt')
 
-    with open(material_file, 'w') as f:
+    mat_file = os.path.join(data_path, 'user_phantoms', material_file.split(".")[0], f'{material_file.split(".")[0]}_materials.txt')
+    
+    # Check if the directory exists
+    if not os.path.exists(os.path.dirname(mat_file)):
+        os.makedirs(os.path.dirname(mat_file))
+    
+    with open(mat_file, 'w') as f:
         # Write the contents of the template file to the new material file
         with open(template_file, 'r') as f_template:
             f.write(f_template.read())
@@ -419,7 +510,7 @@ def write_material_file(material_file, names, densities, elements, weights):
             for jj in range(len(elements)):
 
                 f.write(
-                    f'\t+el={elements[jj]};{weights[ii][jj]:.4f}\n')
+                    f'\t+el={elements[jj]}; f={weights[ii][jj]:.4f}\n')
 
             f.write('\n')
 

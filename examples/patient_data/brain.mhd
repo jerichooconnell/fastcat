@@ -1,0 +1,13 @@
+ObjectType = Image
+NDims = 3
+BinaryData = True
+BinaryDataByteOrderMSB = False
+CompressedData = False
+TransformMatrix = 1 0 0 0 1 0 0 0 1
+Offset = -44.619098663330078 156.15199279785153 135.5679931640625
+CenterOfRotation = 0 0 0
+AnatomicalOrientation = RAI
+ElementSpacing = 1.25 0.76171900000000003 0.76171900000000003
+DimSize = 9 300 345
+ElementType = MET_DOUBLE
+ElementDataFile = brain.raw
