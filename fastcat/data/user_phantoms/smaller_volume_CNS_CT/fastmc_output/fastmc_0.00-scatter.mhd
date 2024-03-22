@@ -1,0 +1,7 @@
+ObjectType = Image
+BinaryDataByteOrderMSB = False
+NDims = 3
+ElementSpacing = 0.784 0.784 0.6
+DimSize = 512 512 1
+ElementType = MET_INT
+ElementDataFile = fastmc_0.00-scatter.raw

@@ -10,6 +10,7 @@ fastcat/data/phantoms/breast*
 *.raw
 *.npy
 *.nrrd
+fastcat/data/bowtie/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

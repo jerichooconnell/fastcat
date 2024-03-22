@@ -103,7 +103,7 @@ class Phantom:
     Super that contains the simulation method
     '''
 
-    def return_projs(
+    def simulate(
         self,
         kernel,
         spectra,
@@ -593,11 +593,19 @@ class Phantom:
         else:
             for ii in range(1, len(self.phan_map)):
                 masks[ii - 1] = self.phantom == ii
-        for ii in range(1, len(self.phan_map)):
-            energy2mu_functions.append(
-                spectrum.get_mu(
-                    self.phan_map[ii].split(":")[0])
-            )
+
+        if hasattr(self, 'from_nrrd'):
+            for ii in range(1, len(self.phan_map)):
+                energy2mu_functions.append(
+                    spectrum.get_mu_over_rho(
+                        self.phan_map[ii].split(":")[0])
+                )
+        else:
+            for ii in range(1, len(self.phan_map)):
+                energy2mu_functions.append(
+                    spectrum.get_mu(
+                        self.phan_map[ii].split(":")[0])
+                )
 
         phantom2 = self.phantom.copy().astype(np.float32)
 
@@ -682,7 +690,10 @@ class Phantom:
                                  kwargs['proj_file']+'_'+f'{energy}'+'.npy')
                 )
             else:
-                attenuation = self.ray_trace(phantom2, tile)
+                if hasattr(self, 'from_nrrd'):
+                    attenuation = self.ray_trace(phantom2*self.density, tile)
+                else:
+                    attenuation = self.ray_trace(phantom2, tile)
 
             if self.save_proj:
                 np.save(

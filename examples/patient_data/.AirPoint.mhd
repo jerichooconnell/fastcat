@@ -1,0 +1,7 @@
+ObjectType = Image
+BinaryDataByteOrderMSB = False
+NDims = 3
+ElementSpacing = 0.1 0.1 0.1
+DimSize = 1 1 1
+ElementType = MET_INT
+ElementDataFile = .AirPoint.raw

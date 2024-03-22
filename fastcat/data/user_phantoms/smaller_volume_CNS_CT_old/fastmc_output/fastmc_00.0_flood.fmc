@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FastMCParameters>
+    <parameter name="NumberOfParticles">100000.0</parameter>
+    <parameter name="XRayTubeAngle">0</parameter>
+    <parameter name="SourceDetectorDistance">1510</parameter>
+    <parameter name="SourceIsocenterDistance">1000.0</parameter>
+    <parameter name="FanAngle">-1</parameter>
+    <parameter name="DetectorElementsX">512</parameter>
+    <parameter name="DetectorElementsY">512</parameter>
+    <parameter name="ElementXSize">0.784</parameter>
+    <parameter name="ElementYSize">0.784</parameter>
+    <parameter name="DetectorThickness">0.6</parameter>
+    <parameter name="DetectorThickness2">0.8</parameter>
+    <parameter name="DetectorMaterial">CsI</parameter>
+    <parameter name="FieldX1At100cm">133.80266666666668</parameter>
+    <parameter name="FieldX2At100cm">133.80266666666668</parameter>
+    <parameter name="FieldY1At100cm">133.80266666666668</parameter>
+    <parameter name="FieldY2At100cm">133.80266666666668</parameter>
+    <parameter name="ShiftXcm">0</parameter>
+    <parameter name="ShiftYcm">0</parameter>
+    <parameter name="BowtieFile">/home/jericho/Software/fastcat/fastcat/data/bowties/full_fan_alt.dat</parameter>
+    <parameter name="OutputFilename">/home/jericho/Software/fastcat/fastcat/data/user_phantoms/smaller_volume_CNS_CT/fastmc_simulation/fastmc_00.0_flood</parameter>
+    <parameter name="MaterialsDatabase">/home/jericho/Software/fastcat/fastcat/data/user_phantoms/smaller_volume_CNS_CT/smaller_volume_CNS_CT_materials.txt</parameter>
+    <parameter name="SpectrumFile">/home/jericho/Software/fastcat/fastcat/data/user_phantoms/smaller_volume_CNS_CT/spectrum.dat</parameter>
+</FastMCParameters>

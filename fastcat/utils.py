@@ -72,7 +72,7 @@ def write_mhd_file(filename, numpyImage, numpyOrigin, numpySpacing):
         data_path, 'user_phantoms', filename.split(".")[0], f'{filename.split(".")[0]}_phantom.mhd')
     sitk.WriteImage(itkimage, mhd_file)
 
-def get_phantom_from_mhd(filename, range_file, material_file=None):
+def get_phantom_from_mhd(filename, range_file, material_file=None,geo=None):
     """Reads an mhd file and returns a phantom object"""
     numpyImage, numpyOrigin, numpySpacing = read_mhd(filename)
     phantom = Phantom()
@@ -81,14 +81,20 @@ def get_phantom_from_mhd(filename, range_file, material_file=None):
     phantom.material_file = material_file
     phantom.phantom = numpyImage
     phantom.geomet = tigre.geometry_default(nVoxel=phantom.phantom.shape)
-    phantom.geomet.DSD = 1510
-    phantom.geomet.dVoxel = numpySpacing
-    phantom.geomet.sVoxel = phantom.geomet.dVoxel*phantom.geomet.nVoxel
-    phantom.geomet.dDetector = np.array([0.784, 0.784])
-    phantom.geomet.nDetector = np.array([512, 512])
+
+    if geo == None:
+        logging.info('Using default geometry, DSD = 1510, nDetector = [512, 512], dDetector = [0.784, 0.784]')
+        phantom.geomet.DSD = 1510
+        phantom.geomet.dDetector = np.array([0.784, 0.784])
+        phantom.geomet.nDetector = np.array([512, 512])
+    else:
+        logging.info(f'Using custom geometry, DSD = {geo.DSD}, nDetector = {geo.nDetector}, dDetector = {geo.dDetector}')
+        phantom.geomet = geo
+    
     phantom.geomet.sDetector = phantom.geomet.dDetector*phantom.geomet.nDetector
     phantom.is_non_integer = False
-
+    phantom.geomet.dVoxel = numpySpacing
+    phantom.geomet.sVoxel = phantom.geomet.dVoxel*phantom.geomet.nVoxel
     if range_file is not None:
         materials, low_range, high_range = read_range_file(range_file)
         phantom.phan_map = materials
@@ -103,7 +109,17 @@ def get_phantom_from_mhd(filename, range_file, material_file=None):
     return phantom
 
 # A function that fetches element atomic number from the element name
+def get_phan_map_from_range(range_file):
+    with open(range_file, 'r') as f:
+        lines = f.readlines()
 
+    materials = []
+    for line in lines:
+        parts = line.strip().split(' ')
+        material_name = parts[2]
+        materials.append(material_name)
+
+    return materials
 
 def name_to_atomic_number(name):
     element_base = get_element_base()
@@ -113,6 +129,8 @@ def name_to_atomic_number(name):
         temp_name = name.lower().split(' ')[0]
         if temp_name == 'cesium':
             temp_name = 'caesium'
+        if temp_name == 'phosphorus':
+            temp_name = 'phosphor'
 
         if temp_name in element[0].lower():
             return atomic_number
@@ -184,7 +202,7 @@ def get_element_base():
         12: ['Magnesium',  'Mg', [2],        [1]],
         13: ['Aluminium',   'Al', [3],        [-2, -1, 1, 2]],
         14: ['Silicon',    'Si', [-4, 4],    [-3, -2, -1, 1, 2, 3]],
-        15: ['Phosphorus', 'P',  [-3, 3, 5], [-2, -1, 1, 2, 4]],
+        15: ['Phosphor', 'P',  [-3, 3, 5], [-2, -1, 1, 2, 4]],
         16: ['Sulfur',     'S',  [-2, 2, 4, 6],    [-1, 1, 3, 5]],
         17: ['Chlorine',   'Cl', [-1, 1, 3, 5, 7], [2, 4, 6]],
         18: ['Argon',      'Ar', [],         []],
@@ -366,6 +384,11 @@ def make_material_mu_files(material_file):
     H = np.loadtxt(os.path.join(data_path, 'mu', '1.csv'), delimiter=',')
 
     for kk, name in enumerate(names):
+        
+        # Check if file already exists
+        if os.path.exists(os.path.join(data_path, 'mu', name+".csv")):
+            logging.info(f'    {name} atten file already exists, skipping...')
+            continue
 
         attenuations = []
         energies = []
@@ -411,8 +434,27 @@ def make_material_mu_files(material_file):
                    attenuation_all, fmt="%.8G", delimiter=",")
         logging.info(f'    Saved {name} atten to file in data/mu/{name}.csv')
 
-def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_arrays=False):
+def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_arrays=False,**kwargs):
 
+    # Check if the nrrd file exists
+    if not os.path.isfile(nrrd_file):
+        logging.info('NRRD file not found')
+        return
+    
+    # Check if the conversion file exists
+    if not os.path.isfile(os.path.join(data_path, 'user_phantoms', conversion_file)):
+        logging.info('Conversion file not found')
+        return
+    
+    # Check if the directory exists
+    if os.path.exists(os.path.join(data_path, 'user_phantoms', nrrd_file.split('/')[-1].split(".")[0])):
+        if 'force' in kwargs:
+            if kwargs['force']:
+                logging.info(f'Directory {nrrd_file.split("/")[-1].split(".")[0]} already exists, but is being overwriten')
+            else:
+                logging.info(f'User phantom already exists, delete directory {nrrd_file.split("/")[-1].split(".")[0]} to overwrite')
+                return
+    
     conv_file = os.path.join(data_path, 'user_phantoms', conversion_file)
     # Read the text file
     with open(conv_file, 'r') as f:
@@ -479,9 +521,15 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_
     make_material_mu_files_schneider_all(names, elements, materials_weight, phantom_name, average_densities)
     write_range_file(phantom_name,names)
     write_mhd_file(phantom_name, binary_array.astype(np.uint32), numpyOrigin, np.abs(numpySpacing).max(axis=0))
+    write_density_file(phantom_name, density_array)
 
     if return_arrays:
         return density_map, binary_array, density_array
+
+def write_density_file(phantom_name, density_array):
+    density_file = os.path.join(
+        data_path, 'user_phantoms', phantom_name.split(".")[0], f'{phantom_name.split(".")[0]}_density.npy')
+    np.save(density_file, density_array)
 
 def write_material_file(material_file, names, densities, elements, weights):
 
@@ -501,13 +549,15 @@ def write_material_file(material_file, names, densities, elements, weights):
         f.write('\n')
 
         for ii in range(len(names)):
-
+            
             print(
-                f'name: {names[ii]}; d={densities[ii]:.4f} g/cm3 ; n={len(elements)};')
+                f'{names[ii]}: d={densities[ii]:.4f} g/cm3 ; n={len(elements)};')
             f.write(
-                f'name: {names[ii]}; d={densities[ii]:.4f} g/cm3 ; n={len(elements)};\n')
+                f'{names[ii]}: d={densities[ii]:.4f} g/cm3 ; n={len(elements)};\n')
 
             for jj in range(len(elements)):
+                if elements[jj] == 'Phosphorus':
+                    elements[jj] = 'Phosphor'
 
                 f.write(
                     f'\t+el={elements[jj]}; f={weights[ii][jj]:.4f}\n')

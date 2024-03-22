@@ -779,6 +779,31 @@ def get_mu(z=74):
         y = [float(a) for a in t[0].split(",")]
     return log_interp_1d(x, y)
 
+def get_mu_over_rho(z=74):
+    """
+    Returns a function representing an energy-dependent
+    attenuation coefficient.
+
+    Args:
+        z (int or str): The identifier of the material in
+        the data folder, typically the atomic number.
+
+    Returns:
+        The attenuation coefficient mu(E) in cm^-1 as
+        a function of the energy measured in keV.
+    """
+    with open(
+        os.path.join(data_path, "mu_over_rho", "".join(
+            [str(z), ".csv"])), "r"
+    ) as csvfile:
+        r = csv.reader(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
+        t = next(r)
+        x = [float(a) for a in t[0].split(",")]
+        t = next(r)
+        y = [float(a) for a in t[0].split(",")]
+    return log_interp_1d(x, y)
 
 def get_csda(z=74):
     """

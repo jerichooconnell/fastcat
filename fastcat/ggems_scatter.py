@@ -213,7 +213,6 @@ def run_ggems_scatter_simulation(phantom, detector_material,
         ggphantom.set_rotation(3.1415/2, angle, 0.0, 'rad')
         ggphantom.set_position(0.0, 0.0, 0, 'mm')
         ggphantom.set_visible(True)
-        # ggphantom.set_material_visible('Air', True)
         ggphantom.set_material_color(
             'Water', color_name='blue')
     elif kwargs['flood_field']:

@@ -1,0 +1,7 @@
+ObjectType = Image
+BinaryDataByteOrderMSB = False
+NDims = 3
+ElementSpacing = 1.2 401.408 401.408
+DimSize = 1 1 1
+ElementType = MET_INT
+ElementDataFile = .lead.raw

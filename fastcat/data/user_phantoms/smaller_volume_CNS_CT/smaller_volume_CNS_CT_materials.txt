@@ -69,13 +69,13 @@ Aluminium: d=2.699 g/cm3; n=1;
 
 Copper: d=8.96 g/cm3; n=1;  state=solid
     +el: name=Copper ; f=1
-name: SchneiderMaterialsWeight1; d=0.0388 g/cm3 ; n=13;
+SchneiderMaterialsWeight1: d=0.0388 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0000
 	+el=Carbon; f=0.0000
 	+el=Nitrogen; f=0.7550
 	+el=Oxygen; f=0.2320
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0000
+	+el=Phosphor; f=0.0000
 	+el=Sulfur; f=0.0000
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0130
@@ -84,13 +84,13 @@ name: SchneiderMaterialsWeight1; d=0.0388 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight2; d=0.4695 g/cm3 ; n=13;
+SchneiderMaterialsWeight2: d=0.4695 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.1030
 	+el=Carbon; f=0.1050
 	+el=Nitrogen; f=0.0310
 	+el=Oxygen; f=0.7490
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0020
+	+el=Phosphor; f=0.0020
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0030
 	+el=Argon; f=0.0000
@@ -99,13 +99,13 @@ name: SchneiderMaterialsWeight2; d=0.4695 g/cm3 ; n=13;
 	+el=Potassium; f=0.0020
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight3; d=0.8749 g/cm3 ; n=13;
+SchneiderMaterialsWeight3: d=0.8749 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.1160
 	+el=Carbon; f=0.6810
 	+el=Nitrogen; f=0.0020
 	+el=Oxygen; f=0.1980
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0000
+	+el=Phosphor; f=0.0000
 	+el=Sulfur; f=0.0010
 	+el=Chlorine; f=0.0010
 	+el=Argon; f=0.0000
@@ -114,13 +114,13 @@ name: SchneiderMaterialsWeight3; d=0.8749 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight4; d=0.9122 g/cm3 ; n=13;
+SchneiderMaterialsWeight4: d=0.9122 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.1130
 	+el=Carbon; f=0.5670
 	+el=Nitrogen; f=0.0090
 	+el=Oxygen; f=0.3080
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0000
+	+el=Phosphor; f=0.0000
 	+el=Sulfur; f=0.0010
 	+el=Chlorine; f=0.0010
 	+el=Argon; f=0.0000
@@ -129,13 +129,13 @@ name: SchneiderMaterialsWeight4; d=0.9122 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight5; d=0.9467 g/cm3 ; n=13;
+SchneiderMaterialsWeight5: d=0.9467 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.1100
 	+el=Carbon; f=0.4580
 	+el=Nitrogen; f=0.0150
 	+el=Oxygen; f=0.4110
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0010
+	+el=Phosphor; f=0.0010
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0020
 	+el=Argon; f=0.0000
@@ -144,13 +144,13 @@ name: SchneiderMaterialsWeight5; d=0.9467 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight6; d=0.9799 g/cm3 ; n=13;
+SchneiderMaterialsWeight6: d=0.9799 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.1080
 	+el=Carbon; f=0.3560
 	+el=Nitrogen; f=0.0220
 	+el=Oxygen; f=0.5090
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0010
+	+el=Phosphor; f=0.0010
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0020
 	+el=Argon; f=0.0000
@@ -159,13 +159,13 @@ name: SchneiderMaterialsWeight6; d=0.9799 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight7; d=1.0039 g/cm3 ; n=13;
+SchneiderMaterialsWeight7: d=1.0039 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.1060
 	+el=Carbon; f=0.2840
 	+el=Nitrogen; f=0.0260
 	+el=Oxygen; f=0.5780
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0010
+	+el=Phosphor; f=0.0010
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0020
 	+el=Argon; f=0.0000
@@ -174,13 +174,13 @@ name: SchneiderMaterialsWeight7; d=1.0039 g/cm3 ; n=13;
 	+el=Potassium; f=0.0010
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight8; d=1.0408 g/cm3 ; n=13;
+SchneiderMaterialsWeight8: d=1.0408 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.1030
 	+el=Carbon; f=0.1340
 	+el=Nitrogen; f=0.0300
 	+el=Oxygen; f=0.7230
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0020
+	+el=Phosphor; f=0.0020
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0020
 	+el=Argon; f=0.0000
@@ -189,13 +189,13 @@ name: SchneiderMaterialsWeight8; d=1.0408 g/cm3 ; n=13;
 	+el=Potassium; f=0.0020
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight9; d=1.0785 g/cm3 ; n=13;
+SchneiderMaterialsWeight9: d=1.0785 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0940
 	+el=Carbon; f=0.2070
 	+el=Nitrogen; f=0.0620
 	+el=Oxygen; f=0.6220
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0000
+	+el=Phosphor; f=0.0000
 	+el=Sulfur; f=0.0060
 	+el=Chlorine; f=0.0030
 	+el=Argon; f=0.0000
@@ -204,13 +204,13 @@ name: SchneiderMaterialsWeight9; d=1.0785 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight10; d=1.1083 g/cm3 ; n=13;
+SchneiderMaterialsWeight10: d=1.1083 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0950
 	+el=Carbon; f=0.4550
 	+el=Nitrogen; f=0.0250
 	+el=Oxygen; f=0.3550
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0210
+	+el=Phosphor; f=0.0210
 	+el=Sulfur; f=0.0010
 	+el=Chlorine; f=0.0010
 	+el=Argon; f=0.0000
@@ -219,13 +219,13 @@ name: SchneiderMaterialsWeight10; d=1.1083 g/cm3 ; n=13;
 	+el=Potassium; f=0.0010
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight11; d=1.1658 g/cm3 ; n=13;
+SchneiderMaterialsWeight11: d=1.1658 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0890
 	+el=Carbon; f=0.4230
 	+el=Nitrogen; f=0.0270
 	+el=Oxygen; f=0.3630
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0300
+	+el=Phosphor; f=0.0300
 	+el=Sulfur; f=0.0010
 	+el=Chlorine; f=0.0010
 	+el=Argon; f=0.0000
@@ -234,13 +234,13 @@ name: SchneiderMaterialsWeight11; d=1.1658 g/cm3 ; n=13;
 	+el=Potassium; f=0.0010
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight12; d=1.2312 g/cm3 ; n=13;
+SchneiderMaterialsWeight12: d=1.2312 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0820
 	+el=Carbon; f=0.3910
 	+el=Nitrogen; f=0.0290
 	+el=Oxygen; f=0.3720
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0390
+	+el=Phosphor; f=0.0390
 	+el=Sulfur; f=0.0010
 	+el=Chlorine; f=0.0010
 	+el=Argon; f=0.0000
@@ -249,13 +249,13 @@ name: SchneiderMaterialsWeight12; d=1.2312 g/cm3 ; n=13;
 	+el=Potassium; f=0.0010
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight13; d=1.2963 g/cm3 ; n=13;
+SchneiderMaterialsWeight13: d=1.2963 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0760
 	+el=Carbon; f=0.3610
 	+el=Nitrogen; f=0.0300
 	+el=Oxygen; f=0.3800
 	+el=Magnesium; f=0.0010
-	+el=Phosphorus; f=0.0470
+	+el=Phosphor; f=0.0470
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0010
 	+el=Argon; f=0.0000
@@ -264,13 +264,13 @@ name: SchneiderMaterialsWeight13; d=1.2963 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight14; d=1.3604 g/cm3 ; n=13;
+SchneiderMaterialsWeight14: d=1.3604 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0710
 	+el=Carbon; f=0.3350
 	+el=Nitrogen; f=0.0320
 	+el=Oxygen; f=0.3870
 	+el=Magnesium; f=0.0010
-	+el=Phosphorus; f=0.0540
+	+el=Phosphor; f=0.0540
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -279,13 +279,13 @@ name: SchneiderMaterialsWeight14; d=1.3604 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight15; d=1.4256 g/cm3 ; n=13;
+SchneiderMaterialsWeight15: d=1.4256 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0660
 	+el=Carbon; f=0.3100
 	+el=Nitrogen; f=0.0330
 	+el=Oxygen; f=0.3940
 	+el=Magnesium; f=0.0010
-	+el=Phosphorus; f=0.0610
+	+el=Phosphor; f=0.0610
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -294,13 +294,13 @@ name: SchneiderMaterialsWeight15; d=1.4256 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight16; d=1.4916 g/cm3 ; n=13;
+SchneiderMaterialsWeight16: d=1.4916 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0610
 	+el=Carbon; f=0.2870
 	+el=Nitrogen; f=0.0350
 	+el=Oxygen; f=0.4000
 	+el=Magnesium; f=0.0010
-	+el=Phosphorus; f=0.0670
+	+el=Phosphor; f=0.0670
 	+el=Sulfur; f=0.0020
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -309,13 +309,13 @@ name: SchneiderMaterialsWeight16; d=1.4916 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight17; d=1.5590 g/cm3 ; n=13;
+SchneiderMaterialsWeight17: d=1.5590 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0560
 	+el=Carbon; f=0.2650
 	+el=Nitrogen; f=0.0360
 	+el=Oxygen; f=0.4050
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.0730
+	+el=Phosphor; f=0.0730
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -324,13 +324,13 @@ name: SchneiderMaterialsWeight17; d=1.5590 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight18; d=1.6245 g/cm3 ; n=13;
+SchneiderMaterialsWeight18: d=1.6245 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0520
 	+el=Carbon; f=0.2460
 	+el=Nitrogen; f=0.0370
 	+el=Oxygen; f=0.4110
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.0780
+	+el=Phosphor; f=0.0780
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -339,13 +339,13 @@ name: SchneiderMaterialsWeight18; d=1.6245 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight19; d=1.6888 g/cm3 ; n=13;
+SchneiderMaterialsWeight19: d=1.6888 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0490
 	+el=Carbon; f=0.2270
 	+el=Nitrogen; f=0.0380
 	+el=Oxygen; f=0.4160
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.0830
+	+el=Phosphor; f=0.0830
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -354,13 +354,13 @@ name: SchneiderMaterialsWeight19; d=1.6888 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight20; d=1.7561 g/cm3 ; n=13;
+SchneiderMaterialsWeight20: d=1.7561 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0450
 	+el=Carbon; f=0.2100
 	+el=Nitrogen; f=0.0390
 	+el=Oxygen; f=0.4200
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.0880
+	+el=Phosphor; f=0.0880
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -369,13 +369,13 @@ name: SchneiderMaterialsWeight20; d=1.7561 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight21; d=1.8213 g/cm3 ; n=13;
+SchneiderMaterialsWeight21: d=1.8213 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0420
 	+el=Carbon; f=0.1940
 	+el=Nitrogen; f=0.0400
 	+el=Oxygen; f=0.4250
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.0920
+	+el=Phosphor; f=0.0920
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -384,13 +384,13 @@ name: SchneiderMaterialsWeight21; d=1.8213 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight22; d=1.8873 g/cm3 ; n=13;
+SchneiderMaterialsWeight22: d=1.8873 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0390
 	+el=Carbon; f=0.1790
 	+el=Nitrogen; f=0.0410
 	+el=Oxygen; f=0.4290
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.0960
+	+el=Phosphor; f=0.0960
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -399,13 +399,13 @@ name: SchneiderMaterialsWeight22; d=1.8873 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight23; d=1.9540 g/cm3 ; n=13;
+SchneiderMaterialsWeight23: d=1.9540 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0360
 	+el=Carbon; f=0.1650
 	+el=Nitrogen; f=0.0420
 	+el=Oxygen; f=0.4320
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.1000
+	+el=Phosphor; f=0.1000
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -414,13 +414,13 @@ name: SchneiderMaterialsWeight23; d=1.9540 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight24; d=2.4229 g/cm3 ; n=13;
+SchneiderMaterialsWeight24: d=2.4229 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0340
 	+el=Carbon; f=0.1550
 	+el=Nitrogen; f=0.0420
 	+el=Oxygen; f=0.4350
 	+el=Magnesium; f=0.0020
-	+el=Phosphorus; f=0.1030
+	+el=Phosphor; f=0.1030
 	+el=Sulfur; f=0.0030
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000
@@ -429,13 +429,13 @@ name: SchneiderMaterialsWeight24; d=2.4229 g/cm3 ; n=13;
 	+el=Potassium; f=0.0000
 	+el=Titanium; f=0.0000
 
-name: SchneiderMaterialsWeight25; d=4.5525 g/cm3 ; n=13;
+SchneiderMaterialsWeight25: d=4.5525 g/cm3 ; n=13;
 	+el=Hydrogen; f=0.0000
 	+el=Carbon; f=0.0000
 	+el=Nitrogen; f=0.0000
 	+el=Oxygen; f=0.0000
 	+el=Magnesium; f=0.0000
-	+el=Phosphorus; f=0.0000
+	+el=Phosphor; f=0.0000
 	+el=Sulfur; f=0.0000
 	+el=Chlorine; f=0.0000
 	+el=Argon; f=0.0000

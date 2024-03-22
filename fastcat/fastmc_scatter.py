@@ -1,16 +1,17 @@
 import pickle
 import numpy as np
 import os
+import logging
 
 
 def write_fastmc_xml_file(phantom, sim_dir, out_dir, angle=0, half_fan=False, **kwargs):
 
     if half_fan:
-        print('Half fan mode')
+        logging.info('Half fan mode - for projections')
         ShiftXcm = 0
         ShiftYcm = -16
     else:
-        print('Full fan mode')
+        logging.info('Full fan mode - for projections')
         ShiftXcm = 0
         ShiftYcm = 0
     # make the sim and out directories if they don't exist
@@ -26,7 +27,7 @@ def write_fastmc_xml_file(phantom, sim_dir, out_dir, angle=0, half_fan=False, **
             out_dir, f'fastmc_{np.rad2deg(angle):.2f}')
         xml_modified = f'''<?xml version="1.0" encoding="UTF-8"?>
 <FastMCParameters>
-    <parameter name="NumberOfParticles">{phantom.nparticles_per_angle}</parameter>
+    <parameter name="NumberOfParticles">{phantom.nparticles}</parameter>
     <parameter name="XRayTubeAngle">{np.rad2deg(angle)}</parameter>
     <parameter name="SourceDetectorDistance">{phantom.geomet.DSD}</parameter>
     <parameter name="SourceIsocenterDistance">{phantom.geomet.DSO}</parameter>
@@ -57,14 +58,14 @@ def write_fastmc_xml_file(phantom, sim_dir, out_dir, angle=0, half_fan=False, **
             f.write(xml_modified)
 
 
-def write_fastmc_flood_field_xml_file(phantom, sim_dir, out_dir, angle=0, half_fan=False, nphot=int(1e10), **kwargs):
+def write_fastmc_flood_field_xml_file(phantom, sim_dir, out_dir, angle=0, half_fan=False, **kwargs):
 
     if half_fan:
-        print('Half fan mode')
+        logging.info('Half fan mode - for flood field')
         ShiftXcm = 0
         ShiftYcm = -16
     else:
-        print('Full fan mode')
+        logging.info('Full fan mode - for flood field')
         ShiftXcm = 0
         ShiftYcm = 0
     # make the sim and out directories if they don't exist
@@ -83,7 +84,7 @@ def write_fastmc_flood_field_xml_file(phantom, sim_dir, out_dir, angle=0, half_f
         out_dir, f'fastmc_00.0_flood')
     xml_modified = f'''<?xml version="1.0" encoding="UTF-8"?>
 <FastMCParameters>
-    <parameter name="NumberOfParticles">{nphot}</parameter>
+    <parameter name="NumberOfParticles">{phantom.nparticles}</parameter>
     <parameter name="XRayTubeAngle">{angle}</parameter>
     <parameter name="SourceDetectorDistance">{phantom.geomet.DSD}</parameter>
     <parameter name="SourceIsocenterDistance">{phantom.geomet.DSO}</parameter>
@@ -107,20 +108,25 @@ def write_fastmc_flood_field_xml_file(phantom, sim_dir, out_dir, angle=0, half_f
     <parameter name="SpectrumFile">{phantom.spectrum_file}</parameter>
 </FastMCParameters>'''
 
-    phantom.nparticles_flood = nphot
+    phantom.nparticles_flood = phantom.nparticles
 
     with open(fname, 'w') as f:
         f.write(xml_modified)
 
     output_file2 = os.path.join(
-        kwargs['file_name'], f'fastmc_{f"{phantom.nparticles_per_angle:.0e}".replace("+", "")}_{len(phantom.sim_angles):.0f}angles')
+        sim_dir, f'fastmc_{f"{phantom.nparticles:.0e}".replace("+", "")}_{len(phantom.sim_angles):.0f}angles')
 
     # Print the data to be saved
-    print(f"Data to be saved:")
-    with open(os.path.join(output_file2 + '.pkl'), 'wb') as f:
-        pickle.dump(phantom, f)
-        print('Done saving simulation parameters to ' +
-              os.path.join(output_file + '.pkl'))
+    logging.info('Saving simulation parameters to ' +
+                 os.path.join(output_file2 + '.pkl'))
+    try:
+        with open(os.path.join(output_file2 + '.pkl'), 'wb') as f:
+            pickle.dump(phantom, f)
+            logging.info('Done saving simulation parameters to ' +
+                         os.path.join(output_file + '.pkl'))
+    except Exception as e:
+        logging.error(
+            f'Error saving simulation parameters: {e}')
 
 
 def run_fastmc_files(lib_path, sim_dir):
@@ -135,4 +141,5 @@ def run_fastmc_files(lib_path, sim_dir):
 
     # Run the fastmc files individually
     for f in files:
+        logging.info(f'Running {f}')
         os.system(f'{lib_path} {os.path.join(sim_dir, f)}')

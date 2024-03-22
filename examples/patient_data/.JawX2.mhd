@@ -1,0 +1,7 @@
+ObjectType = Image
+BinaryDataByteOrderMSB = False
+NDims = 3
+ElementSpacing = 1 1 1
+DimSize = 76 200 200
+ElementType = MET_INT
+ElementDataFile = .JawX2.raw
