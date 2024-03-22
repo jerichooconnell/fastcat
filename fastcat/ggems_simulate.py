@@ -691,9 +691,11 @@ class Phantom:
                 )
             else:
                 if hasattr(self, 'from_nrrd'):
-                    attenuation = self.ray_trace(phantom2*self.density, tile)
+                    attenuation = self.ray_trace(
+                        (phantom2*self.density).astype(np.float32), tile)
                 else:
-                    attenuation = self.ray_trace(phantom2, tile)
+                    attenuation = self.ray_trace(
+                        phantom2, tile)
 
             if self.save_proj:
                 np.save(
@@ -711,32 +713,32 @@ class Phantom:
             # We then use an empirical relation to the MC dose to get a
             # dose estimate. It is a bit confusing and is in the fastcat paper
 
-            if self.filter_on:
-                # Calculate a dose contribution by
-                # dividing by 10 since tigre has attenuations
-                # that are different
-                # The bowtie is used to modify the dose absorbed by the filter
-                doses.append(
-                    np.mean(
-                        (energy)
-                        * bowtie_coef[:, jj]
-                        * (1
-                            - np.exp(-(attenuation * 0.997) / 10)
-                           )
-                        * mu_en_water2[jj]
-                        / mu_water2[jj]
-                    )
-                )
-            else:
-                #             logging.info('bowtie off')
-                doses.append(
-                    np.mean(
-                        (energy)
-                        * (1 - np.exp(-(attenuation * 0.997) / 10))
-                        * mu_en_water2[jj]
-                        / mu_water2[jj]
-                    )
-                )
+            # if self.filter_on:
+            #     # Calculate a dose contribution by
+            #     # dividing by 10 since tigre has attenuations
+            #     # that are different
+            #     # The bowtie is used to modify the dose absorbed by the filter
+            #     doses.append(
+            #         np.mean(
+            #             (energy)
+            #             * bowtie_coef[:, jj]
+            #             * (1
+            #                 - np.exp(-(attenuation * 0.997) / 10)
+            #                )
+            #             * mu_en_water2[jj]
+            #             / mu_water2[jj]
+            #         )
+            #     )
+            # else:
+            #     #             logging.info('bowtie off')
+            #     doses.append(
+            #         np.mean(
+            #             (energy)
+            #             * (1 - np.exp(-(attenuation * 0.997) / 10))
+            #             * mu_en_water2[jj]
+            #             / mu_water2[jj]
+            #         )
+            #     )
 
             # --------------------------------------------------
             # ---------- Attenuation to Intensity ---------------
@@ -881,111 +883,136 @@ class Phantom:
             flood_energy_abs += flood_energy_abs_temp
 
             # I want the edep in MeV
-            if test_intensity:
-                self.intensities.append(int_temp)
+            # if test_intensity:
+            #     self.intensities.append(int_temp)
 #         self.mod_filter = mod_filter
         logging.info("Weighting simulations")
 
         self.flood_field = geometric_falloff * flood_energy_abs
+
+        # Normalize the flood field to the mean
+        mean_ff = np.mean(self.flood_field)
+        self.flood_field /= mean_ff
+
+        # Calculate how many photons per pixel
+        # The number of photons is the number of photons reaching the detector
+        # To get the photons per pixel we divide by the number of pixels
+        npixels = self.geomet.nDetector[0] * \
+            self.geomet.nDetector[1]
+
+        photons_per_pixel = nphoton / npixels
+
+        # Normalize the flood_field to the number of photons per pixel
+        self.flood_field *= photons_per_pixel
+
+        # Normalize the intensity to the flood field
+        intensity /= mean_ff
+        intensity *= photons_per_pixel
+
+        # Normalize the noise to the flood field
+        noise /= mean_ff
+        noise *= photons_per_pixel**(1/2)
+
         # ----------------------------------------------
         # ----------- Dose calculation -----------------
         # ----------------------------------------------
         # This shouldn't work as the profiles should be weighted by the detector response already?
-        if test_intensity:
-            return intensity
+        # if test_intensity:
+        #     return intensity + noise
 
+        self.intensity = intensity + noise
         # Sum over the image dimesions to get the energy
         # intensity and multiply by fluence, 2e7 was number
         # in reference MC simulations
-        def get_dose_nphoton(nphot):
-            return nphot / 2e7
+        # def get_dose_nphoton(nphot):
+        #     return nphot / 2e7
 
-        def get_dose_mgy(mgy, doses, w_fluence):
-            nphoton = mgy / (
-                get_dose_per_photon(doses, w_fluence)
-                * (1.6021766e-13)
-                * 1000
-            )
-            return get_dose_nphoton(nphoton)
+        # def get_dose_mgy(mgy, doses, w_fluence):
+        #     nphoton = mgy / (
+        #         get_dose_per_photon(doses, w_fluence)
+        #         * (1.6021766e-13)
+        #         * 1000
+        #     )
+        #     return get_dose_nphoton(nphoton)
 
-        def get_dose_per_photon(doses, w_fluence):
-            # linear fit of the data mod Mar 2021
-            pp = np.array([0.87810143, 0.01136471])
-            return ((np.array(doses) / 1000) @ (w_fluence)) * pp[0] + pp[1]
+        # def get_dose_per_photon(doses, w_fluence):
+        #     # linear fit of the data mod Mar 2021
+        #     pp = np.array([0.87810143, 0.01136471])
+        #     return ((np.array(doses) / 1000) @ (w_fluence)) * pp[0] + pp[1]
 
-        ratio = None
+        # ratio = None
 
-        self.doses = doses
-        # Dose in micro grays
-        if mgy != 0.0:
-            ratio = get_dose_mgy(
-                mgy, np.array(doses), w_fluence)
-        elif nphoton is not None:
-            ratio = get_dose_nphoton(nphoton)
+        # self.doses = doses
+        # # Dose in micro grays
+        # if mgy != 0.0:
+        #     ratio = get_dose_mgy(
+        #         mgy, np.array(doses), w_fluence)
+        # elif nphoton is not None:
+        #     ratio = get_dose_nphoton(nphoton)
 
         # --- Noise and Scatter Calculation ---
         # Now I interpolate deposition
         # and get the average photons reaching the detector
-        p_detected_times_energy_long = np.interp(
-            spectra.x,
-            MC_energies_keV,
-            deposition[0] /
-            (MC_energies_keV / 1000) / 1000000,
-        )
+        # p_detected_times_energy_long = np.interp(
+        #     spectra.x,
+        #     MC_energies_keV,
+        #     deposition[0] /
+        #     (MC_energies_keV / 1000) / 1000000,
+        # )
 
-        # Use the long normalized fluence
-        fluence_norm_long = spectra.y / np.sum(spectra.y)
-        nphotons_at_energy = fluence_norm_long * \
-            p_detected_times_energy_long
+        # # Use the long normalized fluence
+        # fluence_norm_long = spectra.y / np.sum(spectra.y)
+        # nphotons_at_energy = fluence_norm_long * \
+        #     p_detected_times_energy_long
 
-        nphotons_av = np.sum(nphotons_at_energy)
-        self.nphoton_av = nphotons_av
-        self.nphotons_at = np.array(doses)@w_fluence
-        self.ratio = ratio
+        # nphotons_av = np.sum(nphotons_at_energy)
+        # self.nphoton_av = nphotons_av
+        # self.nphotons_at = np.array(doses)@w_fluence
+        # self.ratio = ratio
 
-        if return_dose:
-            pp = np.array([0.87810143, 0.01136471])
-            return (
-                np.array(doses),
-                spectra.y,
-                ((np.array(doses) / 1000) @ (w_fluence)),
-                ((np.array(doses) / 1000) @
-                 (w_fluence)) * pp[0] + pp[1],
-            )
+        # if return_dose:
+        #     pp = np.array([0.87810143, 0.01136471])
+        #     return (
+        #         np.array(doses),
+        #         spectra.y,
+        #         ((np.array(doses) / 1000) @ (w_fluence)),
+        #         ((np.array(doses) / 1000) @
+        #          (w_fluence)) * pp[0] + pp[1],
+        #     )
 
-        # ----------------------------------------------
-        # ----------- Add Noise ------------------------
-        # ----------------------------------------------
+        # # ----------------------------------------------
+        # # ----------- Add Noise ------------------------
+        # # ----------------------------------------------
 
-        if ratio is not None:
+        # if ratio is not None:
 
-            # The noise scales in quadrature while the intensity
-            # scales linearly to give the right noise level
+        #     # The noise scales in quadrature while the intensity
+        #     # scales linearly to give the right noise level
 
-            # The real noise level is the ratio of the calculated dose
-            # to the reference dose data from MC times nphotons_av which
-            # is a factor accounting for the detector efficiency.
-            adjusted_ratio = ratio * nphotons_av
-            logging.info(
-                f"    Added noise {adjusted_ratio} times reference")
-            intensity = (
-                intensity * adjusted_ratio
-                + noise * (adjusted_ratio) ** (1 / 2)
-            ) / adjusted_ratio
-        else:
-            logging.info("    No noise was added")
+        #     # The real noise level is the ratio of the calculated dose
+        #     # to the reference dose data from MC times nphotons_av which
+        #     # is a factor accounting for the detector efficiency.
+        #     adjusted_ratio = ratio * nphotons_av
+        #     logging.info(
+        #         f"    Added noise {adjusted_ratio} times reference")
+        #     intensity = (
+        #         intensity * adjusted_ratio
+        #         + noise * (adjusted_ratio) ** (1 / 2)
+        #     ) / adjusted_ratio
+        # else:
+        #     logging.info("    No noise was added")
 
-        return_intensity = True
+        # return_intensity = True
 
-        if return_intensity:
-            self.intensity = intensity
-            self.flood = flood_energy_abs
+        # if return_intensity:
+        #     self.intensity = intensity
+        #     self.flood = flood_energy_abs
 
-        self.proj = -10 * \
-            np.log(intensity / (flood_energy_abs))
+        # self.proj = -10 * \
+        #     np.log(intensity / (flood_energy_abs))
 
-        # Check for bad values
-        self.proj[~np.isfinite(self.proj)] = 1000
+        # # Check for bad values
+        # self.proj[~np.isfinite(self.proj)] = 1000
 
     def get_scatter_contrib(self):
         '''
@@ -1062,13 +1089,7 @@ class Phantom:
     def ray_trace(self, phantom2, tile):
 
         if self.tigre_works:  # resort to astra if tigre doesn't work
-            try:
-                return np.squeeze(tigre.Ax(phantom2, self.geomet, self.angles))
-            except Exception:
-                logging.info(
-                    "WARNING: Tigre GPU not working")
-
-                self.tigre_works = False
+            return np.squeeze(tigre.Ax(phantom2, self.geomet, self.angles))
 
     def load_ggems_files(self, ggems_scatter_files, ggems_primary_files, flood_file,
                          average_scatter=False):

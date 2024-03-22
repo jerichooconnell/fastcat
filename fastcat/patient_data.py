@@ -60,13 +60,15 @@ class patient_phantom(Phantom):
             data_path, "user_phantoms",  nrrd_dir, nrrd_dir + "_density.npy")
 
         phantom = get_phantom_from_mhd(
-            mhd_file, range_file, material_file)
-        phantom = get_phantom_from_mhd(
-            mhd_file, range_file, material_file)
+            mhd_file, range_file, material_file, is_patient=True)
+
         self.__dict__.update(phantom.__dict__)
         self.density = np.load(density_file)
+        self.density = np.flipud(self.density).T
         self.phan_map = get_phan_map_from_range(
             self.range_file)
+
+        # self.phantom = np.flipud(self.phantom).T
         self.nparticles = nparticles
 
         self.phantom_dir = os.path.join(
@@ -152,7 +154,7 @@ class patient_phantom(Phantom):
         run_fastmc_files(
             lib_path=fastmc_path, sim_dir=self.sim_dir)
 
-    def run_fastcat(self, nphotons, angles, **kwargs):
+    def run_fastcat(self, nphotons, angles, det_on=True, **kwargs):
         '''
         Run the fastcat simulation
 
@@ -204,7 +206,7 @@ class patient_phantom(Phantom):
         self.nphotons_sim = nphotons
         self.simulate(det, self.spectrum, sim_angles, nphoton=self.nphotons_sim, mgy=0,
                       ASG=False, scat_on=False,
-                      det_on=False,
+                      det_on=det_on,
                       bowtie=True,
                       return_intensity=True)
 

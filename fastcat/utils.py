@@ -17,8 +17,10 @@ def read_mhd(filename):
     itkimage = sitk.ReadImage(filename)
     numpyImage = sitk.GetArrayFromImage(itkimage)
     numpyImage = np.flip(np.flipud(numpyImage), axis=2)
-    numpyOrigin = np.array(list(reversed(itkimage.GetOrigin())))
-    numpySpacing = np.array(list(reversed(itkimage.GetSpacing())))
+    numpyOrigin = np.array(
+        list(reversed(itkimage.GetOrigin())))
+    numpySpacing = np.array(
+        list(reversed(itkimage.GetSpacing())))
     return numpyImage, numpyOrigin, numpySpacing
 
 
@@ -54,14 +56,15 @@ def write_range_file(filename, materials):
 
     range_file = os.path.join(
         data_path, 'user_phantoms', filename.split(".")[0], f'{filename.split(".")[0]}_range.txt')
-    
+
     # Check if the directory exists
     if not os.path.exists(os.path.dirname(range_file)):
         os.makedirs(os.path.dirname(range_file))
-    
+
     with open(range_file, 'wt') as f:
         for i in range(len(materials)):
             f.write(f'{i} {i} {materials[i]}\n')
+
 
 def write_mhd_file(filename, numpyImage, numpyOrigin, numpySpacing):
     """Writes a numpy array to an mhd file"""
@@ -72,31 +75,43 @@ def write_mhd_file(filename, numpyImage, numpyOrigin, numpySpacing):
         data_path, 'user_phantoms', filename.split(".")[0], f'{filename.split(".")[0]}_phantom.mhd')
     sitk.WriteImage(itkimage, mhd_file)
 
-def get_phantom_from_mhd(filename, range_file, material_file=None,geo=None):
+
+def get_phantom_from_mhd(filename, range_file, material_file=None, geo=None, is_patient=False):
     """Reads an mhd file and returns a phantom object"""
-    numpyImage, numpyOrigin, numpySpacing = read_mhd(filename)
+    numpyImage, numpyOrigin, numpySpacing = read_mhd(
+        filename)
     phantom = Phantom()
     phantom.mhd_file = filename
     phantom.range_file = range_file
     phantom.material_file = material_file
-    phantom.phantom = numpyImage
-    phantom.geomet = tigre.geometry_default(nVoxel=phantom.phantom.shape)
+    if is_patient:
+        phantom.phantom = np.flipud(numpyImage).T
+    else:
+        phantom.phantom = numpyImage
+
+    phantom.geomet = tigre.geometry_default(
+        nVoxel=phantom.phantom.shape)
 
     if geo == None:
-        logging.info('Using default geometry, DSD = 1510, nDetector = [512, 512], dDetector = [0.784, 0.784]')
+        logging.info(
+            'Using default geometry, DSD = 1510, nDetector = [512, 512], dDetector = [0.784, 0.784]')
         phantom.geomet.DSD = 1510
         phantom.geomet.dDetector = np.array([0.784, 0.784])
         phantom.geomet.nDetector = np.array([512, 512])
     else:
-        logging.info(f'Using custom geometry, DSD = {geo.DSD}, nDetector = {geo.nDetector}, dDetector = {geo.dDetector}')
+        logging.info(
+            f'Using custom geometry, DSD = {geo.DSD}, nDetector = {geo.nDetector}, dDetector = {geo.dDetector}')
         phantom.geomet = geo
-    
-    phantom.geomet.sDetector = phantom.geomet.dDetector*phantom.geomet.nDetector
+
+    phantom.geomet.sDetector = phantom.geomet.dDetector * \
+        phantom.geomet.nDetector
     phantom.is_non_integer = False
     phantom.geomet.dVoxel = numpySpacing
-    phantom.geomet.sVoxel = phantom.geomet.dVoxel*phantom.geomet.nVoxel
+    phantom.geomet.sVoxel = phantom.geomet.dVoxel * \
+        phantom.geomet.nVoxel
     if range_file is not None:
-        materials, low_range, high_range = read_range_file(range_file)
+        materials, low_range, high_range = read_range_file(
+            range_file)
         phantom.phan_map = materials
         # check if all ranges are the same
         if np.any(low_range != high_range):
@@ -109,6 +124,8 @@ def get_phantom_from_mhd(filename, range_file, material_file=None,geo=None):
     return phantom
 
 # A function that fetches element atomic number from the element name
+
+
 def get_phan_map_from_range(range_file):
     with open(range_file, 'r') as f:
         lines = f.readlines()
@@ -120,6 +137,7 @@ def get_phan_map_from_range(range_file):
         materials.append(material_name)
 
     return materials
+
 
 def name_to_atomic_number(name):
     element_base = get_element_base()
@@ -166,10 +184,12 @@ def init_ggems_scatter_simulation(simulation_directory=None, phantom_name=None, 
         simulation_directory = os.path.dirname('.')
         phantom_name = mhd_file.split('/')[-1].split('.')[0]
 
-    out_dir = os.path.join(simulation_directory, phantom_name, 'out')
+    out_dir = os.path.join(
+        simulation_directory, phantom_name, 'out')
     os.makedirs(out_dir, exist_ok=True)
 
-    phantom = get_phantom_from_mhd(mhd_file, range_file, material_file)
+    phantom = get_phantom_from_mhd(
+        mhd_file, range_file, material_file)
     phantom.out_dir = out_dir
     phantom.is_ggems = True
 
@@ -362,7 +382,8 @@ def make_material_mu_files(material_file):
                 name = line.split(':')[0]
                 rest = line.split(':')[1]
 
-                density = float(rest.split(';')[0].split('=')[1].split(' ')[0])
+                density = float(rest.split(
+                    ';')[0].split('=')[1].split(' ')[0])
 
                 jj = ii + 1
 
@@ -371,8 +392,10 @@ def make_material_mu_files(material_file):
 
                 while jj < len(lines) and '+el' in lines[jj]:
 
-                    element.append(lines[jj].split('=')[1].split(';')[0])
-                    weight.append(float(lines[jj].split('=')[-1]))
+                    element.append(lines[jj].split('=')[
+                                   1].split(';')[0])
+                    weight.append(
+                        float(lines[jj].split('=')[-1]))
 
                     jj += 1
 
@@ -381,13 +404,15 @@ def make_material_mu_files(material_file):
                 names.append(name)
                 densities.append(density)
 
-    H = np.loadtxt(os.path.join(data_path, 'mu', '1.csv'), delimiter=',')
+    H = np.loadtxt(os.path.join(
+        data_path, 'mu', '1.csv'), delimiter=',')
 
     for kk, name in enumerate(names):
-        
+
         # Check if file already exists
         if os.path.exists(os.path.join(data_path, 'mu', name+".csv")):
-            logging.info(f'    {name} atten file already exists, skipping...')
+            logging.info(
+                f'    {name} atten file already exists, skipping...')
             continue
 
         attenuations = []
@@ -400,7 +425,8 @@ def make_material_mu_files(material_file):
 
             attenuation = np.loadtxt(os.path.join(
                 data_path, 'mu', str(atomic_number)+'.csv'), delimiter=',')[1]
-            attenuation = attenuation/element_density[atomic_number-1]*weight
+            attenuation = attenuation / \
+                element_density[atomic_number-1]*weight
 
             attenuations.append(attenuation)
             energies.append(np.loadtxt(os.path.join(
@@ -420,42 +446,49 @@ def make_material_mu_files(material_file):
 
             energies_larger = np.unique(np.hstack(energies))
 
-            attenuation_all = np.zeros([2, len(energies_larger)])
+            attenuation_all = np.zeros(
+                [2, len(energies_larger)])
             attenuation_all[0] = energies_larger
 
             for ii in range(len(attenuations)):
 
-                f = log_interp_1d(energies[ii], attenuations[ii])
+                f = log_interp_1d(
+                    energies[ii], attenuations[ii])
 
                 attenuation_all[1] += f(energies_larger)
 
         attenuation_all[1] *= densities[kk]
         np.savetxt(os.path.join(data_path, 'mu', name+".csv"),
                    attenuation_all, fmt="%.8G", delimiter=",")
-        logging.info(f'    Saved {name} atten to file in data/mu/{name}.csv')
+        logging.info(
+            f'    Saved {name} atten to file in data/mu/{name}.csv')
 
-def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_arrays=False,**kwargs):
+
+def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return_arrays=False, **kwargs):
 
     # Check if the nrrd file exists
     if not os.path.isfile(nrrd_file):
         logging.info('NRRD file not found')
         return
-    
+
     # Check if the conversion file exists
     if not os.path.isfile(os.path.join(data_path, 'user_phantoms', conversion_file)):
         logging.info('Conversion file not found')
         return
-    
+
     # Check if the directory exists
     if os.path.exists(os.path.join(data_path, 'user_phantoms', nrrd_file.split('/')[-1].split(".")[0])):
         if 'force' in kwargs:
             if kwargs['force']:
-                logging.info(f'Directory {nrrd_file.split("/")[-1].split(".")[0]} already exists, but is being overwriten')
+                logging.info(
+                    f'Directory {nrrd_file.split("/")[-1].split(".")[0]} already exists, but is being overwriten')
             else:
-                logging.info(f'User phantom already exists, delete directory {nrrd_file.split("/")[-1].split(".")[0]} to overwrite')
+                logging.info(
+                    f'User phantom already exists, delete directory {nrrd_file.split("/")[-1].split(".")[0]} to overwrite')
                 return
-    
-    conv_file = os.path.join(data_path, 'user_phantoms', conversion_file)
+
+    conv_file = os.path.join(
+        data_path, 'user_phantoms', conversion_file)
     # Read the text file
     with open(conv_file, 'r') as f:
         lines = f.readlines()
@@ -464,17 +497,27 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_
     # remove empty lines
     lines = [line for line in lines if line]
     # remove comments
-    lines = [line for line in lines if not line.startswith('#')]
+    lines = [
+        line for line in lines if not line.startswith('#')]
     # Parse the lines into variables
-    HU_sections = list(map(int, lines[0].split('=')[1].split()[1:]))
-    density_offset = list(map(float, lines[1].split('=')[1].split()[1:]))
-    density_factor = list(map(float, lines[2].split('=')[1].split()[1:]))
-    density_factor_offset = list(map(float, lines[3].split('=')[1].split()[1:]))
-    elements = [el.split('"')[1] for el in lines[4].split('=')[1].split()[1:]]
-    HU_to_material_sections = list(map(int, lines[5].split('=')[1].split()[1:]))
-    materials_weight = [list(map(float, line.split('=')[1].split()[1:])) for line in lines[6:-1]]
-    density_correction = list(map(float, lines[-1].split('=')[1].split()[1:-1]))
-    names = [f"SchneiderMaterialsWeight{i+1}" for i in range(len(materials_weight))]
+    HU_sections = list(
+        map(int, lines[0].split('=')[1].split()[1:]))
+    density_offset = list(
+        map(float, lines[1].split('=')[1].split()[1:]))
+    density_factor = list(
+        map(float, lines[2].split('=')[1].split()[1:]))
+    density_factor_offset = list(
+        map(float, lines[3].split('=')[1].split()[1:]))
+    elements = [el.split('"')[1] for el in lines[4].split('=')[
+        1].split()[1:]]
+    HU_to_material_sections = list(
+        map(int, lines[5].split('=')[1].split()[1:]))
+    materials_weight = [list(map(float, line.split(
+        '=')[1].split()[1:])) for line in lines[6:-1]]
+    density_correction = list(
+        map(float, lines[-1].split('=')[1].split()[1:-1]))
+    names = [
+        f"SchneiderMaterialsWeight{i+1}" for i in range(len(materials_weight))]
 
     # Define the function to decompose a DICOM array into a binary array of 25 materials
     def decompose_dicom(dicom_array):
@@ -482,22 +525,23 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_
         arr_clipped = np.clip(dicom_array, -1000, 2995)
         HU_vals = np.arange(-1000, 2996)
         density_map = np.zeros_like(density_correction)
-        for ii, HU_section in enumerate(HU_sections[:-1] ):
+        for ii, HU_section in enumerate(HU_sections[:-1]):
             # print(ii,HU_sections[ii])
             # Formula: Density = (Offset + (Factor*(FactorOffset + HU[-1000,2995] ))) * DensityCorrection
-            density_map[HU_sections[ii] + 1000:HU_sections[ii+1]+ 1000] = (
-                density_offset[ii] + 
+            density_map[HU_sections[ii] + 1000:HU_sections[ii+1] + 1000] = (
+                density_offset[ii] +
                 (density_factor[ii] * (density_factor_offset[ii] +
-                                    HU_vals[HU_sections[ii] + 1000:
-                                            HU_sections[ii+1]+ 1000]))) * density_correction[HU_sections[ii] + 1000:
-                                            HU_sections[ii+1]+ 1000]
+                                       HU_vals[HU_sections[ii] + 1000:
+                                               HU_sections[ii+1] + 1000]))) * density_correction[HU_sections[ii] + 1000:
+                                                                                                 HU_sections[ii+1] + 1000]
 
         # Initialize the binary array
         binary_array = np.zeros_like(arr_clipped, dtype=int)
 
         # # Decompose the DICOM array into the binary array
         for i in range(25):
-            inds = (HU_to_material_sections[i] <= arr_clipped) & (arr_clipped < HU_to_material_sections[i+1])
+            inds = (HU_to_material_sections[i] <= arr_clipped) & (
+                arr_clipped < HU_to_material_sections[i+1])
             binary_array[inds] = i
 
         # Map the HU values to density using the density map
@@ -507,40 +551,48 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt',return_
         density_array = density_map[arr_clipped]
 
         return density_map, binary_array, density_array
-       
+
     # Read the nrrd file
     nrrd_data, nrrd_header = nrrd.read(nrrd_file)
     numpyOrigin = nrrd_header['space origin']
     numpySpacing = nrrd_header['space directions']
     # Decompose the DICOM array
-    density_map, binary_array, density_array = decompose_dicom(nrrd_data)
-    average_densities = [np.mean(density_map[HU_to_material_sections[i]+1000:HU_to_material_sections[i+1]+1000]) for i in range(len(HU_to_material_sections[:-1]))]
+    density_map, binary_array, density_array = decompose_dicom(
+        nrrd_data)
+    average_densities = [np.mean(density_map[HU_to_material_sections[i]+1000:HU_to_material_sections[i+1]+1000])
+                         for i in range(len(HU_to_material_sections[:-1]))]
 
     phantom_name = nrrd_file.split('/')[-1].split('.')[0]
 
-    make_material_mu_files_schneider_all(names, elements, materials_weight, phantom_name, average_densities)
-    write_range_file(phantom_name,names)
-    write_mhd_file(phantom_name, binary_array.astype(np.uint32), numpyOrigin, np.abs(numpySpacing).max(axis=0))
+    make_material_mu_files_schneider_all(
+        names, elements, materials_weight, phantom_name, average_densities)
+    write_range_file(phantom_name, names)
+    write_mhd_file(phantom_name, binary_array.astype(
+        np.uint32), numpyOrigin, np.abs(numpySpacing).max(axis=0))
     write_density_file(phantom_name, density_array)
 
     if return_arrays:
         return density_map, binary_array, density_array
+
 
 def write_density_file(phantom_name, density_array):
     density_file = os.path.join(
         data_path, 'user_phantoms', phantom_name.split(".")[0], f'{phantom_name.split(".")[0]}_density.npy')
     np.save(density_file, density_array)
 
+
 def write_material_file(material_file, names, densities, elements, weights):
 
-    template_file = os.path.join(data_path, 'mu', 'template.txt')
+    template_file = os.path.join(
+        data_path, 'mu', 'template.txt')
 
-    mat_file = os.path.join(data_path, 'user_phantoms', material_file.split(".")[0], f'{material_file.split(".")[0]}_materials.txt')
-    
+    mat_file = os.path.join(data_path, 'user_phantoms', material_file.split(
+        ".")[0], f'{material_file.split(".")[0]}_materials.txt')
+
     # Check if the directory exists
     if not os.path.exists(os.path.dirname(mat_file)):
         os.makedirs(os.path.dirname(mat_file))
-    
+
     with open(mat_file, 'w') as f:
         # Write the contents of the template file to the new material file
         with open(template_file, 'r') as f_template:
@@ -549,7 +601,7 @@ def write_material_file(material_file, names, densities, elements, weights):
         f.write('\n')
 
         for ii in range(len(names)):
-            
+
             print(
                 f'{names[ii]}: d={densities[ii]:.4f} g/cm3 ; n={len(elements)};')
             f.write(
@@ -568,16 +620,19 @@ def write_material_file(material_file, names, densities, elements, weights):
 def make_material_mu_files_schneider_all(names, elements, weights, material_file=None, densities=None):
 
     for name, weight in zip(names, weights):
-        make_material_mu_files_schneider(name, elements, weight)
+        make_material_mu_files_schneider(
+            name, elements, weight)
     if material_file is not None:
-        write_material_file(material_file, names, densities, elements, weights)
+        write_material_file(
+            material_file, names, densities, elements, weights)
 
 
 def make_material_mu_files_schneider(name, elements, weights):
 
     element_density = get_element_density()
 
-    H = np.loadtxt(os.path.join(data_path, 'mu', '1.csv'), delimiter=',')
+    H = np.loadtxt(os.path.join(
+        data_path, 'mu', '1.csv'), delimiter=',')
 
     attenuations = []
     energies = []
@@ -587,7 +642,8 @@ def make_material_mu_files_schneider(name, elements, weights):
         atomic_number = name_to_atomic_number(element)
         attenuation = np.loadtxt(os.path.join(
             data_path, 'mu', str(atomic_number)+'.csv'), delimiter=',')[1]
-        attenuation = attenuation/element_density[atomic_number-1]*weight
+        attenuation = attenuation / \
+            element_density[atomic_number-1]*weight
 
         attenuations.append(attenuation)
         energies.append(np.loadtxt(os.path.join(
@@ -605,12 +661,14 @@ def make_material_mu_files_schneider(name, elements, weights):
     else:
 
         energies_larger = np.unique(np.hstack(energies))
-        attenuation_all = np.zeros([2, len(energies_larger)])
+        attenuation_all = np.zeros(
+            [2, len(energies_larger)])
         attenuation_all[0] = energies_larger
 
         for ii in range(len(attenuations)):
 
-            f = log_interp_1d(energies[ii], attenuations[ii])
+            f = log_interp_1d(
+                energies[ii], attenuations[ii])
             attenuation_all[1] += f(energies_larger)
 
         # attenuation_all[1] *= densities[kk]

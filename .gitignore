@@ -7,6 +7,7 @@ fastcat/user_data
 fastcat/data/Detectors/perovskite*
 fastcat/data/Detectors/*_no_*
 fastcat/data/phantoms/breast*
+fastcat/data/user_phantoms
 *.raw
 *.npy
 *.nrrd
