@@ -911,7 +911,7 @@ class Phantom:
 
         # Normalize the noise to the flood field
         noise /= mean_ff
-        noise *= photons_per_pixel**(1/2)
+        noise *= photons_per_pixel**(1/2) # Poisson noise-ish
 
         # ----------------------------------------------
         # ----------- Dose calculation -----------------

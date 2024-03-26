@@ -26,7 +26,7 @@ data_path = os.path.join(os.path.dirname(
 
 
 class patient_phantom(Phantom):
-    def __init__(self, nrrd_file, nparticles, is_fullfan=True, geo=None):
+    def __init__(self, nrrd_file, nparticles=None, is_fullfan=True, geo=None, reload=False, **kwargs):
         '''
         Create a patient phantom from an nrrd file and loads
         it as a phantom object
@@ -42,10 +42,43 @@ class patient_phantom(Phantom):
         '''
         nrrd_dir = nrrd_file.split('/')[-1].split(".")[0]
 
-        if not os.path.exists(os.path.join(data_path, "user_phantoms", nrrd_dir)):
-            logging.info(
-                "No existing directory found. Converting nrrd to mhd")
-            nrrd_to_mhd(nrrd_file)
+        if reload:
+            logging.info("Reloading phantom")
+            if os.path.exists(os.path.join(data_path, "user_phantoms", nrrd_dir)):
+                logging.info(
+                    f"Found existing directory. Using mhd file {nrrd_dir}_phantom.mhd")
+                logging.info(
+                    f"Reloading phantom from pickle file {nrrd_dir}_phantom.pkl")
+                # Print the available simulation directories
+                sim_dirs = [d for d in os.listdir(
+                    os.path.join(data_path, "user_phantoms", nrrd_dir)) if "fastmc_simulation" in d]
+                if len(sim_dirs) == 0:
+                    logging.info(
+                        "No existing simulation directories found. Reload failed")
+                    raise ValueError(
+                        "No existing simulation directories found. Reload failed")
+
+                if kwargs.get('sim_num', None) is not None:
+                    sim_num = ''
+                else:
+                    sim_num = f"_{kwargs['sim_num']}"
+                # Check if the phantom has been pickled
+                # Look for a pickle file in this directory
+                pickle_files = [f for f in os.listdir(
+                    os.path.join(data_path, "user_phantoms", nrrd_dir, sim_dirs[0])) if f.endswith('.pkl')]
+                phantom = self.load(
+                    os.path.join(data_path, "user_phantoms", nrrd_dir, sim_dirs[0], pickle_files[0]))
+                logging.info(
+                    f"Phantom loaded from pickle file {pickle_files[0]}")
+
+                self.__dict__.update(phantom.__dict__)
+                return
+            else:
+                logging.info(
+                    "No existing directory found. Reload failed")
+                raise ValueError(
+                    "No existing directory found. Reload failed")
+
         else:
             logging.info(
                 f"Found existing directory. Using mhd file {nrrd_dir}_phantom.mhd")
@@ -69,6 +102,10 @@ class patient_phantom(Phantom):
             self.range_file)
 
         # self.phantom = np.flipud(self.phantom).T
+        if nparticles is None:
+            raise ValueError(
+                "Number of particles must be provided")
+
         self.nparticles = nparticles
 
         self.phantom_dir = os.path.join(
@@ -84,6 +121,14 @@ class patient_phantom(Phantom):
             self.bowtie_file = os.path.join(
                 data_path, "bowties", "half_fan_mm.dat")
             self.is_fullfan = False
+
+    def load(self, pickle_file, **kwargs):
+        '''
+        Load the phantom from a pickle file
+        '''
+        import pickle
+        with open(pickle_file, 'rb') as f:
+            return pickle.load(f)
 
     def initialize_fastmc(self, sim_angle, spectrum=None, spec_file=None, **kwargs):
         '''
@@ -125,17 +170,36 @@ class patient_phantom(Phantom):
 
         out_dir = os.path.join(
             self.phantom_dir, "fastmc_output")
+        # If the output directory exists then increment the number
+        # of the directory
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
+        else:
+            index = 1
+            out_dir1 = out_dir + f"_{index}"
+            while os.path.exists(out_dir1):
+                out_dir1 = out_dir + f"_{index}"
+                index += 1
+            os.mkdir(out_dir)
+
         self.out_dir = out_dir
 
         sim_dir = os.path.join(
             self.phantom_dir, "fastmc_simulation")
+        # If the simulation directory exists then increment the number
+        # of the directory
         if not os.path.exists(sim_dir):
             os.mkdir(sim_dir)
+        else:
+            index = 1
+            while os.path.exists(sim_dir):
+                sim_dir = sim_dir + f"_{index}"
+                index += 1
+            os.mkdir(sim_dir)
+
         self.sim_dir = sim_dir
 
-        self.spectrum = spectrum
+        self.xx, self.yy = spectrum.get_points()
 
         write_fastmc_flood_field_xml_file(self, self.sim_dir,
                                           self.out_dir, self.phantom_dir,

@@ -1,5 +1,6 @@
 # Write a script that converts a reads an mhd file and makes a phantom
 
+import pickle
 import numpy as np
 import SimpleITK as sitk
 import os
@@ -106,7 +107,7 @@ def get_phantom_from_mhd(filename, range_file, material_file=None, geo=None, is_
     phantom.geomet.sDetector = phantom.geomet.dDetector * \
         phantom.geomet.nDetector
     phantom.is_non_integer = False
-    phantom.geomet.dVoxel = numpySpacing
+    phantom.geomet.dVoxel = numpySpacing[[2, 1, 0]]
     phantom.geomet.sVoxel = phantom.geomet.dVoxel * \
         phantom.geomet.nVoxel
     if range_file is not None:
