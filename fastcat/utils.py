@@ -72,9 +72,19 @@ def write_mhd_file(filename, numpyImage, numpyOrigin, numpySpacing):
     itkimage = sitk.GetImageFromArray(numpyImage)
     itkimage.SetOrigin(numpyOrigin[::-1])
     itkimage.SetSpacing(numpySpacing[::-1])
+    itkimage = sitk.DICOMOrient(itkimage, 'LPS')
     mhd_file = os.path.join(
         data_path, 'user_phantoms', filename.split(".")[0], f'{filename.split(".")[0]}_phantom.mhd')
     sitk.WriteImage(itkimage, mhd_file)
+
+
+def write_mhd_file2(filename, sitk_image):
+    """Writes a numpy array to an mhd file"""
+    # itkimage = sitk.GetImageFromArray(numpyImage)
+    # itkimage.SetOrigin(numpyOrigin[::-1])
+    mhd_file = os.path.join(
+        data_path, 'user_phantoms', filename.split(".")[0], f'{filename.split(".")[0]}_phantom.mhd')
+    sitk.WriteImage(sitk_image, mhd_file)
 
 
 def get_phantom_from_mhd(filename, range_file, material_file=None, geo=None, is_patient=False):
@@ -553,14 +563,20 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
 
         return density_map, binary_array, density_array
 
-    # Read the nrrd file with simpleitk
-    nrrd_image = sitk.ReadImage(nrrd_file)
+       # Read the nrrd file
+    nrrd_data, nrrd_header = nrrd.read(nrrd_file)
+    numpyOrigin = nrrd_header['space origin']
+    numpySpacing = nrrd_header['space directions']
 
-    # Get the numpy array and the header
-    nrrd_data = sitk.GetArrayFromImage(nrrd_image)
-    # numpyOrigin = nrrd_header['space origin']
-    # numpySpacing = nrrd_header['space directions']
-    # # Decompose the DICOM array
+    nrrd_data = np.flipud(nrrd_data).T
+    numpyOrigin = numpyOrigin[::-1]
+    numpySpacing = numpySpacing[::-1]
+
+    logging.info(f'The spacing is {numpySpacing}')
+    logging.info(f'The origin is {numpyOrigin}')
+    logging.info(f'The shape is {nrrd_data.shape}')
+
+    # Decompose the DICOM array
     density_map, binary_array, density_array = decompose_dicom(
         nrrd_data)
     average_densities = [np.mean(density_map[HU_to_material_sections[i]+1000:HU_to_material_sections[i+1]+1000])
@@ -571,9 +587,9 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
     make_material_mu_files_schneider_all(
         names, elements, materials_weight, phantom_name, average_densities)
     write_range_file(phantom_name, names)
-    write_mhd_file(phantom_name, nrrd_image)
+    write_mhd_file(phantom_name, binary_array.astype(
+        np.uint32), numpyOrigin, np.abs(numpySpacing).max(axis=1))
     write_density_file(phantom_name, density_array)
-
     if return_arrays:
         return density_map, binary_array, density_array
 

@@ -71,7 +71,7 @@ class patient_phantom(Phantom):
                     raise ValueError(
                         "No existing simulation directories found. Reload failed")
 
-                if kwargs.get('sim_num', None) is not None:
+                if kwargs.get('sim_num', None) is None:
                     sim_num = ''
                 else:
                     sim_num = f"_{kwargs['sim_num']}"
@@ -79,10 +79,10 @@ class patient_phantom(Phantom):
                 # Look for a pickle file in this directory
                 pickle_files = [f for f in os.listdir(
                     os.path.join(data_path, "user_phantoms",
-                                 nrrd_dir, "fastmc_simulation" + '_' + str(kwargs['sim_num']))) if f.endswith('.pkl')]
+                                 nrrd_dir, "fastmc_simulation" + sim_num)) if f.endswith('.pkl')]
 
                 phantom = self.load(
-                    os.path.join(data_path, "user_phantoms", nrrd_dir, "fastmc_simulation" + '_' + str(kwargs['sim_num']), pickle_files[0]))
+                    os.path.join(data_path, "user_phantoms", nrrd_dir, "fastmc_simulation" + sim_num, pickle_files[0]))
                 logging.info(
                     f"Phantom loaded from pickle file {pickle_files[0]}")
 
@@ -91,7 +91,7 @@ class patient_phantom(Phantom):
                 logging.info("Loading ggems files")
 
                 ggems_output_path = os.path.join(
-                    data_path, "user_phantoms", nrrd_dir, "fastmc_output" + '_' + str(kwargs['sim_num']))
+                    data_path, "user_phantoms", nrrd_dir, "fastmc_output" + sim_num)
 
                 # Check if the ggems output exists
                 if not os.path.exists(ggems_output_path):
@@ -121,17 +121,32 @@ class patient_phantom(Phantom):
                     ggems_primary_files = [
                         x for x in ggems_primary_files if 'flood' not in x and '0_2' not in x]
 
+                ggems_exists = False
                 if kwargs.get('second_layer', False):
                     flood_file = os.path.join(
                         ggems_output_path, 'fastmc_00.0_flood_2.mhd')
+                    # Check if the flood file exists
+                    if not os.path.exists(flood_file):
+                        logging.info(
+                            "No flood file found for the second layer")
+                    else:
+                        ggems_exists = True
                 else:
+
                     flood_file = os.path.join(
                         ggems_output_path, 'fastmc_00.0_flood.mhd')
+                    # Check if the flood file exists
+                    if not os.path.exists(flood_file):
+                        logging.info(
+                            "No flood file found for the first layer")
+                    else:
+                        ggems_exists = True
                 ggems_scatter_files.sort()
                 ggems_primary_files.sort()
 
-                self.load_ggems_files(
-                    ggems_scatter_files, ggems_primary_files, flood_file)
+                if ggems_exists:
+                    self.load_ggems_files(
+                        ggems_scatter_files, ggems_primary_files, flood_file)
 
                 logging.info("ggems files loaded")
                 logging.info(
