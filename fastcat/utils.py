@@ -553,11 +553,14 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
 
         return density_map, binary_array, density_array
 
-    # Read the nrrd file
-    nrrd_data, nrrd_header = nrrd.read(nrrd_file)
-    numpyOrigin = nrrd_header['space origin']
-    numpySpacing = nrrd_header['space directions']
-    # Decompose the DICOM array
+    # Read the nrrd file with simpleitk
+    nrrd_image = sitk.ReadImage(nrrd_file)
+
+    # Get the numpy array and the header
+    nrrd_data = sitk.GetArrayFromImage(nrrd_image)
+    # numpyOrigin = nrrd_header['space origin']
+    # numpySpacing = nrrd_header['space directions']
+    # # Decompose the DICOM array
     density_map, binary_array, density_array = decompose_dicom(
         nrrd_data)
     average_densities = [np.mean(density_map[HU_to_material_sections[i]+1000:HU_to_material_sections[i+1]+1000])
@@ -568,8 +571,7 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
     make_material_mu_files_schneider_all(
         names, elements, materials_weight, phantom_name, average_densities)
     write_range_file(phantom_name, names)
-    write_mhd_file(phantom_name, binary_array.astype(
-        np.uint32), numpyOrigin, np.abs(numpySpacing).max(axis=0))
+    write_mhd_file(phantom_name, nrrd_image)
     write_density_file(phantom_name, density_array)
 
     if return_arrays:

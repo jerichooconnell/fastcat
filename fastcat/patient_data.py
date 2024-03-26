@@ -10,6 +10,7 @@ PHANTOMS: CODE CONTAINING PHANTOM PARAMETERS AND ANALYSIS
 
 from __future__ import print_function
 
+import glob
 import logging
 import os
 
@@ -20,6 +21,7 @@ from fastcat.ggems_simulate import Phantom
 from fastcat.utils import get_phantom_from_mhd, nrrd_to_mhd, get_phan_map_from_range
 from fastcat.fastmc_scatter import write_fastmc_xml_file, run_fastmc_files, write_fastmc_flood_field_xml_file
 from fastcat.detector import Detector
+from fastcat.spectrum import Spectrum
 
 data_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), "data")
@@ -39,6 +41,17 @@ class patient_phantom(Phantom):
             If the bowtie file is for full fan mode
         geo: tigre.geometry
             The geometry of the phantom
+        reload: bool
+            If the phantom should be reloaded from a pickle file in the directory
+
+        kwargs: dict
+            sim_num: int
+                The simulation number to be reloaded
+            info: bool
+                If the list of available simulations should be printed
+            second_layer: bool
+                If the phantom has a second layer use the ggems files from the second layer
+
         '''
         nrrd_dir = nrrd_file.split('/')[-1].split(".")[0]
 
@@ -48,7 +61,7 @@ class patient_phantom(Phantom):
                 logging.info(
                     f"Found existing directory. Using mhd file {nrrd_dir}_phantom.mhd")
                 logging.info(
-                    f"Reloading phantom from pickle file {nrrd_dir}_phantom.pkl")
+                    f"Reloading phantom from pickle file {nrrd_dir}")
                 # Print the available simulation directories
                 sim_dirs = [d for d in os.listdir(
                     os.path.join(data_path, "user_phantoms", nrrd_dir)) if "fastmc_simulation" in d]
@@ -65,13 +78,66 @@ class patient_phantom(Phantom):
                 # Check if the phantom has been pickled
                 # Look for a pickle file in this directory
                 pickle_files = [f for f in os.listdir(
-                    os.path.join(data_path, "user_phantoms", nrrd_dir, sim_dirs[0])) if f.endswith('.pkl')]
+                    os.path.join(data_path, "user_phantoms",
+                                 nrrd_dir, "fastmc_simulation" + '_' + str(kwargs['sim_num']))) if f.endswith('.pkl')]
+
                 phantom = self.load(
-                    os.path.join(data_path, "user_phantoms", nrrd_dir, sim_dirs[0], pickle_files[0]))
+                    os.path.join(data_path, "user_phantoms", nrrd_dir, "fastmc_simulation" + '_' + str(kwargs['sim_num']), pickle_files[0]))
                 logging.info(
                     f"Phantom loaded from pickle file {pickle_files[0]}")
 
                 self.__dict__.update(phantom.__dict__)
+
+                logging.info("Loading ggems files")
+
+                ggems_output_path = os.path.join(
+                    data_path, "user_phantoms", nrrd_dir, "fastmc_output" + '_' + str(kwargs['sim_num']))
+
+                # Check if the ggems output exists
+                if not os.path.exists(ggems_output_path):
+                    logging.info(
+                        "No existing ggems output found. Run a ggems simulation first, can be run with phantom.run_fastmc()")
+
+                ggems_scatter_files = glob.glob(os.path.join(ggems_output_path,  'fastmc_*scatter.mhd')
+
+                                                )
+                ggems_primary_files = glob.glob(os.path.join(ggems_output_path,  'fastmc_*[!scatter].mhd')
+
+                                                )
+
+                # Check if the second layer is in the kwargs
+                if kwargs.get('second_layer', False):
+                    logging.info(
+                        "Using the second detector layer ggems files")
+                    ggems_scatter_files = [
+                        x for x in ggems_scatter_files if 'flood' not in x and '0_2' in x]
+                    ggems_primary_files = [
+                        x for x in ggems_primary_files if 'flood' not in x and '0_2' in x]
+                else:
+                    logging.info(
+                        "Using the first detector layer ggems files")
+                    ggems_scatter_files = [
+                        x for x in ggems_scatter_files if 'flood' not in x and '0_2' not in x]
+                    ggems_primary_files = [
+                        x for x in ggems_primary_files if 'flood' not in x and '0_2' not in x]
+
+                if kwargs.get('second_layer', False):
+                    flood_file = os.path.join(
+                        ggems_output_path, 'fastmc_00.0_flood_2.mhd')
+                else:
+                    flood_file = os.path.join(
+                        ggems_output_path, 'fastmc_00.0_flood.mhd')
+                ggems_scatter_files.sort()
+                ggems_primary_files.sort()
+
+                self.load_ggems_files(
+                    ggems_scatter_files, ggems_primary_files, flood_file)
+
+                logging.info("ggems files loaded")
+                logging.info(
+                    "    Scatter files:")
+                for f in ggems_scatter_files:
+                    logging.info('        ' + f)
                 return
             else:
                 logging.info(
@@ -174,15 +240,16 @@ class patient_phantom(Phantom):
         # of the directory
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
+            outdir1 = out_dir
         else:
             index = 1
             out_dir1 = out_dir + f"_{index}"
             while os.path.exists(out_dir1):
                 out_dir1 = out_dir + f"_{index}"
                 index += 1
-            os.mkdir(out_dir)
+            os.mkdir(out_dir1)
 
-        self.out_dir = out_dir
+        self.out_dir = out_dir1
 
         sim_dir = os.path.join(
             self.phantom_dir, "fastmc_simulation")
@@ -190,14 +257,16 @@ class patient_phantom(Phantom):
         # of the directory
         if not os.path.exists(sim_dir):
             os.mkdir(sim_dir)
+            sim_dir1 = sim_dir
         else:
             index = 1
-            while os.path.exists(sim_dir):
-                sim_dir = sim_dir + f"_{index}"
+            sim_dir1 = sim_dir + f"_{index}"
+            while os.path.exists(sim_dir1):
+                sim_dir1 = sim_dir + f"_{index}"
                 index += 1
-            os.mkdir(sim_dir)
+            os.mkdir(sim_dir1)
 
-        self.sim_dir = sim_dir
+        self.sim_dir = sim_dir1
 
         self.xx, self.yy = spectrum.get_points()
 
@@ -265,10 +334,15 @@ class patient_phantom(Phantom):
 
         logging.info(
             f"Detector matching specifications: {self.detector_name}")
-        det = Detector(self.spectrum, self.detector_name)
+
+        spectrum = Spectrum()
+        spectrum.x = self.xx
+        spectrum.y = self.yy
+
+        det = Detector(spectrum, self.detector_name)
 
         self.nphotons_sim = nphotons
-        self.simulate(det, self.spectrum, sim_angles, nphoton=self.nphotons_sim, mgy=0,
+        self.simulate(det, spectrum, sim_angles, nphoton=self.nphotons_sim, mgy=0,
                       ASG=False, scat_on=False,
                       det_on=det_on,
                       bowtie=True,

@@ -424,6 +424,13 @@ class Spectrum:
                 f.write(
                     f"{self.x[i]/1000:.3f} {self.y[i]:.20f}\n")
 
+    def read_dat_file(self, filename):
+        # Read the spectrum from a text file
+        with open(filename, "r") as f:
+            for line in f:
+                self.x.append(float(line.split()[0])*1000)
+                self.y.append(float(line.split()[1]))
+
     def get_norm(self, weight=None):
         """
         Return the norm of the spectrum using a weighting function.
@@ -540,7 +547,7 @@ class Spectrum:
         except ValueError:
             warnings.warn("Interpolation boundary error")
             return 0
-    
+
     def filter(self, filter_material, filter_thickness):
         """
         A function to change the filtration that is used to filter the spectra 
@@ -553,11 +560,13 @@ class Spectrum:
         """
         if self.spekpy:
 
-            self.spek.filter(filter_material, filter_thickness)
+            self.spek.filter(
+                filter_material, filter_thickness)
             self.x, self.y = self.spek.get_spectrum()
         else:
-            warnings.warn("Spectrum does not have a spekpy attribute")
-        
+            warnings.warn(
+                "Spectrum does not have a spekpy attribute")
+
     def attenuate(self, depth=1, mu=lambda x: 1):
         """
             Attenuate the spectrum as if it passed
@@ -779,6 +788,7 @@ def get_mu(z=74):
         y = [float(a) for a in t[0].split(",")]
     return log_interp_1d(x, y)
 
+
 def get_mu_over_rho(z=74):
     """
     Returns a function representing an energy-dependent
@@ -804,6 +814,7 @@ def get_mu_over_rho(z=74):
         t = next(r)
         y = [float(a) for a in t[0].split(",")]
     return log_interp_1d(x, y)
+
 
 def get_csda(z=74):
     """
@@ -1141,7 +1152,6 @@ def calculate_spectrum_sp(
     s.th = th
 
     return s
-
 
 
 def calculate_spectrum(
