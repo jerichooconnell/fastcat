@@ -582,6 +582,8 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
     average_densities = [np.mean(density_map[HU_to_material_sections[i]+1000:HU_to_material_sections[i+1]+1000])
                          for i in range(len(HU_to_material_sections[:-1]))]
 
+    average_densities[0] = 0.001205  # Air
+
     phantom_name = nrrd_file.split('/')[-1].split('.')[0]
 
     make_material_mu_files_schneider_all(

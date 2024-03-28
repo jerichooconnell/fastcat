@@ -911,7 +911,8 @@ class Phantom:
 
         # Normalize the noise to the flood field
         noise /= mean_ff
-        noise *= photons_per_pixel**(1/2) # Poisson noise-ish
+        # Poisson noise-ish
+        noise *= photons_per_pixel**(1/2)
 
         # ----------------------------------------------
         # ----------- Dose calculation -----------------
@@ -1212,15 +1213,19 @@ class Phantom:
                 return array1
 
         def normalize_mean(arrays, array2, crop):
-            factor = np.mean(arrays[0][:, crop:-crop, crop:-crop]) / \
-                np.mean(array2[:, crop:-crop, crop:-crop])
+            factor = np.mean(arrays[1][crop:-crop, crop:-crop]) / \
+                np.mean(array2[crop:-crop, crop:-crop])
             arrays[0] = arrays[0] / factor
             arrays[1] = arrays[1] / factor
             return arrays[0], arrays[1]
 
+        # def normali
+
         # Normalize the intensity and the flood field flood field is 10e10 and these are 10e11
         self.intensity, self.flood_field = normalize_mean(
-            [self.intensity, self.flood_field], self.ggems_primary_projections, crop=crop)
+            [self.intensity, self.flood_field], self.ggems_flood, crop=crop)
+        # self.intensity, self.flood_field = normalize_mean(
+        #     [self.intensity, self.flood_field], self.ggems_flood, crop=crop)
         # self.flood_field = normalize_mean_and_std(
         #     self.flood_field, self.ggems_flood * 1e11/1e10, crop=crop)
 
