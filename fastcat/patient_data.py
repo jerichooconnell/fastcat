@@ -178,7 +178,7 @@ class patient_phantom(Phantom):
 
         self.__dict__.update(phantom.__dict__)
         self.density = np.load(density_file)
-        self.density = np.flipud(self.density).T
+        self.density = np.flipud(self.density)
         self.phan_map = get_phan_map_from_range(
             self.range_file)
 

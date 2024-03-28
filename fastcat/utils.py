@@ -96,7 +96,7 @@ def get_phantom_from_mhd(filename, range_file, material_file=None, geo=None, is_
     phantom.range_file = range_file
     phantom.material_file = material_file
     if is_patient:
-        phantom.phantom = np.flipud(numpyImage).T
+        phantom.phantom = np.flipud(numpyImage)
     else:
         phantom.phantom = numpyImage
 
@@ -117,7 +117,7 @@ def get_phantom_from_mhd(filename, range_file, material_file=None, geo=None, is_
     phantom.geomet.sDetector = phantom.geomet.dDetector * \
         phantom.geomet.nDetector
     phantom.is_non_integer = False
-    phantom.geomet.dVoxel = numpySpacing[[2, 1, 0]]
+    phantom.geomet.dVoxel = numpySpacing
     phantom.geomet.sVoxel = phantom.geomet.dVoxel * \
         phantom.geomet.nVoxel
     if range_file is not None:
