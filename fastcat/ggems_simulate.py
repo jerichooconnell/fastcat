@@ -594,7 +594,7 @@ class Phantom:
             for ii in range(1, len(self.phan_map)):
                 masks[ii - 1] = self.phantom == ii
 
-        if hasattr(self, 'from_nrrd'):
+        if hasattr(self, 'is_patient'):
             for ii in range(1, len(self.phan_map)):
                 energy2mu_functions.append(
                     spectrum.get_mu_over_rho(
@@ -609,7 +609,7 @@ class Phantom:
 
         phantom2 = self.phantom.copy().astype(np.float32)
 
-        intensity = np.zeros(
+        primary_projections = np.zeros(
             [len(angles), self.geomet.nDetector[0],
              self.geomet.nDetector[1]]
         )
@@ -690,9 +690,12 @@ class Phantom:
                                  kwargs['proj_file']+'_'+f'{energy}'+'.npy')
                 )
             else:
-                if hasattr(self, 'from_nrrd'):
-                    attenuation = self.ray_trace(
-                        (phantom2*self.density).astype(np.float32), tile)
+                if hasattr(self, 'is_patient'):
+                    logging.info(
+                        f"      Phantom is_patient: {self.is_patient}, using density correction")
+                    if self.is_patient:
+                        attenuation = self.ray_trace(
+                            (phantom2*self.density).astype(np.float32), tile)
                 else:
                     attenuation = self.ray_trace(
                         phantom2, tile)
@@ -877,7 +880,7 @@ class Phantom:
             # from fitting analytical results.
 
             # * energy/np.sum(MC_energies_keV)
-            intensity += int_temp
+            primary_projections += int_temp
             # * energy/np.sum(MC_energies_keV)
             noise += noise_temp
             flood_energy_abs += flood_energy_abs_temp
@@ -905,115 +908,22 @@ class Phantom:
         # Normalize the flood_field to the number of photons per pixel
         self.flood_field *= photons_per_pixel
 
-        # Normalize the intensity to the flood field
-        intensity /= mean_ff
-        intensity *= photons_per_pixel
+        # Normalize the primary_projections to the flood field
+        primary_projections /= mean_ff
+        primary_projections *= photons_per_pixel
 
         # Normalize the noise to the flood field
         noise /= mean_ff
         # Poisson noise-ish
         noise *= photons_per_pixel**(1/2)
 
-        # ----------------------------------------------
-        # ----------- Dose calculation -----------------
-        # ----------------------------------------------
-        # This shouldn't work as the profiles should be weighted by the detector response already?
-        # if test_intensity:
-        #     return intensity + noise
+        self.primary_projections = primary_projections + noise
 
-        self.intensity = intensity + noise
-        # Sum over the image dimesions to get the energy
-        # intensity and multiply by fluence, 2e7 was number
-        # in reference MC simulations
-        # def get_dose_nphoton(nphot):
-        #     return nphot / 2e7
-
-        # def get_dose_mgy(mgy, doses, w_fluence):
-        #     nphoton = mgy / (
-        #         get_dose_per_photon(doses, w_fluence)
-        #         * (1.6021766e-13)
-        #         * 1000
-        #     )
-        #     return get_dose_nphoton(nphoton)
-
-        # def get_dose_per_photon(doses, w_fluence):
-        #     # linear fit of the data mod Mar 2021
-        #     pp = np.array([0.87810143, 0.01136471])
-        #     return ((np.array(doses) / 1000) @ (w_fluence)) * pp[0] + pp[1]
-
-        # ratio = None
-
-        # self.doses = doses
-        # # Dose in micro grays
-        # if mgy != 0.0:
-        #     ratio = get_dose_mgy(
-        #         mgy, np.array(doses), w_fluence)
-        # elif nphoton is not None:
-        #     ratio = get_dose_nphoton(nphoton)
-
-        # --- Noise and Scatter Calculation ---
-        # Now I interpolate deposition
-        # and get the average photons reaching the detector
-        # p_detected_times_energy_long = np.interp(
-        #     spectra.x,
-        #     MC_energies_keV,
-        #     deposition[0] /
-        #     (MC_energies_keV / 1000) / 1000000,
-        # )
-
-        # # Use the long normalized fluence
-        # fluence_norm_long = spectra.y / np.sum(spectra.y)
-        # nphotons_at_energy = fluence_norm_long * \
-        #     p_detected_times_energy_long
-
-        # nphotons_av = np.sum(nphotons_at_energy)
-        # self.nphoton_av = nphotons_av
-        # self.nphotons_at = np.array(doses)@w_fluence
-        # self.ratio = ratio
-
-        # if return_dose:
-        #     pp = np.array([0.87810143, 0.01136471])
-        #     return (
-        #         np.array(doses),
-        #         spectra.y,
-        #         ((np.array(doses) / 1000) @ (w_fluence)),
-        #         ((np.array(doses) / 1000) @
-        #          (w_fluence)) * pp[0] + pp[1],
-        #     )
-
-        # # ----------------------------------------------
-        # # ----------- Add Noise ------------------------
-        # # ----------------------------------------------
-
-        # if ratio is not None:
-
-        #     # The noise scales in quadrature while the intensity
-        #     # scales linearly to give the right noise level
-
-        #     # The real noise level is the ratio of the calculated dose
-        #     # to the reference dose data from MC times nphotons_av which
-        #     # is a factor accounting for the detector efficiency.
-        #     adjusted_ratio = ratio * nphotons_av
-        #     logging.info(
-        #         f"    Added noise {adjusted_ratio} times reference")
-        #     intensity = (
-        #         intensity * adjusted_ratio
-        #         + noise * (adjusted_ratio) ** (1 / 2)
-        #     ) / adjusted_ratio
-        # else:
-        #     logging.info("    No noise was added")
-
-        # return_intensity = True
-
-        # if return_intensity:
-        #     self.intensity = intensity
-        #     self.flood = flood_energy_abs
-
-        # self.proj = -10 * \
-        #     np.log(intensity / (flood_energy_abs))
-
-        # # Check for bad values
-        # self.proj[~np.isfinite(self.proj)] = 1000
+        logging.info("Simulation Finished")
+        logging.info(
+            "    Analytical projections are stored as: phantom.primary_projections")
+        logging.info(
+            "    Analytical flood field are stored as: phantom.flood_field")
 
     def get_scatter_contrib(self):
         '''
@@ -1184,10 +1094,11 @@ class Phantom:
 
         self.ggems_projections = np.array(ggems_projections)
 
-    def correct_intensity(self, crop=20, ml=True):
-        from sklearn.neural_network import MLPRegressor
-        from sklearn.model_selection import train_test_split
-        from sklearn.preprocessing import StandardScaler
+    def correct_intensity(self, crop=20, ml=False):
+        if ml:
+            from sklearn.neural_network import MLPRegressor
+            from sklearn.model_selection import train_test_split
+            from sklearn.preprocessing import StandardScaler
 
         # Normalize with a crop
         def normalize_mean_and_std(array1, array2, crop):
@@ -1222,8 +1133,8 @@ class Phantom:
         # def normali
 
         # Normalize the intensity and the flood field flood field is 10e10 and these are 10e11
-        self.intensity, self.flood_field = normalize_mean(
-            [self.intensity, self.flood_field], self.ggems_flood, crop=crop)
+        self.primary_projections, self.flood_field = normalize_mean(
+            [self.primary_projections, self.flood_field], self.ggems_flood, crop=crop)
         # self.intensity, self.flood_field = normalize_mean(
         #     [self.intensity, self.flood_field], self.ggems_flood, crop=crop)
         # self.flood_field = normalize_mean_and_std(
@@ -1233,7 +1144,7 @@ class Phantom:
         if ml:
             # Split the data into training and testing sets
             X_train, X_test, y_train, y_test = train_test_split(
-                np.rot90(self.intensity[0, crop:-crop, crop:-crop], 3).flatten()[::4], self.ggems_primary_projections[0, crop:-crop, crop:-crop].flatten()[::4], test_size=0.2, random_state=42)
+                np.rot90(self.primary_projections[0, crop:-crop, crop:-crop], 3).flatten()[::4], self.ggems_primary_projections[0, crop:-crop, crop:-crop].flatten()[::4], test_size=0.2, random_state=42)
 
             # Scale the data
             scaler = StandardScaler()
@@ -1252,14 +1163,14 @@ class Phantom:
             # Train the neural network
             mlp.fit(X_train_scaled, y_train)
 
-            for ii, projection in enumerate(self.intensity):
+            for ii, projection in enumerate(self.primary_projections):
                 projection_scaled = scaler.transform(
                     projection.flatten().reshape(-1, 1))
                 projection_nn = mlp.predict(
                     projection_scaled)
                 projection_nn = projection_nn.reshape(
                     projection.shape)
-                self.intensity[ii] = projection_nn
+                self.primary_projections[ii] = projection_nn
 
             # Scale the flood
             ff_scaled = scaler.transform(

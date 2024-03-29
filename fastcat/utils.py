@@ -418,6 +418,7 @@ def make_material_mu_files(material_file):
     H = np.loadtxt(os.path.join(
         data_path, 'mu', '1.csv'), delimiter=',')
 
+    logging.info('Making attenuation files in gecco:')
     for kk, name in enumerate(names):
 
         # Check if file already exists
@@ -572,7 +573,8 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
     numpyOrigin = numpyOrigin[::-1]
     numpySpacing = numpySpacing[::-1]
 
-    logging.info(f'The spacing is {numpySpacing}')
+    logging.info(
+        f'The spacing is {np.abs(numpySpacing).max(axis=1)}')
     logging.info(f'The origin is {numpyOrigin}')
     logging.info(f'The shape is {nrrd_data.shape}')
 
@@ -582,7 +584,9 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
     average_densities = [np.mean(density_map[HU_to_material_sections[i]+1000:HU_to_material_sections[i+1]+1000])
                          for i in range(len(HU_to_material_sections[:-1]))]
 
+    # The first two densities are mostly air and it's better to take min than mean
     average_densities[0] = 0.001205  # Air
+    average_densities[2] = density_map[HU_to_material_sections[1]+1000]
 
     phantom_name = nrrd_file.split('/')[-1].split('.')[0]
 
@@ -592,6 +596,11 @@ def nrrd_to_mhd(nrrd_file, conversion_file='schneider_material_conv.txt', return
     write_mhd_file(phantom_name, binary_array.astype(
         np.uint32), numpyOrigin, np.abs(numpySpacing).max(axis=1))
     write_density_file(phantom_name, density_array)
+
+    logging.info(f'''Phantom Created
+To load the phantom from the mhd file use the following command: 
+phantom = patient_phantom.patient_phantom("{nrrd_file}",[nparticles])''')
+
     if return_arrays:
         return density_map, binary_array, density_array
 

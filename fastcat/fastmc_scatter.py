@@ -123,7 +123,7 @@ def write_fastmc_flood_field_xml_file(phantom, sim_dir, out_dir, angle=0, half_f
         with open(os.path.join(output_file2 + '.pkl'), 'wb') as f:
             pickle.dump(phantom, f)
             logging.info('Done saving simulation parameters to ' +
-                         os.path.join(output_file + '.pkl'))
+                         os.path.join(output_file2 + '.pkl'))
     except Exception as e:
         logging.error(
             f'Error saving simulation parameters: {e}')

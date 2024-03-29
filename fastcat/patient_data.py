@@ -78,7 +78,7 @@ class patient_phantom(Phantom):
 
         self.__dict__.update(phantom.__dict__)
         self.density = np.load(density_file)
-        self.density = np.flipud(self.density)
+        self.density = self.density
         self.phan_map = get_phan_map_from_range(
             self.range_file)
 
@@ -92,6 +92,7 @@ class patient_phantom(Phantom):
         self.phantom_dir = os.path.join(
             data_path, "user_phantoms", nrrd_dir)
 
+        self.is_patient = True
         self.nrrd_file = nrrd_file
 
         if is_fullfan:
@@ -102,6 +103,19 @@ class patient_phantom(Phantom):
             self.bowtie_file = os.path.join(
                 data_path, "bowties", "half_fan_mm.dat")
             self.is_fullfan = False
+
+        logging.info("Patient phantom loaded")
+        logging.info(f"    Nrrd file: {nrrd_file}")
+        logging.info(
+            f"    Number of particles: {nparticles}")
+        logging.info(f"    Full fan mode: {is_fullfan}")
+
+        logging.info(
+            f"To intialize fastmc simulation of this phantom use phantom.initialize_fastmc([number of angles],[spectrum])")
+        logging.info(
+            f'To make a spectrum object using spekpy: spectrum = spectrum.calculate_spectrum_sp([kvp], [anode angle])')
+        logging.info(
+            f'Additional filtration can be added like spectrum.filter("Al", 4) # 4 mm Al filtration')
 
     def load_ggems(self, **kwargs):
 
@@ -198,7 +212,7 @@ class patient_phantom(Phantom):
                         "No flood file found for the first layer")
                 else:
                     ggems_exists = True
-                    
+
             ggems_scatter_files.sort()
             ggems_primary_files.sort()
 
@@ -211,6 +225,7 @@ class patient_phantom(Phantom):
                 "    Scatter files:")
             for f in ggems_scatter_files:
                 logging.info('        ' + f)
+
             return
         else:
             logging.info(
@@ -307,6 +322,21 @@ class patient_phantom(Phantom):
         write_fastmc_xml_file(self, self.sim_dir, self.out_dir, self.phantom_dir,
                               half_fan=not self.is_fullfan)
 
+        logging.info('\n\n')
+        logging.info('Fastmc simulation initialized')
+        logging.info(
+            f'    Output directory: {self.out_dir}')
+        logging.info(
+            f'    Simulation directory: {self.sim_dir}')
+        logging.info(
+            f'    Spectrum file: {self.spectrum_file}')
+        logging.info(
+            f'    Number of angles: {len(self.sim_angles)}')
+        logging.info('\n\n')
+
+        logging.info(
+            'To run the fastmc simulation use phantom.run_fastmc([path to fastmc executable])')
+
     def run_fastmc(self, fastmc_path):
         '''
         Run the fastmc simulation
@@ -316,6 +346,25 @@ class patient_phantom(Phantom):
         '''
         run_fastmc_files(
             lib_path=fastmc_path, sim_dir=self.sim_dir)
+
+        logging.info('Fastmc simulation complete')
+        logging.info(
+            '    Output files saved in ' + self.out_dir)
+        logging.info(
+            '    Simulation files saved in ' + self.sim_dir + '\n\n')
+
+        self.load_ggems()
+
+        logging.info('GGEMS files loaded')
+        logging.info(
+            'Scatter: phantom.ggems_scatter_projections')
+        logging.info(
+            'Primary: phantom.ggems_primary_projections')
+        logging.info('Flood: phantom.ggems_flood')
+        logging.info(
+            'To run an anylitical simulation: phantom.run_fastcat([number of photons], [number of angles])')
+        logging.info(
+            '      Scatter then can be added to the analytical simulation')
 
     def run_fastcat(self, nphotons, angles, det_on=True, **kwargs):
         '''
