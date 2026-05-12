@@ -645,8 +645,9 @@ def get_fluence(e_0=100.0):
     t = np.array(t)
     f = interpolate.RectBivariateSpline(x, u, t, kx=1, ky=1)
     # Note f is returning numpy 1x1 arrays
-    return f
-    # return lambda x,u:f(x,u)[0]
+    #return f
+    #fix to return just value...
+    return lambda x,u:f(x,u).item()
 
 
 def get_cs(e_0=100, z=74):
@@ -684,11 +685,12 @@ def get_cs(e_0=100, z=74):
     scaled = interpolate.RectBivariateSpline(log_e_e, k, t, kx=3, ky=1)
     m_electron = 511
     z2 = z * z
+    # fixed fact that scaled returns one element array
     return (
         lambda e_g, u: (u * e_0 + m_electron) ** 2
         * z2
         / (u * e_0 * e_g * (u * e_0 + 2 * m_electron))
-        * (scaled(np.log10(u * e_0), e_g / (u * e_0)))
+        * (scaled(np.log10(u * e_0), e_g / (u * e_0)).item())
     )
 
 
@@ -1003,47 +1005,6 @@ def calculate_spectrum_mesh(
 
     return s
 
-def Spekpy(
-    kvp,
-    th,
-    **kwargs
-):
-    '''
-    Calls spekpy spectrum and use that for the energy and the fluence of
-    fastcat spectrum
-    
-    Wrapper for spekpy
-    '''
-
-
-    try:
-        import spekpy as spek
-    except ImportError as error:
-        # Output expected ImportErrors.
-        print(error.__class__.__name__ + ": " + error.message)
-        print(
-            'You can install spekpy following instructions at https://bitbucket.org/spekpy'
-        )
-    except Exception as exception:
-        # Output unexpected Exceptions.
-        print(exception, False)
-        print(exception.__class__.__name__ + ": " + exception.message)
-        
-    s = Spectrum()
-    
-    s_spek = spek.Spek(
-    kvp,
-    th,
-    **kwargs)
-    
-    s.x, s.y = s_spek.get_spectrum()
-    
-    s.spekpy = True
-    s.kV = True
-    s.kvp = kvp
-    s.th = th
-    
-    return s
 
 def Spekpy(
     kvp,
